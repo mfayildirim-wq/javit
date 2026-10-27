@@ -1,3 +1,5 @@
+🇩🇪 **Deutsch** · 🇬🇧 [English](README.en.md)
+
 # Javit – Ihr persönlicher KI-Assistent für Mac, Windows und Linux
 
 Javit hört auf **„Javit“** (Name und Weckwort sind frei einstellbar), versteht Deutsch, erledigt Aufgaben auf Ihrem Rechner (Apps,
