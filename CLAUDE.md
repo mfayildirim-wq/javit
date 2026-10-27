@@ -10,6 +10,18 @@ Kommentare, Meldungen, Commits, Doku.
   rückwärtskompatibel erweitern (optionale Felder) und dann Kern, Oberfläche und Doku gemeinsam ändern.
 * `docs/ARCHITEKTUR.md` – Grundsätze (modellunabhängig, lokal zuerst, Freigaben für Kritisches).
 * `docs/STAND.md` – was fertig, offen und nur am Mac testbar ist. Nach größeren Änderungen pflegen.
+* `docs/PROTOKOLL.md` – chronologisches Entwicklungsprotokoll (Entscheidungen, Probleme, Reviews).
+  **Nach jeder Arbeitssitzung einen datierten Eintrag unten anfügen.**
+
+## Entwicklung auf dem Mac (Hauptarbeitsplatz ab 27.10.2026)
+
+* Projekt: `~/Documents/jarvis` (Git-Repository). Python immer aus der venv: `~/.jarvis/venv/bin/python`
+  (Homebrew-Python ist auf diesem Mac defekt – `platform.mac_ver()` leer; die venv nutzt ein von uv
+  verwaltetes Python 3.12). Entwicklerpakete: `~/.jarvis/venv/bin/pip install -e "kern[stimme,dev]"`.
+* Tests: `cd kern && ~/.jarvis/venv/bin/python -m pytest -q`; Oberfläche: `cd oberflaeche && npm run typecheck && npm test`.
+* Live: `javit start` (Kern auf 127.0.0.1:8765), Oberfläche mit Live-Neuladen: `cd oberflaeche && npm run dev`.
+* Auf dem Mac dürfen Installer und echte Integrationen ausgeführt werden – aber nur nach Rückfrage beim Nutzer.
+* Die Container-Hinweise unten (Python 3.13, `/opt/pw-browsers`, „nicht ausführen“) gelten für Cloud-Sitzungen.
 
 ## Aufbau in Kürze
 
