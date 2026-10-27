@@ -10,6 +10,7 @@ import { BearbeitenFormular } from './Formulare';
 const STATUS_TEXT: Record<string, string> = { verbunden: 'verbunden', fehler: 'Fehler', aus: 'aus', verbindet: 'verbindet …' };
 const ART_TEXT: Record<string, string> = { mcp_stdio: 'MCP lokal', mcp_http: 'MCP über HTTP', openapi: 'OpenAPI', rest: 'REST', eingebaut: 'eingebaut' };
 const RISIKO_TEXT: Record<string, string> = { lesen: 'lesen', aendern: 'ändern', kritisch: 'kritisch' };
+const VERZEICHNIS_NAMEN: Record<string, string> = { 'mcp-registry': 'MCP-Registry (offiziell)', smithery: 'Smithery' };
 
 function Werte({ werte }: { werte: Record<string, string> }) {
   const eintraege = Object.entries(werte);
@@ -223,6 +224,11 @@ export function IntegrationDetail({ id, onZurueck, onGeaendert }: { id: string; 
             {k.url && (
               <p>
                 URL: <code>{k.url}</code>
+              </p>
+            )}
+            {d.verzeichnis && (
+              <p className="gedaempft">
+                Aus Verzeichnis: {VERZEICHNIS_NAMEN[d.verzeichnis.quelle] ?? d.verzeichnis.quelle} · <code>{d.verzeichnis.kennung}</code>
               </p>
             )}
             {d.werte && <Werte werte={d.werte} />}

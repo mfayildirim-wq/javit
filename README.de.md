@@ -298,7 +298,16 @@ Detailseite. **Google Workspace** (Gmail, Kalender, Drive, Docs, Sheets, Slides,
 führt durch die Schritte und legt die gewählten Dienste an. Ohne Anmeldung nutzbar: Microsoft Learn, Cloudflare
 Docs, Context7, DeepWiki, Hugging Face. Community-Server (von Dritten) sind entsprechend markiert.
 
-**In der Oberfläche:** Integrationen → **Hinzufügen** (Plus-Knopf): Katalog, MCP-Befehl, MCP-URL,
+**Suche in Verzeichnissen:** Fehlt ein Dienst im Katalog, findet **Hinzufügen → Suchen** MCP-Server im
+offiziellen MCP-Registry und bei Smithery (eigene Registries mit derselben API lassen sich in den Einstellungen
+unter „Verzeichnisse“ eintragen). Jeder Treffer zeigt Herausgeber (GitHub-Konto, bestätigte Domain,
+Smithery-Konto), ob das Verzeichnis ihn als **verifiziert** führt, ob er fern läuft oder lokal per npx/uvx
+ausgeführt wird, und welche Angaben er braucht. Ein Klick installiert: Remote-Server verbinden sich (bei Bedarf
+mit Anmeldung im Browser), lokale Server werden als Befehl mit Umgebungsvariablen angelegt – mit deutlicher
+Warnung, dass fremder Code ausgeführt wird. Auch per Chat: „Javit, suche einen MCP-Server für Jira“ – Javit
+nennt Herausgeber und Verifizierung und installiert erst nach Zustimmung.
+
+**In der Oberfläche:** Integrationen → **Hinzufügen** (Plus-Knopf): Katalog, **Suchen**, MCP-Befehl, MCP-URL,
 OpenAPI, REST oder **JSON einfügen** (eine Konfiguration im Format von Claude Desktop/Claude Code wird
 erkannt und übernommen). Unter **Installiert** öffnet ein Klick die **Detailseite**: Status mit
 Fehlergrund und Protokoll, **Einrichtung** als Checkliste (Links, Datei-Upload, ausführbare Schritte wie

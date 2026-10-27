@@ -4,7 +4,7 @@ Status, neu verbinden, entfernen.
 Unterstützte Formen (VERTRAEGE.md):
     {"katalog": "spotify", "werte": {...}}
     {"name": "...", "mcp_befehl": "npx -y …", "umgebung": {...}}
-    {"name": "...", "mcp_url": "http://…/mcp", "kopfzeilen": {...}}
+    {"name": "...", "mcp_url": "http://…/mcp", "kopfzeilen": {...}, "werte": {NAME: wert}, "geheime": [NAME]}
     {"name": "...", "openapi_url": "https://…/openapi.json", "auth": {"art": "bearer", "wert": "…"}}
     {"name": "...", "rest": [{...}]}
 Geheime Werte (API-Schlüssel, Token, Authorization-Kopfzeilen, auth.wert) landen im
@@ -70,6 +70,8 @@ class IntegrationsKonfig(BaseModel):
     eingebaut: str | None = None
     #: OAuth-Anmeldung für mcp_http (siehe oauth.py); Tokens liegen im Schlüsselbund
     oauth: dict[str, Any] | None = None
+    #: Herkunft aus einem Verzeichnis (Phase 2b): {"quelle": "smithery", "kennung": "exa"}
+    verzeichnis: dict[str, str] | None = None
     risiko_standard: Risiko = "aendern"
     werkzeug_risiko: dict[str, Risiko] = Field(default_factory=dict)
     aktiv: bool = True
@@ -97,6 +99,18 @@ def wert_pruefen(feld: Benoetigt, wert: str) -> str:
     elif feld.typ == "url" and not wert.lower().startswith(("http://", "https://")):
         raise IntegrationsFehler(f"{feld.titel}: Bitte eine http(s)-Adresse angeben.")
     return wert
+
+
+def _verzeichnis_aus(anfrage: dict[str, Any]) -> dict[str, str] | None:
+    v = anfrage.get("verzeichnis")
+    if isinstance(v, dict) and v.get("quelle") and v.get("kennung"):
+        return {"quelle": str(v["quelle"]), "kennung": str(v["kennung"])}
+    return None
+
+
+def _geheime_namen(anfrage: dict[str, Any]) -> set[str]:
+    """Zusätzlich zu ``ist_geheimer_name`` ausdrücklich als geheim markierte Namen (Verzeichnis-Felder)."""
+    return {str(n) for n in (anfrage.get("geheime") or []) if n}
 
 
 def kennung_aus_name(name: str) -> str:
@@ -266,6 +280,7 @@ class IntegrationsManager:
             {"name": w.name, "beschreibung": w.beschreibung, "risiko": w.risiko} for w in self.register.von_integration(kennung)
         ]
         info["oauth"] = self.oauth_stand(kennung)
+        info["verzeichnis"] = dict(k.verzeichnis) if k.verzeichnis else None
         info["protokoll"] = self.protokoll_zeilen(kennung, 40) if k.art == "mcp_stdio" else []
         return info
 
@@ -316,10 +331,12 @@ class IntegrationsManager:
             self.konfigs.setdefault(kennung, alt)
         # Platzhalter, die unverändert übernommen wurden, als Geheimnisse weiterführen
         geheime = set(neu_konfig.geheimnisse) | (
-            platzhalter_finden([neu_konfig.kopfzeilen, neu_konfig.auth or {}, neu_konfig.umgebung]) & set(alt.geheimnisse)
+            platzhalter_finden([neu_konfig.kopfzeilen, neu_konfig.auth or {}, neu_konfig.umgebung, neu_konfig.url or ""])
+            & set(alt.geheimnisse)
         )
         konfig = neu_konfig.model_copy(update={
             "id": kennung, "hinzugefuegt": alt.hinzugefuegt, "aktiv": alt.aktiv,
+            "verzeichnis": neu_konfig.verzeichnis or alt.verzeichnis,
             "geheimnisse": sorted(geheime),
             "werkzeug_risiko": {**neu_konfig.werkzeug_risiko, **alt.werkzeug_risiko},
         })
@@ -414,8 +431,9 @@ class IntegrationsManager:
                 name = re.sub(r"^@[^/]+/", "", paket).replace("mcp-server-", "").replace("-mcp", "").replace("server-", "")
             kennung = self._eindeutige_id(kennung_aus_name(name))
             umgebung, geheime = {}, []
+            geheime_namen = _geheime_namen(anfrage)
             for schluessel, wert in (anfrage.get("umgebung") or {}).items():
-                if ist_geheimer_name(schluessel):
+                if ist_geheimer_name(schluessel) or schluessel in geheime_namen:
                     if _NUR_PLATZHALTER.match(str(wert)):
                         umgebung[schluessel] = str(wert)
                         geheime.append(str(wert)[2:-1])
@@ -425,7 +443,8 @@ class IntegrationsManager:
                 else:
                     umgebung[schluessel] = str(wert)
             return IntegrationsKonfig(
-                id=kennung, name=name, art="mcp_stdio", befehl=teile, umgebung=umgebung, geheimnisse=geheime
+                id=kennung, name=name, art="mcp_stdio", befehl=teile, umgebung=umgebung, geheimnisse=geheime,
+                verzeichnis=_verzeichnis_aus(anfrage),
             )
 
         if anfrage.get("mcp_url") or anfrage.get("openapi_url"):
@@ -434,19 +453,37 @@ class IntegrationsManager:
             if not name:
                 name = re.sub(r"^https?://", "", url).split("/")[0]
             kennung = self._eindeutige_id(kennung_aus_name(name))
+            geheime_namen = _geheime_namen(anfrage)
+            # Werte für ${NAME}-Platzhalter in URL/Kopfzeilen (Verzeichnis-Installation): geheime Namen
+            # wandern als JARVIS_<KENNUNG>_<NAME> in den Schlüsselbund, andere werden direkt eingesetzt
+            ersetzung: dict[str, str] = {}
+            for feld_name, wert in (anfrage.get("werte") or {}).items():
+                if wert in (None, ""):
+                    continue
+                if ist_geheimer_name(feld_name) or feld_name in geheime_namen:
+                    geheimname = f"JARVIS_{kennung.upper()}_{kennung_aus_name(feld_name).upper()}"
+                    ersetzung[feld_name] = self._geheim_ablegen(geheimname, str(wert))
+                else:
+                    ersetzung[feld_name] = str(wert)
+            url = platzhalter_ersetzen(url, ersetzung)
             kopfzeilen = {}
             for kopf, wert in (anfrage.get("kopfzeilen") or {}).items():
-                if ist_geheimer_name(kopf):
+                wert = platzhalter_ersetzen(str(wert), ersetzung)
+                if ist_geheimer_name(kopf) or kopf in geheime_namen:
                     geheimname = f"JARVIS_{kennung.upper()}_{kennung_aus_name(kopf).upper()}"
-                    kopfzeilen[kopf] = self._geheim_ablegen(geheimname, str(wert))
+                    kopfzeilen[kopf] = self._geheim_ablegen(geheimname, wert)
                 else:
-                    kopfzeilen[kopf] = str(wert)
+                    kopfzeilen[kopf] = wert
             auth = dict(anfrage.get("auth") or {}) or None
             if auth:
                 for feld in ("wert", "passwort"):
                     if auth.get(feld):
                         auth[feld] = self._geheim_ablegen(f"JARVIS_{kennung.upper()}_{feld.upper()}", str(auth[feld]))
-            geheime = sorted(platzhalter_finden(kopfzeilen) | platzhalter_finden(auth or {}))
+            # Geheimnisse: Platzhalter in URL/Kopfzeilen/Auth sowie in abgelegten Werten (verschachtelt)
+            geheime = sorted(
+                platzhalter_finden([kopfzeilen, auth or {}, url, list(ersetzung.values())])
+                | {v[2:-1] for v in ersetzung.values() if _NUR_PLATZHALTER.match(v)}
+            )
             oauth = None
             if ist_mcp and anfrage.get("oauth", True) and not any(k.lower() == "authorization" for k in kopfzeilen):
                 # Ohne eigene Anmeldung: OAuth nach MCP-Standard, greift nur bei 401 des Servers
@@ -454,6 +491,7 @@ class IntegrationsManager:
             return IntegrationsKonfig(
                 id=kennung, name=name, art="mcp_http" if ist_mcp else "openapi", url=url,
                 kopfzeilen=kopfzeilen, auth=auth, geheimnisse=geheime, oauth=oauth,
+                verzeichnis=_verzeichnis_aus(anfrage),
             )
 
         if anfrage.get("rest"):

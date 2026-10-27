@@ -18,6 +18,7 @@ from .gedaechtnis import Gedaechtnis
 from .geheimnisse import Geheimnisspeicher
 from .integrationen.katalog import Katalog
 from .integrationen.manager import IntegrationsManager
+from .integrationen.verzeichnisse import Verzeichnisse
 from .konfig import Einstellungen, KonfigSpeicher, weckwort_engine
 from .llm import LLMFassade
 from .plattform import aktuelle_plattform
@@ -50,6 +51,9 @@ class Jarvis:
             self.register, self.geheimnisse, self.katalog, self.senden, http_client_fabrik=http_client_fabrik
         )
         self.manager.rueckruf_url = lambda: f"http://127.0.0.1:{self.einstellungen.port}/oauth/rueckruf"
+        self.verzeichnisse = Verzeichnisse(
+            lambda: self.einstellungen.verzeichnisse_eigene, http_client_fabrik=http_client_fabrik
+        )
         self.agent = Agent(
             lambda: self.konfig.einstellungen,
             self.llm,

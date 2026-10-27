@@ -22,6 +22,7 @@ from pydantic import ValidationError
 from .anwendung import Jarvis
 from .integrationen.einrichtung import Ausfuehrer, EinrichtungsFehler, datei_ablegen, einrichtung_stand
 from .integrationen.manager import FehlendeWerte, IntegrationsFehler
+from .integrationen.verzeichnisse import VerzeichnisFehler
 from .llm import LLMFehler
 
 log = logging.getLogger("jarvis.server")
@@ -205,21 +206,58 @@ def create_app(
     async def katalog(request: Request) -> list[dict[str, Any]]:
         return [e.als_info() for e in j_(request).katalog.alle()]
 
+    def _fehlende_werte(e: FehlendeWerte) -> JSONResponse:
+        return JSONResponse(
+            {
+                "detail": str(e),
+                "fehlend": [{"name": b.name, "titel": b.titel, "geheim": b.geheim} for b in e.fehlend],
+                "hinweis": e.hinweis,
+            },
+            status_code=400,
+        )
+
     @app.post("/api/integrationen")
     async def integration_hinzufuegen(request: Request, anfrage: dict[str, Any] = Body(...)) -> dict[str, Any]:
         try:
             return await j_(request).manager.hinzufuegen(anfrage)
         except FehlendeWerte as e:
-            return JSONResponse(  # type: ignore[return-value]
-                {
-                    "detail": str(e),
-                    "fehlend": [{"name": b.name, "titel": b.titel, "geheim": b.geheim} for b in e.fehlend],
-                    "hinweis": e.hinweis,
-                },
-                status_code=400,
-            )
+            return _fehlende_werte(e)  # type: ignore[return-value]
         except IntegrationsFehler as e:
             raise HTTPException(400, str(e)) from e
+
+    # ---------- Verzeichnisse (Phase 2b): Suche in MCP-Registry, Smithery, eigenen Registries ----------
+    @app.get("/api/verzeichnisse")
+    async def verzeichnisse(request: Request) -> list[dict[str, Any]]:
+        return j_(request).verzeichnisse.quellen_info()
+
+    @app.get("/api/verzeichnisse/suche")
+    async def verzeichnis_suche(request: Request, q: str = "", quelle: str | None = None, limit: int = 8) -> dict[str, Any]:
+        try:
+            return await j_(request).verzeichnisse.suchen(q, quelle or None, max(1, min(limit, 25)))
+        except VerzeichnisFehler as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/api/verzeichnisse/installieren")
+    async def verzeichnis_installieren(request: Request, anfrage: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        j = j_(request)
+        try:
+            form = await j.verzeichnisse.anfrage(
+                str(anfrage.get("quelle") or ""), str(anfrage.get("kennung") or ""),
+                anfrage.get("werte") or {}, anfrage.get("name") or None,
+            )
+            return await j.manager.hinzufuegen(form)
+        except FehlendeWerte as e:
+            return _fehlende_werte(e)  # type: ignore[return-value]
+        except (VerzeichnisFehler, IntegrationsFehler) as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.get("/api/verzeichnisse/{quelle}/{kennung:path}")
+    async def verzeichnis_details(quelle: str, kennung: str, request: Request) -> dict[str, Any]:
+        try:
+            treffer = await j_(request).verzeichnisse.details(quelle, kennung)
+        except VerzeichnisFehler as e:
+            raise HTTPException(404 if "nicht" in str(e) else 400, str(e)) from e
+        return treffer.model_dump()
 
     ausfuehrer = Ausfuehrer()
 

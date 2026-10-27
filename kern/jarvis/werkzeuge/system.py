@@ -191,6 +191,65 @@ def werkzeuge(app: Jarvis) -> list[Werkzeug]:
             for e in eintraege
         )
 
+    async def verzeichnis_suchen(begriff: str, quelle: str | None = None) -> str:
+        from ..integrationen.verzeichnisse import VerzeichnisFehler
+
+        try:
+            ergebnis = await app.verzeichnisse.suchen(begriff, quelle or None, limit=6)
+        except VerzeichnisFehler as e:
+            raise WerkzeugFehler(str(e)) from e
+        zeilen = []
+        for e in app.katalog.suchen(begriff)[:5]:
+            zeilen.append(
+                f"[Katalog] {e.id}: {e.name} – {e.beschreibung} ({'offiziell' if e.vertrauen == 'offiziell' else 'Community'}; "
+                "installierbar mit integration_hinzufuegen)"
+            )
+        for t in ergebnis["treffer"]:
+            art = {"fern": "Remote-Server", "npx": "lokal per npx", "uvx": "lokal per uvx"}.get(t["laufzeit"] or "", "nicht installierbar")
+            merkmale = [t["herausgeber"], "verifiziert" if t["verifiziert"] else "nicht verifiziert", art]
+            if t["nutzungen"]:
+                merkmale.append(f"{t['nutzungen']} Nutzungen")
+            if t["oauth"]:
+                merkmale.append("Anmeldung im Browser")
+            pflicht = [f["name"] for f in t["felder"] if not f["optional"]]
+            zeile = f"[{t['quelle']}] {t['kennung']}: {t['name']} – {t['beschreibung'][:160]} ({'; '.join(merkmale)})"
+            if pflicht:
+                zeile += f" | benötigt: {', '.join(pflicht)}"
+            if not t["installierbar"]:
+                zeile += " | " + " ".join(t["warnungen"])
+            zeilen.append(zeile)
+        for quelle_id, text in ergebnis["fehler"].items():
+            zeilen.append(f"Hinweis: Verzeichnis {quelle_id} nicht erreichbar ({text}).")
+        if not zeilen:
+            return f"Nichts zu „{begriff}“ gefunden – weder im Katalog noch in den Verzeichnissen."
+        return (
+            "\n".join(zeilen)
+            + "\nNenne dem Nutzer Herausgeber und Verifizierung; installiere nur nach seiner Zustimmung "
+            "(verzeichnis_installieren mit quelle und kennung; Felder vorher erfragen)."
+        )
+
+    async def verzeichnis_installieren(
+        quelle: str, kennung: str, werte: dict[str, Any] | None = None, name: str | None = None
+    ) -> str:
+        from ..integrationen.manager import FehlendeWerte, IntegrationsFehler
+        from ..integrationen.verzeichnisse import VerzeichnisFehler
+
+        try:
+            anfrage = await app.verzeichnisse.anfrage(quelle, kennung, werte or {}, name)
+            info = await app.manager.hinzufuegen(anfrage)
+        except FehlendeWerte as e:
+            return "Es fehlen noch Angaben: " + "; ".join(
+                f"{b.titel} ({b.name}{', geheim' if b.geheim else ''})" for b in e.fehlend
+            ) + ". Frage den Nutzer danach und rufe das Werkzeug erneut mit werte auf."
+        except (VerzeichnisFehler, IntegrationsFehler) as e:
+            raise WerkzeugFehler(str(e)) from e
+        if info["status"] == "verbunden":
+            return f"Integration „{info['name']}“ ist verbunden ({info['werkzeuge']} Werkzeuge verfügbar)."
+        return (
+            f"Integration „{info['name']}“ wurde gespeichert, Status: {info['status']}. {info.get('fehler', '')} "
+            "Bei OAuth öffnet sich die Anmeldung im Browser; danach neu verbinden."
+        ).strip()
+
     # ---------------- Gedächtnis ----------------
     async def erinnern(text: str) -> str:
         await app.gedaechtnis.erinnern(text)
@@ -284,6 +343,32 @@ def werkzeuge(app: Jarvis) -> list[Werkzeug]:
             "Durchsucht den Katalog verfügbarer Integrationen (Apps/Dienste).",
             schema({"suchbegriff": {"type": "string"}}),
             "lesen",
+        ),
+        wz(
+            verzeichnis_suchen,
+            "verzeichnis_suchen",
+            "Sucht MCP-Server in seriösen Verzeichnissen (offizielles MCP-Registry, Smithery, eigene Registries) "
+            "und im Katalog – für Dienste, die der Katalog nicht kennt. Liefert Herausgeber, Verifizierung, "
+            "Art (Remote/lokal) und benötigte Felder.",
+            schema({"begriff": {"type": "string"}, "quelle": {"type": "string", "description": "optional: mcp-registry, smithery oder Kennung eines eigenen Verzeichnisses"}}, ["begriff"]),
+            "lesen",
+        ),
+        wz(
+            verzeichnis_installieren,
+            "verzeichnis_installieren",
+            "Installiert einen Treffer aus verzeichnis_suchen als Integration (Remote-Server verbinden oder "
+            "lokalen Server per npx/uvx ausführen). Nur nach Zustimmung des Nutzers.",
+            schema(
+                {
+                    "quelle": {"type": "string", "description": "Verzeichnis-Kennung aus der Suche"},
+                    "kennung": {"type": "string", "description": "Server-Kennung aus der Suche"},
+                    "werte": {"type": "object", "description": "Benötigte Felder (Schlüssel, Pfade …)"},
+                    "name": {"type": "string"},
+                },
+                ["quelle", "kennung"],
+            ),
+            "kritisch",
+            grund=lambda a: f"Server aus Verzeichnis installieren (führt ggf. fremden Code aus): {a.get('quelle')}/{a.get('kennung')}",
         ),
         wz(
             erinnern,

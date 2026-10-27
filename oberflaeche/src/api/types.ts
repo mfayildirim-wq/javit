@@ -175,6 +175,36 @@ export interface KatalogEintrag {
   /** Zusammengehörige Einträge, z. B. google-workspace. */
   gruppe?: string | null;
 }
+/** Ein Verzeichnis (MCP-Registry, Smithery, eigene Registry) – GET /api/verzeichnisse. */
+export interface VerzeichnisQuelle { id: string; name: string; url: string; eigen: boolean }
+/** Angabe, die vor der Installation eines Verzeichnis-Treffers nötig ist. */
+export interface VerzeichnisFeld { name: string; titel: string; geheim: boolean; optional: boolean; beschreibung: string; standard?: string | null }
+/** Treffer aus GET /api/verzeichnisse/suche bzw. /api/verzeichnisse/{quelle}/{kennung}. */
+export interface VerzeichnisTreffer {
+  quelle: string;
+  kennung: string;
+  name: string;
+  beschreibung: string;
+  webseite?: string | null;
+  repository?: string | null;
+  herausgeber: string;
+  verifiziert: boolean;
+  nutzungen?: number | null;
+  art?: 'mcp_http' | 'mcp_stdio' | null;
+  laufzeit?: 'fern' | 'npx' | 'uvx' | null;
+  oauth: boolean;
+  felder: VerzeichnisFeld[];
+  warnungen: string[];
+  installierbar: boolean;
+  /** false: Felder erst nach dem Laden der Details bekannt (Smithery). */
+  vollstaendig: boolean;
+  aktualisiert?: string | null;
+}
+export interface VerzeichnisSuche { treffer: VerzeichnisTreffer[]; fehler: Record<string, string> }
+export interface VerzeichnisInstallieren { quelle: string; kennung: string; werte?: Record<string, string>; name?: string }
+/** Eigene Registry in den Einstellungen (API des offiziellen MCP-Registry). */
+export interface EigenesVerzeichnis { id: string; name: string; url: string }
+
 /** Stand eines ausgeführten Einrichtungsbefehls. */
 export interface SchrittStand { status: 'nie' | 'laeuft' | 'fertig' | 'fehler' | string; rueckgabe: number | null; ausgabe: string[]; sekunden: number }
 export interface WerkzeugKurz { name: string; beschreibung: string; risiko: string }
@@ -198,6 +228,8 @@ export interface IntegrationDetails extends Integration {
   werkzeug_liste: WerkzeugKurz[];
   protokoll: string[];
   oauth?: { modus: string; angemeldet: boolean } | null;
+  /** Herkunft aus einem Verzeichnis (Phase 2b). */
+  verzeichnis?: { quelle: string; kennung: string } | null;
 }
 
 export type RestParamTyp = 'text' | 'zahl' | 'bool' | string;
@@ -222,6 +254,7 @@ export interface Einstellungen {
   name?: string;
   modell?: string;
   anbieter_eigene?: EigenerAnbieter[];
+  verzeichnisse_eigene?: EigenesVerzeichnis[];
   /** Anrede, z. B. „Sir“. */
   anrede?: string;
   /** Persona „Sir“ an/aus. */

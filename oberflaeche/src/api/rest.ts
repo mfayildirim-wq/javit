@@ -10,6 +10,10 @@ import type {
   Modelle,
   Status,
   VerlaufEintrag,
+  VerzeichnisInstallieren,
+  VerzeichnisQuelle,
+  VerzeichnisSuche,
+  VerzeichnisTreffer,
   Werkzeug,
 } from './types';
 
@@ -106,6 +110,15 @@ export const api = {
     anfrage<unknown>('POST', `/integrationen/${encodeURIComponent(id)}/neu-verbinden`),
   integrationAbmelden: (id: string) => anfrage<Integration>('POST', `/integrationen/${encodeURIComponent(id)}/abmelden`),
   integrationAnmelden: (id: string) => anfrage<Integration>('POST', `/integrationen/${encodeURIComponent(id)}/anmelden`),
+  verzeichnisse: async () => liste<VerzeichnisQuelle>(await anfrage<unknown>('GET', '/verzeichnisse'), 'verzeichnisse'),
+  verzeichnisSuche: (q: string, quelle?: string, limit = 8) => {
+    const p = new URLSearchParams({ q, limit: String(limit) });
+    if (quelle) p.set('quelle', quelle);
+    return anfrage<VerzeichnisSuche>('GET', `/verzeichnisse/suche?${p.toString()}`);
+  },
+  verzeichnisDetails: (quelle: string, kennung: string) =>
+    anfrage<VerzeichnisTreffer>('GET', `/verzeichnisse/${encodeURIComponent(quelle)}/${kennung.split('/').map(encodeURIComponent).join('/')}`),
+  verzeichnisInstallieren: (body: VerzeichnisInstallieren) => anfrage<Integration>('POST', '/verzeichnisse/installieren', body),
   verlauf: async (limit = 20) =>
     liste<VerlaufEintrag>(await anfrage<unknown>('GET', `/verlauf?limit=${limit}`), 'verlauf', 'nachrichten'),
   gedaechtnis: async () =>

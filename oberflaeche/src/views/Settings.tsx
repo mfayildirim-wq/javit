@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Check, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../api/rest';
-import type { AnbieterInfo, EigenerAnbieter, Einstellungen, Erinnerung, Modelle, ModellVorschlag } from '../api/types';
+import type { AnbieterInfo, EigenerAnbieter, EigenesVerzeichnis, Einstellungen, Erinnerung, Modelle, ModellVorschlag } from '../api/types';
 import { useJarvis, useName } from '../state/store';
 import { STANDARD_NAME, weckwortAnzeige } from '../lib/name';
 import { statusLaden } from '../state/verbindung';
@@ -696,6 +696,98 @@ function Gedaechtnis() {
   );
 }
 
+function Verzeichnisse() {
+  const [eigene, setEigene] = useState<EigenesVerzeichnis[]>([]);
+  const [offen, setOffen] = useState(false);
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+  const laden = () =>
+    api
+      .einstellungen()
+      .then((e) => setEigene(e?.verzeichnisse_eigene ?? []))
+      .catch(() => undefined);
+  useEffect(() => {
+    void laden();
+  }, []);
+  const kennung = anbieterKennung(name);
+  const speichern = async (liste: EigenesVerzeichnis[]) => {
+    setLaeuft(true);
+    setFehler(null);
+    try {
+      const e = await api.einstellungenSpeichern({ verzeichnisse_eigene: liste });
+      setEigene(e?.verzeichnisse_eigene ?? liste);
+      return true;
+    } catch (err) {
+      setFehler((err as Error).message);
+      return false;
+    } finally {
+      setLaeuft(false);
+    }
+  };
+  const anlegen = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!kennung || !url.trim()) return;
+    if (await speichern([...eigene.filter((v) => v.id !== kennung), { id: kennung, name: name.trim(), url: url.trim() }])) {
+      setName('');
+      setUrl('');
+      setOffen(false);
+    }
+  };
+  return (
+    <Abschnitt id="einst-verzeichnisse" titel="Verzeichnisse" text="Wo „Integrationen → Hinzufügen → Suchen“ nach MCP-Servern sucht. Eingebaut: offizielles MCP-Registry und Smithery. Eigene Registries müssen die API des offiziellen Registry sprechen (/v0/servers).">
+      <ul className="verzeichnis-liste" aria-label="Eigene Verzeichnisse">
+        <li>
+          <span>MCP-Registry (offiziell)</span>
+          <code>https://registry.modelcontextprotocol.io</code>
+          <span className="marke-chip offiziell">eingebaut</span>
+        </li>
+        <li>
+          <span>Smithery</span>
+          <code>https://registry.smithery.ai</code>
+          <span className="marke-chip offiziell">eingebaut</span>
+        </li>
+        {eigene.map((v) => (
+          <li key={v.id}>
+            <span>{v.name || v.id}</span>
+            <code>{v.url}</code>
+            <button type="button" className="knopf klein leise" disabled={laeuft} onClick={() => void speichern(eigene.filter((x) => x.id !== v.id))} aria-label={`${v.name || v.id} entfernen`}>
+              <Trash2 size={14} aria-hidden="true" /> Entfernen
+            </button>
+          </li>
+        ))}
+      </ul>
+      {offen ? (
+        <form className="anbieter-neu" onSubmit={anlegen} aria-label="Eigenes Verzeichnis anlegen">
+          <div className="feld">
+            <label htmlFor="verz-name">Name</label>
+            <input id="verz-name" placeholder="z. B. Firmen-Registry" value={name} onChange={(e) => setName(e.target.value)} />
+            {kennung && <p className="feld-hilfe">Kennung: <code>{kennung}</code></p>}
+          </div>
+          <div className="feld">
+            <label htmlFor="verz-url">Basis-URL (https)</label>
+            <input id="verz-url" className="mono" placeholder="https://registry.firma.example" value={url} onChange={(e) => setUrl(e.target.value)} />
+          </div>
+          <div className="feld-reihe">
+            <button className="knopf" type="submit" disabled={!kennung || !url.trim() || laeuft}>
+              Anlegen
+            </button>
+            <button className="knopf klein" type="button" onClick={() => setOffen(false)}>
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" className="knopf klein" onClick={() => setOffen(true)}>
+          <Plus size={14} aria-hidden="true" /> Registry hinzufügen
+        </button>
+      )}
+      {fehler && <p className="formular-fehler">{fehler}</p>}
+    </Abschnitt>
+  );
+}
+
 export function EinstellungenAnsicht() {
   const verbindung = useJarvis((s) => s.verbindung);
   return (
@@ -709,6 +801,7 @@ export function EinstellungenAnsicht() {
       <div className="ansicht-inhalt einstellungen" key={verbindung === 'offen' ? 'on' : 'off'}>
         <ModellWahl />
         <Schluessel />
+        <Verzeichnisse />
         <StimmePersona />
         <Gedaechtnis />
       </div>

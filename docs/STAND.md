@@ -19,6 +19,17 @@ Stand: Oktober 2026 (Version 0.1.0, mit Windows-/Linux-Unterstützung; Assistent
 | Installation | macOS: `scripts/install.sh`, `autostart.sh`, `start.command`; Linux: `install-linux.sh`, `autostart-linux.sh`; Windows: `install-windows.ps1`, `autostart-windows.ps1`, `start-windows.cmd` (.sh mit `bash -n` + shellcheck; .ps1/.cmd nur statisch: BOM, CRLF, Klammern, PS-5.1-Syntax, keine typografischen Quotes – `tests/test_installer.py`) |
 | Plattform-Schicht | `jarvis/plattform/` (mac/windows/linux); neutrale Werkzeuge `werkzeuge/desktop.py`; Mac-exklusive Werkzeuge nur auf dem Mac; keyring-Geheimnisse; TTS `auto` (say/SAPI/Piper→espeak-ng); kritische Autostart-Pfade je Plattform. Tests: `tests/test_plattform*.py`, `tests/stimme/test_tts_plattform.py` – Windows komplett gemockt (erzeugte PowerShell-Befehle, Injektionsversuche), Linux gemockt **und echt** im Container (xclip unter Xvfb, `import`-Bildschirmfoto, `pkill`, espeak-ng, Dateisuche, Systeminfo, Papierkorb) |
 
+* **Verzeichnissuche (Phase 2b)**: `integrationen/verzeichnisse.py` – offizielles MCP-Registry (`/v0/servers`,
+  `version=latest`, Duplikate/veraltete gefiltert, Herausgeber aus Namensraum, Domain-Namensräume gelten als
+  verifiziert), Smithery (nur gehostete Remote-Server, Details mit `configSchema` → Felder als Query-Parameter),
+  eigene Registries (`Einstellungen.verzeichnisse_eigene`); parallel mit Zeitlimit, Cache, Sortierung.
+  Ein-Klick-Installation: Remote → `mcp_url` (OAuth-Entdeckung oder Kopfzeilen-Vorlage), npm/pypi →
+  `npx -y`/`uvx` mit Umgebungsvariablen; oci/mcpb/SSE als nicht installierbar markiert. Manager: `werte`/`geheime`
+  für `${NAME}`-Platzhalter in URL/Kopfzeilen, `verzeichnis`-Herkunft. Endpunkte `/api/verzeichnisse…`,
+  Werkzeuge `verzeichnis_suchen` (lesen) / `verzeichnis_installieren` (kritisch), Oberfläche „Hinzufügen → Suchen“
+  mit Chips (Quelle, Verifiziert/Herausgeber, Fern/Lokal, Anmeldung), Warnkasten, Felder-Formular; Einstellungen
+  „Verzeichnisse“.
+
 ## Nur auf echtem Rechner testbar (Weckwort „Javit“, alle Plattformen)
 
 * Vosk wurde im Container **nicht installiert und nicht ausgeführt**, das Modell
@@ -62,8 +73,9 @@ Stand: Oktober 2026 (Version 0.1.0, mit Windows-/Linux-Unterstützung; Assistent
 
 ## Offen / Ideen
 
-* Phase 2b Integrationen: Suche über Verzeichnisse (offizielles MCP-Registry, Smithery) mit Ein-Klick-Installation
-  und eigene Verzeichnisse; Atlassian/Zapier (401 ohne Metadaten) darüber.
+* Verzeichnissuche real nur bis zur Trefferliste/Detail geprüft (Live-Suche „todoist“ über Registry + Smithery);
+  eine echte Installation aus einem Verzeichnis (OAuth bei Smithery, npx-Paket) braucht Nutzerkonten bzw.
+  Freigabe. Mögliche weitere Quellen: Glama (Schlüsselpflicht), mcpservers.org (keine API).
 * OAuth real nur bis zur Anmeldeseite geprüft (Notion: Entdeckung, Registrierung, Browser); vollständige Anmeldung
   und Google-Workspace-Flow brauchen ein echtes Konto.
 * Exfiltration über lesende Werkzeuge (z. B. `webseite_lesen` mit Daten in der URL) ist nur durch

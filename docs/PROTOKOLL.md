@@ -246,3 +246,27 @@ mit pwsh geparst (nicht ausgeführt).
   angemeldet/Abmelden/Anmelden.
 - Tests: `tests/test_oauth.py` (7: Entdeckungsflow gegen gefälschten Autorisierungsserver, manueller Google-Flow
   mit Refresh, Rückrufe, Katalog, Manager, Server), Oberfläche 64 grün.
+
+---
+
+## 27.10.2026 – Verzeichnissuche und Ein-Klick-Installation (Phase 2b)
+
+- Spezifikation: `docs/superpowers/specs/2026-10-27-verzeichnissuche-design.md`. Live geprüft: offizielles Registry
+  (`/v0/servers?search=&version=latest`; ohne `version=latest` kommen alle Versionen, Suche ist Teilstring auf dem
+  Namen, viel Spam-ähnliches → Duplikate und Status ≠ active filtern), Smithery (`/servers?q=… is:deployed`, Detail
+  `/servers/{qualifiedName}` mit `deploymentUrl` = MCP-Endpunkt selbst, **kein** `/mcp`; antwortet 401 +
+  `resource_metadata` → OAuth-Entdeckung aus 2a greift; Konfiguration als Query-Parameter laut `configSchema`).
+  mcpservers.org (403), PulseMCP (eingestellt), Glama (Schlüssel) nicht angebunden.
+- Kern: `integrationen/verzeichnisse.py` (`Treffer`, `OffiziellesRegistry`, `Smithery`, `Verzeichnisse` mit
+  Cache/Zeitlimit, `anfrage()` → Manager-Form). Vorlagen nutzen `{NAME}`, beim Installieren wird daraus `${NAME}`;
+  Stolperstein: die Vorlagen-Regex matcht auch innerhalb von `${NAME}` → Platzhalter erst ganz am Ende füllen.
+  Manager: `werte`/`geheime` für `mcp_url` (geheime Werte als `JARVIS_<KENNUNG>_<NAME>` im Schlüsselbund, auch
+  verschachtelt in Kopfzeilen), `verzeichnis` in Konfiguration/Details, `aendern` behält Herkunft und
+  URL-Geheimnisse. Domain-Namensräume des Registry (DNS-geprüft) gelten als verifiziert, damit offizielle
+  Herausgeber (z. B. `net.todoist/mcp`) vor anonymen Smithery-Konten stehen.
+- Tests: `tests/test_verzeichnisse.py` (10) – Achtung: `hinzufuegen` startet die Verbindung; bei Remote-URLs
+  wartet die OAuth-Entdeckung 300 s auf den Rückruf → in Tests `manager.starten` ersetzen (`_ohne_start`).
+  Kern 508 grün, Oberfläche 68 grün (`verzeichnisse.test.tsx`: Trefferliste, Detail/Installation, Smithery-Nachladen,
+  Einstellungen).
+- Oberfläche: `views/Verzeichnisse.tsx` (Suche, Trefferliste, Detail mit Warnkasten und Feldern), Segment „Suchen“
+  unter Hinzufügen, Einstellungen „Verzeichnisse“, Detailseite „Aus Verzeichnis“.

@@ -18,7 +18,7 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | POST | `/api/integrationen` | Integration hinzufügen (s. u.) → Integration |
 | DELETE | `/api/integrationen/{id}` | entfernen |
 | POST | `/api/integrationen/{id}/neu-verbinden` | neu starten |
-| GET | `/api/integrationen/{id}` | Details ohne Geheimnisse: `{…wie Liste, katalog?: {id, name, hinweis, webseite, benoetigt, einrichtung:[{titel, text, link, datei, befehl, erfuellt: bool\|null}]}, werte?: {NAME: wert\|"gespeichert"}, konfig: {befehl, url, kopfzeilen, umgebung, auth, rest, geheimnisse, risiko_standard, werkzeug_risiko, aktiv, hinzugefuegt}, werkzeug_liste:[{name, beschreibung, risiko}], protokoll:[…]}` – Werte mit `${…}` erscheinen als „gespeichert“ |
+| GET | `/api/integrationen/{id}` | Details ohne Geheimnisse: `{…wie Liste, katalog?: {id, name, hinweis, webseite, benoetigt, einrichtung:[{titel, text, link, datei, befehl, erfuellt: bool\|null}]}, werte?: {NAME: wert\|"gespeichert"}, konfig: {befehl, url, kopfzeilen, umgebung, auth, rest, geheimnisse, risiko_standard, werkzeug_risiko, aktiv, hinzugefuegt}, werkzeug_liste:[{name, beschreibung, risiko}], protokoll:[…], oauth?: {modus, angemeldet}, verzeichnis?: {quelle, kennung}}` – Werte mit `${…}` erscheinen als „gespeichert“ |
 | PUT | `/api/integrationen/{id}` | Konfiguration ersetzen (Body wie POST; Katalog: `{werte, name?}`), Geheimnisse mit leerem Wert oder „gespeichert“ bleiben; stoppt, speichert, startet neu → Details; 400 bei ungültigen Werten |
 | POST | `/api/integrationen/{id}/abmelden` | OAuth: Tokens und Client-Registrierung aus dem Schlüsselbund löschen, Integration stoppen (Status `aus`) |
 | POST | `/api/integrationen/{id}/anmelden` | OAuth: neu verbinden und damit die Anmeldung im Browser auslösen |
@@ -28,6 +28,10 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | POST | `/api/integrationen/katalog/{id}/einrichtung/{n}/datei` | `{inhalt_base64}` – schreibt an das `datei`-Ziel des Schritts n (0-basiert; max. 1 MB; `.json` wird geprüft) → `{pfad, erfuellt, einrichtung}` |
 | POST | `/api/integrationen/katalog/{id}/einrichtung/{n}/ausfuehren` | startet den `befehl` des Schritts im Hintergrund (nur Befehle aus dem Katalog; Ausgabe in `logs/einrichtung-<id>.log`, 300 s) → `{status: laeuft}` |
 | GET | `/api/integrationen/katalog/{id}/einrichtung/{n}/stand` | `{status: nie\|laeuft\|fertig\|fehler, rueckgabe, ausgabe:[…], sekunden}` |
+| GET | `/api/verzeichnisse` | Verzeichnisse für die Suche `[{id, name, url, eigen}]` – eingebaut `mcp-registry`, `smithery`, dazu `Einstellungen.verzeichnisse_eigene` |
+| GET | `/api/verzeichnisse/suche?q=&quelle=&limit=` | `{treffer:[{quelle, kennung, name, beschreibung, webseite, repository, herausgeber, verifiziert, nutzungen, art: mcp_http\|mcp_stdio\|null, laufzeit: fern\|npx\|uvx\|null, oauth, felder:[{name, titel, geheim, optional, beschreibung, standard}], warnungen:[…], installierbar, vollstaendig, aktualisiert}], fehler:{quelle: text}}` – parallel über alle Quellen (10 s je Quelle, 10 min Cache), sortiert verifiziert → installierbar → Nutzungen; `q` min. 2 Zeichen (sonst 400) |
+| GET | `/api/verzeichnisse/{quelle}/{kennung}` | vollständiger Treffer (Felder, Warnungen); 404 wenn unbekannt |
+| POST | `/api/verzeichnisse/installieren` | `{quelle, kennung, werte?, name?}` – baut aus dem Treffer eine Integration (`mcp_url` mit OAuth/Kopfzeilen oder `mcp_befehl` per npx/uvx) und legt sie wie `POST /api/integrationen` an; 400 + `fehlend` bei fehlenden Pflichtfeldern, 400 bei nicht installierbaren Treffern |
 | GET | `/api/verlauf?limit=` | letzte Unterhaltung |
 | GET/DELETE | `/api/gedaechtnis` | Erinnerungen lesen/löschen |
 
@@ -36,9 +40,17 @@ Integration hinzufügen – eine der Formen:
 {"katalog": "spotify", "werte": {"SPOTIFY_CLIENT_ID": "…", "SPOTIFY_CLIENT_SECRET": "…"}}
 {"name": "Mein Tool", "mcp_befehl": "npx -y @modelcontextprotocol/server-everything", "umgebung": {}}
 {"name": "Home Assistant", "mcp_url": "http://homeassistant.local:8123/mcp", "kopfzeilen": {"Authorization": "Bearer …"}}
+{"name": "Notion (Smithery)", "mcp_url": "https://notion.run.tools?NOTION_API_KEY=${NOTION_API_KEY}", "werte": {"NOTION_API_KEY": "…"}, "geheime": ["NOTION_API_KEY"], "verzeichnis": {"quelle": "smithery", "kennung": "node2flow/notion"}}
 {"name": "Petstore", "openapi_url": "https://petstore3.swagger.io/api/v3/openapi.json", "auth": {"art": "bearer", "wert": "…"}}
 {"name": "Wetter", "rest": [{"name": "wetter_abrufen", "methode": "GET", "url": "https://api.open-meteo.com/v1/forecast", "parameter": {"latitude": "zahl", "longitude": "zahl", "current_weather": "text"}, "beschreibung": "…"}]}
 ```
+
+Für `mcp_url` und `mcp_befehl` optional: `werte` (Werte für `${NAME}`-Platzhalter in URL/Kopfzeilen; geheime
+Namen – per `ist_geheimer_name` oder in `geheime` aufgeführt – landen als `JARVIS_<KENNUNG>_<NAME>` im
+Schlüsselbund, andere werden direkt eingesetzt), `geheime` (zusätzlich geheime Namen von Werten, Kopfzeilen oder
+Umgebungsvariablen) und `verzeichnis: {quelle, kennung}` (Herkunft, erscheint in den Details).
+`Einstellungen.verzeichnisse_eigene: [{id, name, url}]` – eigene Registries mit der API des offiziellen
+MCP-Registry (`<url>/v0/servers`); Kennung `a-z0-9_-`, https-URL, `mcp-registry`/`smithery` sind reserviert.
 
 ## WebSocket `/ws`
 

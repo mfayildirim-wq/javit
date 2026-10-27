@@ -184,6 +184,9 @@ class Einstellungen(BaseModel):
     # Eigene OpenAI-kompatible Anbieter: [{"id", "name", "api_base", "schluessel"?, "modelle"?}]
     # (Regeln in jarvis/anbieter.py: Kennung a-z0-9_-, keine Kollision mit eingebauten Anbietern).
     anbieter_eigene: list[dict[str, Any]] = Field(default_factory=list)
+    # Eigene MCP-Verzeichnisse mit der API des offiziellen Registry: [{"id", "name", "url"}]
+    # (Regeln in integrationen/verzeichnisse.py: Kennung a-z0-9_-, https-URL).
+    verzeichnisse_eigene: list[dict[str, Any]] = Field(default_factory=list)
     port: int = 8765
     verlauf_kontext: int = 10
     stimme: StimmEinstellungen = Field(default_factory=StimmEinstellungen)
@@ -222,6 +225,21 @@ class Einstellungen(BaseModel):
     @classmethod
     def _name_pruefen(cls, wert: Any) -> str:
         return name_bereinigen(wert)
+
+    @field_validator("verzeichnisse_eigene")
+    @classmethod
+    def _verzeichnisse_pruefen(cls, wert: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        from .integrationen.verzeichnisse import eigenes_verzeichnis  # noqa: PLC0415 (Importzyklus vermeiden)
+
+        gesehen: set[str] = set()
+        ergebnis = []
+        for eintrag in wert or []:
+            v = eigenes_verzeichnis(eintrag)  # ValueError → Validierungsfehler mit Meldung
+            if v.id in gesehen:
+                raise ValueError(f"Verzeichnis „{v.id}“ ist doppelt.")
+            gesehen.add(v.id)
+            ergebnis.append({"id": v.id, "name": v.name, "url": v.url})
+        return ergebnis
 
     @field_validator("anbieter_eigene")
     @classmethod

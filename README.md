@@ -295,7 +295,16 @@ official servers with **one** OAuth client you create yourself – the "Google W
 the steps and creates the selected services. Usable without sign-in: Microsoft Learn, Cloudflare Docs, Context7,
 DeepWiki, Hugging Face. Community servers (by third parties) are marked as such.
 
-**In the UI:** Integrationen → **Hinzufügen** (plus button): catalog, MCP command, MCP URL, OpenAPI,
+**Directory search:** if a service is missing from the catalog, **Hinzufügen → Suchen** finds MCP servers
+in the official MCP Registry and on Smithery (custom registries with the same API can be added in the settings
+under "Verzeichnisse"). Each hit shows the publisher (GitHub account, verified domain, Smithery account),
+whether the directory marks it as **verified**, whether it runs remotely or locally via npx/uvx, and which
+values it needs. One click installs it: remote servers connect (with browser sign-in if required), local
+servers are created as a command with environment variables – with a clear warning that third-party code
+will run. Also by chat: "Javit, suche einen MCP-Server für Jira" – Javit names publisher and verification
+and installs only after you agree.
+
+**In the UI:** Integrationen → **Hinzufügen** (plus button): catalog, **Suchen** (search), MCP command, MCP URL, OpenAPI,
 REST or **JSON einfügen** (a configuration in the Claude Desktop / Claude Code format is recognized and
 imported). Under **Installiert**, clicking an entry opens its **detail page**: status with the reason for
 a failure and the server log, **Einrichtung** (setup) as a checklist (links, file upload, runnable steps such

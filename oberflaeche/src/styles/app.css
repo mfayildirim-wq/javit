@@ -2856,3 +2856,70 @@ input[type='range'] {
   gap: 8px;
   color: var(--eis);
 }
+
+/* ---- Verzeichnissuche (Phase 2b) ---- */
+.verzeichnis-suche .katalog-werkzeuge {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px 12px;
+}
+.verzeichnis-suche .katalog-werkzeuge .kategorien {
+  grid-column: 1 / -1;
+}
+.verzeichnis-suche h4 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.verzeichnis-treffer .inst-knopf {
+  align-items: flex-start;
+}
+.verzeichnis-treffer .inst-name code {
+  font-size: 0.75em;
+  margin-left: 0.4rem;
+}
+.verzeichnis-treffer .kat-text {
+  margin: 0.2rem 0 0.35rem;
+}
+.verzeichnis-treffer .inst-meta {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.marke-chip.quelle {
+  background: var(--flaeche-2, rgba(127, 127, 127, 0.12));
+}
+.fehler-kasten.warnung {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  border-color: var(--warn, #d9a400);
+  background: color-mix(in srgb, var(--warn, #d9a400) 10%, transparent);
+}
+.fehler-kasten.warnung svg {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--warn, #d9a400);
+}
+.verzeichnis-liste {
+  list-style: none;
+  margin: 0 0 0.8rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.verzeichnis-liste li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.verzeichnis-liste li > span:first-child {
+  min-width: 11rem;
+  font-weight: 500;
+}
+.verzeichnis-liste code {
+  font-size: 0.8em;
+  opacity: 0.8;
+}

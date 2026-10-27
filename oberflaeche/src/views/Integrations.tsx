@@ -7,9 +7,10 @@ import { iconFuer } from '../lib/icons';
 import { EIGENE_ARTEN, EigeneFormular, GruppenFormular, KatalogFormular, type EigeneArt } from './Formulare';
 import { EinrichtungListe } from './Einrichtung';
 import { IntegrationDetail } from './IntegrationDetail';
+import { VerzeichnisSuche } from './Verzeichnisse';
 
 type Reiter = 'installiert' | 'hinzufuegen';
-type Quelle = 'katalog' | EigeneArt;
+type Quelle = 'katalog' | 'verzeichnis' | EigeneArt;
 
 const STATUS_TEXT: Record<string, string> = { verbunden: 'verbunden', fehler: 'Fehler', aus: 'aus', verbindet: 'verbindet …' };
 export const ART_TEXT: Record<string, string> = {
@@ -166,10 +167,12 @@ function Hinzufuegen({
   eintraege,
   installiert,
   onAnlegen,
+  onInstalliert,
 }: {
   eintraege: KatalogEintrag[];
   installiert: Set<string>;
   onAnlegen: (b: IntegrationAnlegen) => Promise<void>;
+  onInstalliert: (i: Integration) => void;
 }) {
   const [quelle, setQuelle] = useState<Quelle>('katalog');
   const [suche, setSuche] = useState('');
@@ -252,6 +255,7 @@ function Hinzufuegen({
 
   const quellen: { id: Quelle; titel: string; text: string }[] = [
     { id: 'katalog', titel: 'Katalog', text: `${eintraege.length} Apps und Dienste, meist nur ein Schlüssel` },
+    { id: 'verzeichnis', titel: 'Suchen', text: 'MCP-Registry, Smithery und eigene Registries durchsuchen' },
     ...EIGENE_ARTEN,
   ];
 
@@ -349,6 +353,8 @@ function Hinzufuegen({
             </ul>
           )}
         </div>
+      ) : quelle === 'verzeichnis' ? (
+        <VerzeichnisSuche katalog={eintraege} installiert={installiert} onKatalog={setGewaehlt} onInstalliert={onInstalliert} />
       ) : (
         <EigeneFormular key={quelle} art={quelle} onAnlegen={onAnlegen} />
       )}
@@ -389,8 +395,7 @@ export function IntegrationsAnsicht() {
     neuLaden();
   }, [neuLaden, stand, verbindung]);
 
-  const anlegen = async (body: IntegrationAnlegen) => {
-    const neu = await api.integrationAnlegen(body);
+  const angelegt = (neu: Integration) => {
     const verbunden = neu?.status === 'verbunden';
     setErfolg(
       verbunden
@@ -402,6 +407,7 @@ export function IntegrationsAnsicht() {
     if (neu?.id && !verbunden) setOffen(neu.id);
     neuLaden();
   };
+  const anlegen = async (body: IntegrationAnlegen) => angelegt(await api.integrationAnlegen(body));
 
   const installiert = new Set(liste.map((i) => i.id));
   const zumHinzufuegen = () => {
@@ -472,7 +478,7 @@ export function IntegrationsAnsicht() {
         {reiter === 'installiert' && !offen && (
           <Installierte liste={liste} katalog={katalog} laden={laden} onOeffnen={setOffen} onHinzufuegen={zumHinzufuegen} />
         )}
-        {reiter === 'hinzufuegen' && <Hinzufuegen eintraege={katalog} installiert={installiert} onAnlegen={anlegen} />}
+        {reiter === 'hinzufuegen' && <Hinzufuegen eintraege={katalog} installiert={installiert} onAnlegen={anlegen} onInstalliert={angelegt} />}
       </div>
     </section>
   );
