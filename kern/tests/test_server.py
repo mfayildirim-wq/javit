@@ -53,7 +53,7 @@ def test_rest_endpunkte():
 
         w = c.get("/api/werkzeuge").json()
         assert {"name": "shell_befehl", "beschreibung": w[[x["name"] for x in w].index("shell_befehl")]["beschreibung"],
-                "quelle": "eingebaut", "risiko": "kritisch"} in w
+                "quelle": "eingebaut", "risiko": "kritisch", "bereich": "technisch"} in w
 
         k = c.get("/api/integrationen/katalog").json()
         spotify = next(x for x in k if x["id"] == "spotify")
@@ -163,6 +163,8 @@ def test_websocket_freigabe_und_abbrechen(tmp_path):
         text_chunks("Gelöscht."),
         tool_chunks("c2", "shell_befehl", {"befehl": "echo nie"}),
     ])
+    # Shell ist technisch und liefe ohne Rückfrage – für den Freigabe-Test technische Freigaben einschalten
+    j.konfig.aktualisieren({"freigabe_technisch": True})
     with client as c, c.websocket_connect(WS) as ws:
         ws.receive_json()
         ws.send_json({"typ": "nachricht", "text": "Lösch die Datei"})

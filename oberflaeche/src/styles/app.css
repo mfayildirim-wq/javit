@@ -2923,3 +2923,8 @@ input[type='range'] {
   font-size: 0.8em;
   opacity: 0.8;
 }
+
+/* ---- Bereich (technisch/fachlich) auf der Detailseite ---- */
+.bereich-wahl .seg-gruppe {
+  margin-bottom: 0.5rem;
+}

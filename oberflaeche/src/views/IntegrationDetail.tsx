@@ -99,6 +99,17 @@ export function IntegrationDetail({ id, onZurueck, onGeaendert }: { id: string; 
       setArbeitet(false);
     }
   };
+  const bereichSetzen = async (bereich: string) => {
+    setArbeitet(true);
+    try {
+      setD(await api.integrationBereich(id, bereich));
+      onGeaendert();
+    } catch (e) {
+      setFehler((e as Error).message);
+    } finally {
+      setArbeitet(false);
+    }
+  };
   const speichern = async (body: IntegrationAnlegen) => {
     const neu = await api.integrationAendern(id, body);
     setD(neu);
@@ -202,6 +213,24 @@ export function IntegrationDetail({ id, onZurueck, onGeaendert }: { id: string; 
         <EinrichtungListe katalogId={d.katalog.id} schritte={d.katalog.einrichtung} onAktualisiert={schritteSetzen} />
       )}
       {d.katalog?.hinweis && !d.katalog.einrichtung.length && <p className="formular-hinweis">{d.katalog.hinweis}</p>}
+
+      {d.art !== 'eingebaut' && (
+        <section className="detail-abschnitt bereich-wahl" aria-label="Freigaben">
+          <h4>Freigaben</h4>
+          <div className="seg-gruppe" role="radiogroup" aria-label="Bereich">
+            {(['technisch', 'fachlich'] as const).map((b) => (
+              <button type="button" key={b} role="radio" aria-checked={d.bereich === b} className={d.bereich === b ? 'an' : ''} disabled={arbeitet} onClick={() => void bereichSetzen(b)}>
+                {b === 'technisch' ? 'Technisch' : 'Fachlich'}
+              </button>
+            ))}
+          </div>
+          <p className="gedaempft">
+            {d.bereich === 'technisch'
+              ? `Technisch: ${name} nutzt die Werkzeuge dieser Integration ohne Rückfrage (Dateien, Entwicklung, Web, Umgebung).`
+              : `Fachlich: Alles außer Lesen legt ${name} dir zur Bestätigung vor (Nachrichten, Termine, Einträge, Geld).`}
+          </p>
+        </section>
+      )}
 
       <section className="detail-abschnitt" aria-label="Konfiguration">
         <div className="einrichtung-kopf">

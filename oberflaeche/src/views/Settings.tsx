@@ -696,6 +696,52 @@ function Gedaechtnis() {
   );
 }
 
+function Freigaben() {
+  const [technisch, setTechnisch] = useState(false);
+  const [fachlich, setFachlich] = useState<string>('aendern');
+  const [fehler, setFehler] = useState<string | null>(null);
+  useEffect(() => {
+    api
+      .einstellungen()
+      .then((e) => {
+        setTechnisch(Boolean(e?.freigabe_technisch));
+        setFachlich(e?.freigabe_fachlich ?? 'aendern');
+      })
+      .catch(() => undefined);
+  }, []);
+  const speichern = async (teil: Partial<Einstellungen>) => {
+    setFehler(null);
+    try {
+      const e = await api.einstellungenSpeichern(teil);
+      setTechnisch(Boolean(e?.freigabe_technisch));
+      setFachlich(e?.freigabe_fachlich ?? 'aendern');
+    } catch (err) {
+      setFehler((err as Error).message);
+    }
+  };
+  return (
+    <Abschnitt id="einst-freigaben" titel="Freigaben" text="Technische Werkzeuge (Dateien, Shell, Apps, Installationen, Entwicklung) laufen ohne Rückfrage mit den Rechten deines Benutzers – nur Dateien löschen und Zugangsdaten lesen werden immer bestätigt. Fachliche Werkzeuge (Nachrichten, Termine, Einträge in Diensten, Geld) legt der Assistent dir vor. Welche Integration als technisch oder fachlich gilt, stellst du auf ihrer Detailseite ein.">
+      <Schalter
+        an={technisch}
+        onChange={(v) => void speichern({ freigabe_technisch: v })}
+        label="Technische Aktionen bestätigen"
+        beschreibung="Auch Shell-Befehle, Installationen und Schreiben in Systemordner vor dem Ausführen anzeigen"
+      />
+      <Segmente
+        wert={fachlich}
+        optionen={[
+          ['aendern', 'Ab Ändern'],
+          ['kritisch', 'Nur Kritisches'],
+          ['nie', 'Nie'],
+        ]}
+        onChange={(v) => void speichern({ freigabe_fachlich: v })}
+        label="Fachliche Aktionen bestätigen"
+      />
+      {fehler && <p className="formular-fehler">{fehler}</p>}
+    </Abschnitt>
+  );
+}
+
 function Verzeichnisse() {
   const [eigene, setEigene] = useState<EigenesVerzeichnis[]>([]);
   const [offen, setOffen] = useState(false);
@@ -801,6 +847,7 @@ export function EinstellungenAnsicht() {
       <div className="ansicht-inhalt einstellungen" key={verbindung === 'offen' ? 'on' : 'off'}>
         <ModellWahl />
         <Schluessel />
+        <Freigaben />
         <Verzeichnisse />
         <StimmePersona />
         <Gedaechtnis />

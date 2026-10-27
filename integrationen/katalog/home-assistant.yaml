@@ -13,3 +13,4 @@ benoetigt:
 hinweis: "In Home Assistant die Integration „Model Context Protocol Server“ hinzufügen und unter Profil › Sicherheit ein langlebiges Zugriffstoken erstellen."
 webseite: https://www.home-assistant.io/integrations/mcp_server/
 risiko_standard: aendern
+bereich: technisch

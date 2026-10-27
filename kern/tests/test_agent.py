@@ -19,7 +19,7 @@ async def uhrzeit_test() -> str:
     return "Es ist 12:00 Uhr."
 
 
-@werkzeug("loeschen_test", "Löscht alles", schema({"was": {"type": "string"}}), risiko="kritisch")
+@werkzeug("loeschen_test", "Löscht alles", schema({"was": {"type": "string"}}), risiko="kritisch", bereich="fachlich")
 async def loeschen_test(was: str = "") -> str:
     ausgefuehrt.append(f"geloescht:{was}")
     return "Gelöscht."
@@ -234,7 +234,7 @@ async def haengt_test() -> str:
     return "nie"
 
 
-@werkzeug("integration_test", "Mit Schlüssel", schema({"werte": {"type": "object"}}), risiko="kritisch")
+@werkzeug("integration_test", "Mit Schlüssel", schema({"werte": {"type": "object"}}), risiko="kritisch", bereich="fachlich")
 async def integration_test(werte: dict | None = None) -> str:
     return "ok"
 

@@ -10,6 +10,10 @@ const RISIKO_TEXT: Record<string, string> = {
   aendern: 'Ändert Daten',
   lesen: 'Nur lesen',
 };
+const BEREICH_TEXT: Record<string, string> = {
+  fachlich: 'fachlich – betrifft Nachrichten, Termine, Einträge oder Geld',
+  technisch: 'technisch – geschütztes Werkzeug (Löschen, Zugangsdaten)',
+};
 
 export function ApprovalDialog() {
   const anfrage = useJarvis((s) => s.freigaben[0]);
@@ -71,7 +75,10 @@ export function ApprovalDialog() {
         <header className="freigabe-kopf">
           <ShieldAlert size={22} aria-hidden="true" />
           <div>
-            <div className="freigabe-risiko">{RISIKO_TEXT[anfrage.risiko] ?? anfrage.risiko}</div>
+            <div className="freigabe-risiko">
+              {RISIKO_TEXT[anfrage.risiko] ?? anfrage.risiko}
+              {anfrage.bereich && BEREICH_TEXT[anfrage.bereich] ? ` · ${BEREICH_TEXT[anfrage.bereich]}` : ''}
+            </div>
             <h2 id="freigabe-titel">Darf {name} das ausführen?</h2>
           </div>
           <div

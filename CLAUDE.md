@@ -49,7 +49,10 @@ Kommentare, Meldungen, Commits, Doku.
   `JARVIS_*`, Dienst-Kennungen `de.jarvis.agent`/`jarvis.service`/Aufgabe „Jarvis“) bleiben.
 * Neue Werkzeuge: `@werkzeug(...)` mit ehrlicher Risikostufe. Alles, was Daten löscht/sendet/
   bezahlt/installiert, Code ausführt oder Persistenz schaffen kann, ist `kritisch`. Risiko kann je
-  Aufruf über `risiko_fuer` verschärft werden (siehe `werkzeuge/dateien.py`).
+  Aufruf über `risiko_fuer` verschärft werden (siehe `werkzeuge/dateien.py`). Dazu der **Bereich**:
+  `technisch` (Standard; läuft ohne Rückfrage) oder `fachlich` (Nachrichten, Termine, Einträge in Diensten,
+  Geld – Nutzer bestätigt ab „aendern“); `schutz=True` erzwingt die Freigabe auch bei technischen Werkzeugen
+  (Löschen, Zugangsdaten). Regel in `werkzeuge.freigabe_noetig`, Katalogeinträge tragen `bereich`.
 * Geheimnisse nie in Logs, Events oder `integrationen.json` (dort nur `${NAME}`); Events über
   `geheimnisse.schwaerzen` leiten.
 * Modellaufrufe nur über `LLMFassade`. Anbieter und Modell-Vorschläge stehen in `anbieter.py`

@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from ..geheimnisse import Geheimnisspeicher, ist_geheimer_name
 from ..konfig import jarvis_home
-from ..werkzeuge import Risiko, Werkzeug, WerkzeugRegister
+from ..werkzeuge import BEREICHE, Bereich, Risiko, Werkzeug, WerkzeugRegister
 from ..werkzeuge.prozess import befehl_zerlegen
 from .eingebaut import eingebaute_werkzeuge
 from .einrichtung import EinrichtungsFehler, einrichtung_stand, pfad_aufloesen
@@ -72,6 +72,8 @@ class IntegrationsKonfig(BaseModel):
     oauth: dict[str, Any] | None = None
     #: Herkunft aus einem Verzeichnis (Phase 2b): {"quelle": "smithery", "kennung": "exa"}
     verzeichnis: dict[str, str] | None = None
+    #: technisch | fachlich; None = Katalogwert bzw. „fachlich“ (siehe werkzeuge.Bereich)
+    bereich: Bereich | None = None
     risiko_standard: Risiko = "aendern"
     werkzeug_risiko: dict[str, Risiko] = Field(default_factory=dict)
     aktiv: bool = True
@@ -106,6 +108,15 @@ def _verzeichnis_aus(anfrage: dict[str, Any]) -> dict[str, str] | None:
     if isinstance(v, dict) and v.get("quelle") and v.get("kennung"):
         return {"quelle": str(v["quelle"]), "kennung": str(v["kennung"])}
     return None
+
+
+def _bereich_aus(anfrage: dict[str, Any]) -> Bereich | None:
+    b = anfrage.get("bereich")
+    if b in (None, ""):
+        return None
+    if b not in BEREICHE:
+        raise IntegrationsFehler("Bereich muss „technisch“ oder „fachlich“ sein.")
+    return b  # type: ignore[return-value]
 
 
 def _geheime_namen(anfrage: dict[str, Any]) -> set[str]:
@@ -281,6 +292,7 @@ class IntegrationsManager:
         ]
         info["oauth"] = self.oauth_stand(kennung)
         info["verzeichnis"] = dict(k.verzeichnis) if k.verzeichnis else None
+        info["bereich"] = self.bereich_von(k)
         info["protokoll"] = self.protokoll_zeilen(kennung, 40) if k.art == "mcp_stdio" else []
         return info
 
@@ -299,7 +311,10 @@ class IntegrationsManager:
                 if wert in (None, "", "gespeichert"):
                     continue
                 werte[name] = str(wert)
-            anfrage = {"katalog": alt.katalog, "werte": werte, "name": anfrage.get("name") or alt.name}
+            anfrage = {
+                "katalog": alt.katalog, "werte": werte, "name": anfrage.get("name") or alt.name,
+                "bereich": anfrage.get("bereich") or alt.bereich,
+            }
         else:
             # Leere oder „gespeichert“ gelassene geheime Kopfzeilen/Umgebungswerte bleiben erhalten
             for feld, bisher in (("kopfzeilen", alt.kopfzeilen), ("umgebung", alt.umgebung)):
@@ -321,6 +336,8 @@ class IntegrationsManager:
             if not any(anfrage.get(k) for k in ("mcp_befehl", "mcp_url", "openapi_url", "rest")):
                 raise IntegrationsFehler("Zum Ändern die Quelle angeben (mcp_befehl, mcp_url, openapi_url oder rest).")
             anfrage.setdefault("name", alt.name)
+            if not anfrage.get("bereich"):
+                anfrage["bereich"] = alt.bereich
         self.konfigs.pop(kennung)  # damit konfig_aus_anfrage dieselbe Kennung vergibt
         try:
             neu_konfig = self.konfig_aus_anfrage(anfrage)
@@ -416,6 +433,7 @@ class IntegrationsManager:
                 rest=eintrag.rest,
                 eingebaut=eintrag.eingebaut,
                 oauth=_oauth_kompakt(eintrag.oauth) if eintrag.oauth else None,
+                bereich=_bereich_aus(anfrage),
                 risiko_standard=eintrag.risiko_standard,
                 werkzeug_risiko=dict(eintrag.werkzeug_risiko),
             )
@@ -444,7 +462,7 @@ class IntegrationsManager:
                     umgebung[schluessel] = str(wert)
             return IntegrationsKonfig(
                 id=kennung, name=name, art="mcp_stdio", befehl=teile, umgebung=umgebung, geheimnisse=geheime,
-                verzeichnis=_verzeichnis_aus(anfrage),
+                verzeichnis=_verzeichnis_aus(anfrage), bereich=_bereich_aus(anfrage),
             )
 
         if anfrage.get("mcp_url") or anfrage.get("openapi_url"):
@@ -491,7 +509,7 @@ class IntegrationsManager:
             return IntegrationsKonfig(
                 id=kennung, name=name, art="mcp_http" if ist_mcp else "openapi", url=url,
                 kopfzeilen=kopfzeilen, auth=auth, geheimnisse=geheime, oauth=oauth,
-                verzeichnis=_verzeichnis_aus(anfrage),
+                verzeichnis=_verzeichnis_aus(anfrage), bereich=_bereich_aus(anfrage),
             )
 
         if anfrage.get("rest"):
@@ -503,7 +521,7 @@ class IntegrationsManager:
                 auth["wert"] = self._geheim_ablegen(f"JARVIS_{kennung.upper()}_WERT", str(auth["wert"]))
             return IntegrationsKonfig(
                 id=kennung, name=name, art="rest", rest=list(anfrage["rest"]), auth=auth,
-                geheimnisse=sorted(platzhalter_finden(auth or {})),
+                geheimnisse=sorted(platzhalter_finden(auth or {})), bereich=_bereich_aus(anfrage),
             )
 
         raise IntegrationsFehler(
@@ -550,7 +568,35 @@ class IntegrationsManager:
             spec = json.loads(cache.read_text(encoding="utf-8"))
         return spec, url
 
+    def bereich_von(self, k: IntegrationsKonfig) -> Bereich:
+        """Wirksamer Bereich: eigene Einstellung, sonst Katalogwert, sonst „fachlich“."""
+        if k.bereich:
+            return k.bereich
+        eintrag = self.katalog.holen(k.katalog) if k.katalog else None
+        return eintrag.bereich if eintrag else "fachlich"
+
+    async def bereich_setzen(self, kennung: str, bereich: str) -> dict[str, Any]:
+        """Stellt den Bereich einer installierten Integration um (ohne Neustart)."""
+        if kennung not in self.konfigs:
+            raise IntegrationsFehler(f"Integration „{kennung}“ ist nicht installiert.")
+        b = _bereich_aus({"bereich": bereich})
+        if b is None:
+            raise IntegrationsFehler("Bereich muss „technisch“ oder „fachlich“ sein.")
+        self.konfigs[kennung] = self.konfigs[kennung].model_copy(update={"bereich": b})
+        for w in self.register.von_integration(kennung):
+            w.bereich = b
+        self.speichern()
+        await self._melden(kennung)
+        return self.details(kennung)
+
     async def _werkzeuge_erzeugen(self, k: IntegrationsKonfig) -> list[Werkzeug]:
+        werkzeuge = await self._werkzeuge_bauen(k)
+        bereich = self.bereich_von(k)
+        for w in werkzeuge:
+            w.bereich = bereich
+        return werkzeuge
+
+    async def _werkzeuge_bauen(self, k: IntegrationsKonfig) -> list[Werkzeug]:
         werte = self._werte(k)
         fehlende = sorted(
             platzhalter_finden([k.befehl or [], k.url or "", k.kopfzeilen, k.auth or {}, k.rest or [], k.oauth or {}]) - set(werte)

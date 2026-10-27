@@ -25,6 +25,8 @@ export interface FreigabeAnfrage {
   argumente: unknown;
   grund: string;
   risiko: Risiko | string;
+  /** technisch | fachlich (vom Kern; ältere Kerne senden es nicht). */
+  bereich?: string;
   empfangen: number;
   /** Sekunden bis zur automatischen Ablehnung (vom Kern; sonst 120). */
   timeout?: number;
@@ -201,6 +203,7 @@ export function reduzieren(s: KernZustand, a: Aktion, jetzt: number = Date.now()
         argumente: a.argumente,
         grund: a.grund,
         risiko: a.risiko,
+        ...(typeof a.bereich === 'string' ? { bereich: a.bereich } : {}),
         empfangen: jetzt,
         ...(typeof a.timeout === 'number' && a.timeout > 0 ? { timeout: a.timeout } : {}),
       };

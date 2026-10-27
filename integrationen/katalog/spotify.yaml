@@ -12,3 +12,4 @@ benoetigt:
 hinweis: "Unter developer.spotify.com/dashboard eine App anlegen (Web API), Redirect-URI http://127.0.0.1:8888/callback eintragen, Client ID und Secret kopieren. Ohne Anmeldung wird über die Spotify-App des Macs abgespielt; „jarvis spotify-anmelden“ schaltet Warteschlange, Playlists und Gerätesteuerung frei. Einfache Steuerung (Play/Pause/Weiter) klappt auch ohne Integration über das eingebaute Werkzeug musik_steuern."
 webseite: https://developer.spotify.com/documentation/web-api
 risiko_standard: aendern
+bereich: technisch

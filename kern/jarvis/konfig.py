@@ -174,6 +174,11 @@ class Einstellungen(BaseModel):
     werkzeug_modus: Literal["auto", "nativ", "prompt"] = "auto"
     max_werkzeugrunden: int = 12
     freigabe_timeout: float = 120.0
+    # Freigaben: technische Werkzeuge (Dateien, Shell, Apps, Installationen) laufen ohne Rückfrage mit den
+    # Rechten des Systembenutzers – Ausnahme: Dateien löschen und Zugangsdaten lesen. Fachliche Werkzeuge
+    # (Nachrichten, Termine, Einträge in Diensten, Geld) bestätigt der Nutzer ab Stufe „aendern“.
+    freigabe_technisch: bool = False
+    freigabe_fachlich: Literal["aendern", "kritisch", "nie"] = "aendern"
     werkzeug_timeout: float = 300.0
     llm_timeout: float = 180.0
     ollama_url: str = "http://localhost:11434"

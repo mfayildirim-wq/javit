@@ -344,12 +344,16 @@ im echten Browser öffnen, klicken und Formulare ausfüllen. Fehlt der Browser:
 
 ## Sicherheit und Freigaben
 
-* Jedes Werkzeug hat eine Risikostufe: **lesen**, **ändern**, **kritisch**. Kritisch (Shell,
-  Löschen, Senden, Bezahlen, Installieren, Kurzbefehle, Überschreiben von Dateien, Schreiben in
-  Autostart-/Konfigurationsordner – macOS `~/Library`, Windows `AppData` inkl. Startup-Ordner sowie
-  `.exe/.bat/.ps1/.reg/.lnk`, Linux `~/.config/autostart`, `~/.config/systemd/user`, `~/.bashrc`/`.profile`,
-  `~/bin`, crontab –, Lesen von Schlüsseldateien) zeigt einen **Freigabe-Dialog** –
-  ohne Antwort gilt nach 120 s „abgelehnt“.
+* Jedes Werkzeug hat eine Risikostufe (**lesen**, **ändern**, **kritisch**) und einen **Bereich**:
+  * **Technisch** (Dateien, Shell, Apps, Installationen, Entwicklung, Web lesen, Smart Home, Musik) läuft
+    **ohne Rückfrage** mit den Rechten deines Benutzers. Nur **Dateien löschen** (Papierkorb) und das
+    **Lesen von Zugangsdaten-Dateien** (`.ssh`, `.env`, `.pem` …) werden immer bestätigt. Wer alles sehen
+    will, schaltet in den Einstellungen „Technische Aktionen bestätigen“ ein – dann erscheinen auch Shell,
+    Installationen und Schreiben in Autostart-/Konfigurationsordner wieder im Dialog.
+  * **Fachlich** (Nachrichten und Mails, Termine, Aufgaben, Notizen, Einträge in Diensten wie Notion, GitHub,
+    Slack, Todoist, Zahlungen) zeigt einen **Freigabe-Dialog** für alles außer Lesen – ohne Antwort gilt nach
+    120 s „abgelehnt“. Einstellbar: ab Ändern (Standard), nur Kritisches oder nie. Welche Integration als
+    technisch oder fachlich gilt, steht im Katalog und lässt sich je Integration auf der Detailseite umstellen.
 * Inhalte aus Werkzeugen (Webseiten, Mails, Dateien) gelten als Daten, nicht als Anweisungen; sie
   können keine Freigabe erteilen.
 * Der Server lauscht **nur auf 127.0.0.1**. Fremde Webseiten können weder die API noch den

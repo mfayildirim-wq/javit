@@ -9,3 +9,4 @@ benoetigt: []
 hinweis: "Öffentliche Demo-API von Swagger – zeigt, wie jede OpenAPI-Schnittstelle in Sekunden zu Werkzeugen des Assistenten wird."
 webseite: https://petstore3.swagger.io
 risiko_standard: aendern
+bereich: technisch

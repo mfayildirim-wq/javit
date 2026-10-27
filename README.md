@@ -342,12 +342,17 @@ real browser, click and fill in forms. If the browser is missing: `npx playwrigh
 
 ## Security and approvals
 
-* Every tool has a risk level: **read**, **change**, **critical**. Critical actions (shell,
-  deleting, sending, paying, installing, Shortcuts, overwriting files, writing into autostart or
-  configuration folders – macOS `~/Library`, Windows `AppData` including the Startup folder plus
-  `.exe/.bat/.ps1/.reg/.lnk`, Linux `~/.config/autostart`, `~/.config/systemd/user`, `~/.bashrc`/`.profile`,
-  `~/bin`, crontab – and reading key files) show an **approval dialog** –
-  without an answer the request counts as "denied" after 120 s.
+* Every tool has a risk level (**read**, **change**, **critical**) and a **domain**:
+  * **Technical** (files, shell, apps, installations, development, reading the web, smart home, music) runs
+    **without asking**, with your user's permissions. Only **deleting files** (to the trash) and **reading
+    credential files** (`.ssh`, `.env`, `.pem` …) are always confirmed. If you want to see everything, enable
+    "Technische Aktionen bestätigen" in the settings – then shell commands, installations and writes into
+    autostart/configuration folders show up in the dialog again.
+  * **Business** (messages and mail, calendar events, tasks, notes, entries in services such as Notion, GitHub,
+    Slack, Todoist, payments) shows an **approval dialog** for everything except reading – without an answer
+    the request counts as "denied" after 120 s. Configurable: from "change" (default), only critical, or never.
+    Which integration counts as technical or business is defined in the catalog and can be switched per
+    integration on its detail page.
 * Content returned by tools (web pages, mails, files) is treated as data, not as instructions; it
   cannot grant an approval.
 * The server listens **only on 127.0.0.1**. Foreign web pages can use neither the API nor the

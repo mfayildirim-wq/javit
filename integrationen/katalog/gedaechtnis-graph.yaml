@@ -13,3 +13,4 @@ werkzeug_risiko:
   delete_entities: kritisch
   delete_observations: aendern
   delete_relations: aendern
+bereich: technisch

@@ -44,7 +44,7 @@ async def test_register_grundfunktionen():
             "parameters": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
         },
     }
-    assert r.infos()[0] == {"name": "echo", "beschreibung": "Gibt Text zurück", "quelle": "eingebaut", "risiko": "lesen"}
+    assert r.infos()[0] == {"name": "echo", "beschreibung": "Gibt Text zurück", "quelle": "eingebaut", "risiko": "lesen", "bereich": "technisch"}
     assert await r.ausfuehren("echo", {"text": "hi"}) == (True, "Echo: hi")
     ok, text = await r.ausfuehren("kaputt", {})
     assert not ok and "RuntimeError" in text and "Boom" in text

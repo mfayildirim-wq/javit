@@ -10,3 +10,4 @@ benoetigt:
 hinweis: "Benötigt uv (brew install uv)."
 webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/time
 risiko_standard: lesen
+bereich: technisch

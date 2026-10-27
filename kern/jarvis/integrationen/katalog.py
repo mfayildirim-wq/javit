@@ -19,6 +19,7 @@ from .oauth import OAuthKonfig
 
 Art = Literal["mcp_stdio", "mcp_http", "openapi", "rest", "eingebaut"]
 RisikoStufe = Literal["lesen", "aendern", "kritisch"]
+Bereich = Literal["technisch", "fachlich"]
 
 
 FeldTyp = Literal["text", "geheim", "ordner", "datei", "url"]
@@ -80,6 +81,9 @@ class KatalogEintrag(BaseModel):
     webseite: str | None = None
     risiko_standard: RisikoStufe = "aendern"
     werkzeug_risiko: dict[str, RisikoStufe] = Field(default_factory=dict)
+    #: technisch (Dateien, Entwicklung, Web lesen, Umgebung – ohne Rückfrage) oder fachlich (Dienste mit
+    #: Nachrichten, Terminen, Einträgen, Geld – Nutzer bestätigt Änderungen)
+    bereich: Bereich = "fachlich"
     voraussetzungen: list[str] = Field(default_factory=list)
     einrichtung: list[Schritt] = Field(default_factory=list)
     #: OAuth-Anmeldung (mcp_http): {"modus": "entdeckung"} oder manuell mit URLs/Scopes/Client-Platzhaltern
@@ -139,6 +143,7 @@ class KatalogEintrag(BaseModel):
             "vertrauen": self.vertrauen,
             "quelle": self.quelle,
             "gruppe": self.gruppe,
+            "bereich": self.bereich,
         }
 
 

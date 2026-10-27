@@ -108,6 +108,8 @@ export const api = {
     anfrage<SchrittStand>('GET', `/integrationen/katalog/${encodeURIComponent(id)}/einrichtung/${schritt}/stand`),
   integrationNeuVerbinden: (id: string) =>
     anfrage<unknown>('POST', `/integrationen/${encodeURIComponent(id)}/neu-verbinden`),
+  integrationBereich: (id: string, bereich: string) =>
+    anfrage<IntegrationDetails>('PUT', `/integrationen/${encodeURIComponent(id)}/bereich`, { bereich }),
   integrationAbmelden: (id: string) => anfrage<Integration>('POST', `/integrationen/${encodeURIComponent(id)}/abmelden`),
   integrationAnmelden: (id: string) => anfrage<Integration>('POST', `/integrationen/${encodeURIComponent(id)}/anmelden`),
   verzeichnisse: async () => liste<VerzeichnisQuelle>(await anfrage<unknown>('GET', '/verzeichnisse'), 'verzeichnisse'),

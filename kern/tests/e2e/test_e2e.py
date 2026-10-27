@@ -119,15 +119,17 @@ def test_abbrechen_waehrend_freigabe(umgebung):
 def test_mcp_integration_hinzufuegen_und_aufrufen(umgebung):
     r = httpx.post(
         f"{umgebung.url}/api/integrationen",
-        json={"name": "Mini Test", "mcp_befehl": f"{sys.executable} {MINI_MCP}"},
+        # Ohne „bereich“ gälte der Server als fachlich und „echo“ (Stufe ändern) bräuchte eine Freigabe
+        json={"name": "Mini Test", "mcp_befehl": f"{sys.executable} {MINI_MCP}", "bereich": "technisch"},
         timeout=60,
     )
     assert r.status_code == 200, r.text
     info = r.json()
     assert info["status"] == "verbunden" and info["werkzeuge"] == 4
     werkzeuge = {w["name"]: w for w in httpx.get(f"{umgebung.url}/api/werkzeuge").json()}
-    assert werkzeuge["mini_test__echo"]["quelle"] == "mcp"
+    assert werkzeuge["mini_test__echo"]["quelle"] == "mcp" and werkzeuge["mini_test__echo"]["bereich"] == "technisch"
     assert werkzeuge["mini_test__delete_item"]["risiko"] == "kritisch"
+    assert httpx.get(f"{umgebung.url}/api/integrationen/mini_test").json()["bereich"] == "technisch"
     assert any(i["id"] == "mini_test" for i in httpx.get(f"{umgebung.url}/api/integrationen").json())
     with connect(umgebung.ws_url, open_timeout=10) as ws:
         ws.recv(timeout=10)

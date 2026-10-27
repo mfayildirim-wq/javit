@@ -254,6 +254,7 @@ async def datei_suchen(
     risiko="lesen",
     risiko_fuer=lambda a: "kritisch" if lese_grund(_pfad(str(a.get("pfad") or "~"))) else "lesen",
     grund=lambda a: f"Datei lesen: {a.get('pfad')} – {lese_grund(_pfad(str(a.get('pfad') or '~')))}",
+    schutz=True,  # Zugangsdaten-Dateien bleiben auch ohne technische Freigaben bestätigungspflichtig
 )
 async def datei_lesen(pfad: str) -> str:
     p = _pfad(pfad)
@@ -345,6 +346,7 @@ async def datei_verschieben(quelle: str, ziel: str) -> str:
     schema({"pfad": {"type": "string"}}, ["pfad"]),
     risiko="kritisch",
     grund=lambda a: f"Datei/Ordner in den Papierkorb legen: {a.get('pfad')}",
+    schutz=True,  # Löschen bleibt auch ohne technische Freigaben bestätigungspflichtig
 )
 async def datei_loeschen(pfad: str) -> str:
     p = _pfad(pfad)

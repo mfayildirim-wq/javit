@@ -10,3 +10,4 @@ benoetigt:
 hinweis: "Kostenlosen Schlüssel unter brave.com/search/api anlegen. Mit gesetztem BRAVE_API_KEY nutzt auch die eingebaute Websuche Brave."
 webseite: https://github.com/brave/brave-search-mcp-server
 risiko_standard: lesen
+bereich: technisch

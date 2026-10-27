@@ -12,3 +12,4 @@ webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/git
 risiko_standard: aendern
 werkzeug_risiko:
   git_reset: kritisch
+bereich: technisch

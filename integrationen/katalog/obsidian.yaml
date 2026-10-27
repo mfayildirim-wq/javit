@@ -11,3 +11,4 @@ benoetigt:
 hinweis: "In Obsidian das Community-Plugin „Local REST API“ installieren, „Non-encrypted (HTTP) Server“ aktivieren und den API-Schlüssel aus den Plugin-Einstellungen kopieren."
 webseite: https://github.com/cyanheads/obsidian-mcp-server
 risiko_standard: aendern
+bereich: technisch

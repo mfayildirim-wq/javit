@@ -9,3 +9,4 @@ benoetigt: []
 hinweis: "Benötigt uv (brew install uv). Der Assistent hat zusätzlich das eingebaute Werkzeug webseite_lesen."
 webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/fetch
 risiko_standard: lesen
+bereich: technisch

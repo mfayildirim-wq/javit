@@ -316,6 +316,13 @@ def create_app(
         except IntegrationsFehler as e:
             raise HTTPException(400, str(e)) from e
 
+    @app.put("/api/integrationen/{kennung}/bereich")
+    async def integration_bereich(kennung: str, request: Request, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        try:
+            return await j_(request).manager.bereich_setzen(kennung, str(body.get("bereich") or ""))
+        except IntegrationsFehler as e:
+            raise HTTPException(404 if "nicht installiert" in str(e) else 400, str(e)) from e
+
     @app.post("/api/integrationen/{kennung}/abmelden")
     async def integration_abmelden(kennung: str, request: Request) -> dict[str, Any]:
         try:

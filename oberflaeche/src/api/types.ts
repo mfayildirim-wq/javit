@@ -27,9 +27,12 @@ export interface EvFreigabeNoetig {
   argumente: unknown;
   grund: string;
   risiko: Risiko | string;
+  /** technisch | fachlich – warum gefragt wird (fachliche Aktion bzw. geschütztes technisches Werkzeug). */
+  bereich?: Bereich | string;
   /** Optional (Erweiterung): Sekunden bis zur automatischen Ablehnung (Einstellung freigabe_timeout). */
   timeout?: number;
 }
+export type Bereich = 'technisch' | 'fachlich';
 export interface EvIntegrationGeaendert { typ: 'integration_geaendert'; integration: unknown }
 /** OAuth-Anmeldung im Browser gestartet (Kern: integrationen/oauth.py); `url` = Anmeldeseite. */
 export interface EvOauthAnmeldung { typ: 'oauth_anmeldung'; integration: string; url: string }
@@ -123,6 +126,7 @@ export interface Werkzeug {
   quelle: string;
   integration?: string | null;
   risiko: Risiko | string;
+  bereich?: Bereich | string;
 }
 
 export type IntegrationStatus = 'verbunden' | 'fehler' | 'aus';
@@ -170,6 +174,8 @@ export interface KatalogEintrag {
   oauth?: string | null;
   /** „offiziell“ (vom Anbieter betrieben) oder „community“. */
   vertrauen?: 'offiziell' | 'community' | string;
+  /** technisch (ohne Rückfrage) oder fachlich (Änderungen bestätigen). */
+  bereich?: Bereich | string;
   /** Doku-Seite des Anbieters. */
   quelle?: string | null;
   /** Zusammengehörige Einträge, z. B. google-workspace. */
@@ -230,6 +236,8 @@ export interface IntegrationDetails extends Integration {
   oauth?: { modus: string; angemeldet: boolean } | null;
   /** Herkunft aus einem Verzeichnis (Phase 2b). */
   verzeichnis?: { quelle: string; kennung: string } | null;
+  /** Wirksamer Bereich: technisch (ohne Rückfrage) oder fachlich (Änderungen bestätigen). */
+  bereich?: Bereich | string;
 }
 
 export type RestParamTyp = 'text' | 'zahl' | 'bool' | string;
@@ -255,6 +263,10 @@ export interface Einstellungen {
   modell?: string;
   anbieter_eigene?: EigenerAnbieter[];
   verzeichnisse_eigene?: EigenesVerzeichnis[];
+  /** Technische Werkzeuge (Shell, Dateien, Installationen) vor dem Ausführen bestätigen (Standard aus). */
+  freigabe_technisch?: boolean;
+  /** Fachliche Werkzeuge: ab „aendern“ (Standard), nur „kritisch“ oder „nie“ bestätigen. */
+  freigabe_fachlich?: 'aendern' | 'kritisch' | 'nie' | string;
   /** Anrede, z. B. „Sir“. */
   anrede?: string;
   /** Persona „Sir“ an/aus. */

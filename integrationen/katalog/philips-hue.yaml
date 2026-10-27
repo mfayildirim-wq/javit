@@ -44,3 +44,4 @@ rest:
       bri: {typ: ganzzahl}
       ct: {typ: ganzzahl}
       scene: {typ: text}
+bereich: technisch

@@ -12,14 +12,15 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | GET | `/api/einstellungen` | Einstellungen (ohne Geheimnisse) |
 | PUT | `/api/einstellungen` | Teilupdate |
 | PUT | `/api/geheimnisse/{name}` | `{wert}` – API-Schlüssel speichern (Schlüsselbund) |
-| GET | `/api/werkzeuge` | `[{name, beschreibung, quelle, integration?, risiko}]` |
+| GET | `/api/werkzeuge` | `[{name, beschreibung, quelle, integration?, risiko, bereich}]` |
 | GET | `/api/integrationen` | installierte Integrationen `[{id, name, art, status: verbunden|fehler|aus, werkzeuge:n, fehler?}]` |
 | GET | `/api/integrationen/katalog` | Katalog `[{id, name, beschreibung, kategorie, icon, art, benoetigt:[{name, titel, geheim}]}]` |
 | POST | `/api/integrationen` | Integration hinzufügen (s. u.) → Integration |
 | DELETE | `/api/integrationen/{id}` | entfernen |
 | POST | `/api/integrationen/{id}/neu-verbinden` | neu starten |
-| GET | `/api/integrationen/{id}` | Details ohne Geheimnisse: `{…wie Liste, katalog?: {id, name, hinweis, webseite, benoetigt, einrichtung:[{titel, text, link, datei, befehl, erfuellt: bool\|null}]}, werte?: {NAME: wert\|"gespeichert"}, konfig: {befehl, url, kopfzeilen, umgebung, auth, rest, geheimnisse, risiko_standard, werkzeug_risiko, aktiv, hinzugefuegt}, werkzeug_liste:[{name, beschreibung, risiko}], protokoll:[…], oauth?: {modus, angemeldet}, verzeichnis?: {quelle, kennung}}` – Werte mit `${…}` erscheinen als „gespeichert“ |
+| GET | `/api/integrationen/{id}` | Details ohne Geheimnisse: `{…wie Liste, katalog?: {id, name, hinweis, webseite, benoetigt, einrichtung:[{titel, text, link, datei, befehl, erfuellt: bool\|null}]}, werte?: {NAME: wert\|"gespeichert"}, konfig: {befehl, url, kopfzeilen, umgebung, auth, rest, geheimnisse, risiko_standard, werkzeug_risiko, aktiv, hinzugefuegt}, werkzeug_liste:[{name, beschreibung, risiko}], protokoll:[…], oauth?: {modus, angemeldet}, verzeichnis?: {quelle, kennung}, bereich: technisch\|fachlich}` – Werte mit `${…}` erscheinen als „gespeichert“ |
 | PUT | `/api/integrationen/{id}` | Konfiguration ersetzen (Body wie POST; Katalog: `{werte, name?}`), Geheimnisse mit leerem Wert oder „gespeichert“ bleiben; stoppt, speichert, startet neu → Details; 400 bei ungültigen Werten |
+| PUT | `/api/integrationen/{id}/bereich` | `{bereich: technisch\|fachlich}` – Bereich umstellen (ohne Neustart, markiert registrierte Werkzeuge) → Details; 400 ungültig, 404 unbekannt |
 | POST | `/api/integrationen/{id}/abmelden` | OAuth: Tokens und Client-Registrierung aus dem Schlüsselbund löschen, Integration stoppen (Status `aus`) |
 | POST | `/api/integrationen/{id}/anmelden` | OAuth: neu verbinden und damit die Anmeldung im Browser auslösen |
 | GET | `/oauth/rueckruf?code=&state=[&error=]` | Rückruf des Autorisierungsservers nach der Browser-Anmeldung (HTML-Seite; kein `/api`-Pfad, ohne Origin-Prüfung, wirkt nur auf einen wartenden Flow mit passendem `state`) |
@@ -74,7 +75,7 @@ Server → Client:
 | `antwort_ende` | `id`, `text` |
 | `werkzeug_start` | `id`, `name`, `argumente`, `integration?` |
 | `werkzeug_ende` | `id`, `ok: bool`, `ergebnis` (gekürzt, max 2000 Zeichen) |
-| `freigabe_noetig` | `id`, `werkzeug`, `argumente`, `grund`, `risiko`, `timeout?` (Sekunden bis „abgelehnt“) |
+| `freigabe_noetig` | `id`, `werkzeug`, `argumente`, `grund`, `risiko` (`aendern`\|`kritisch`), `bereich` (`technisch`\|`fachlich`), `timeout?` (Sekunden bis „abgelehnt“) |
 | `integration_geaendert` | `integration` |
 | `oauth_anmeldung` | `integration`, `url` – Anmeldeseite wurde im Browser geöffnet; die Oberfläche zeigt den Link, falls kein Fenster aufging |
 | `fehler` | `text` |
@@ -102,7 +103,15 @@ einrichtung:                   # optional: Schritte vor der ersten Verbindung (O
   - {titel: OAuth-Datei ablegen, datei: ~/.gmail-mcp/gcp-oauth.keys.json}   # prüfbar + Upload-Ziel
   - {titel: Anmelden, befehl: "npx -y paket auth"}                            # aus der Oberfläche ausführbar
 risiko_standard: aendern
+bereich: fachlich              # technisch (Dateien, Entwicklung, Web, Umgebung – ohne Rückfrage) | fachlich (Standard)
 ```
+
+**Freigaben nach Bereich** (`werkzeuge.freigabe_noetig`): Jedes Werkzeug hat `risiko` (lesen|aendern|kritisch) und
+`bereich` (technisch|fachlich). Technische Werkzeuge laufen ohne Rückfrage – Ausnahme `schutz` (Dateien löschen,
+Zugangsdaten lesen) und die Einstellung `freigabe_technisch: true` (dann kritische technische Aufrufe). Fachliche
+Werkzeuge werden ab `aendern` vorgelegt (`freigabe_fachlich: aendern|kritisch|nie`). Eingebaute Werkzeuge sind
+technisch außer `termin_anlegen`, `erinnerung_anlegen`, `notiz_anlegen`; Integrationen erben den Katalogwert
+(`bereich`), eigene Integrationen sind fachlich, umstellbar per `bereich` im POST/PUT oder `PUT …/bereich`.
 
 `GET /api/integrationen/katalog` liefert je Eintrag zusätzlich `webseite`, `einrichtung`, `oauth` (Modus oder null),
 `vertrauen` (`offiziell` | `community`), `quelle`, `gruppe` und je Feld `typ`, `standard`, `beschreibung`.

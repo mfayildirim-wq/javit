@@ -270,3 +270,25 @@ mit pwsh geparst (nicht ausgeführt).
   Einstellungen).
 - Oberfläche: `views/Verzeichnisse.tsx` (Suche, Trefferliste, Detail mit Warnkasten und Feldern), Segment „Suchen“
   unter Hinzufügen, Einstellungen „Verzeichnisse“, Detailseite „Aus Verzeichnis“.
+
+---
+
+## 27.10.2026 – Freigaben nach Bereich: technisch ohne Rückfrage, fachlich bestätigen
+
+- Wunsch des Nutzers: technische Dinge (Dateisystem, Umgebung, Shell, Installationen) ohne Berechtigungsfrage mit
+  den Rechten des Systembenutzers; fachliche Dinge bestätigen lassen; Ausnahme: Dateien löschen bleibt
+  bestätigungspflichtig (dazu Zugangsdaten lesen als Vorschlag, angenommen).
+- Befund vorher: Freigabe nur bei Stufe „kritisch“ – Dienst-Werkzeuge mit „ändern“ (Notion-Seite, Aufgabe,
+  Termin) liefen ohne Rückfrage, Shell/Löschen/Installieren fragten. Also fast umgekehrt.
+- Kern: `werkzeuge.Bereich` (`technisch`|`fachlich`), `Werkzeug.bereich`/`schutz`, Regel `freigabe_noetig()`
+  (fachlich ab `aendern` je `freigabe_fachlich`; technisch nur bei `freigabe_technisch` oder `schutz`).
+  Eingebaute Werkzeuge technisch, `termin_anlegen`/`erinnerung_anlegen`/`notiz_anlegen` fachlich (über
+  `FACHLICH_EINGEBAUT`, ohne `mac.py` anzufassen); `datei_loeschen`/`datei_lesen` mit `schutz`. Katalog `bereich`
+  (20 technische Einträge: dateisystem, git, browser, fetch, Suchen, Doku-Server, Zeitzonen, Obsidian, Spotify,
+  Hue, Home Assistant, Wetter, Petstore), Manager `bereich_von()`/`bereich_setzen()`, Werkzeuge werden nach dem
+  Bau markiert; `PUT /api/integrationen/{id}/bereich`; Ereignis `freigabe_noetig` mit `risiko`/`bereich`;
+  Systemprompt angepasst.
+- Oberfläche: Einstellungen „Freigaben“ (Schalter + Stufe), Detailseite „Freigaben“ mit Technisch/Fachlich,
+  Freigabedialog nennt den Bereich.
+- Tests: `tests/test_freigaben.py` (5), `freigaben.test.tsx` (2); E2E „Mini Test“ bekommt `bereich: technisch`,
+  sonst bräuchte `echo` (ändern, fachlich) jetzt eine Freigabe – genau die neue Regel.

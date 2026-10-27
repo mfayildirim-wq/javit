@@ -10,6 +10,14 @@ from typing import Any, Literal
 
 Risiko = Literal["lesen", "aendern", "kritisch"]
 RISIKEN: tuple[Risiko, ...] = ("lesen", "aendern", "kritisch")
+#: Bereich eines Werkzeugs: „technisch“ (Dateien, Shell, Apps, Umgebung – läuft ohne Rückfrage mit den
+#: Rechten des Systembenutzers) oder „fachlich“ (Nachrichten, Termine, Einträge in Diensten, Geld –
+#: Nutzer bestätigt alles, was nicht nur liest).
+Bereich = Literal["technisch", "fachlich"]
+BEREICHE: tuple[Bereich, ...] = ("technisch", "fachlich")
+#: Eingebaute Werkzeuge, die fachliche Daten anlegen (Kalender, Erinnerungen, Notizen)
+FACHLICH_EINGEBAUT = frozenset({"termin_anlegen", "erinnerung_anlegen", "notiz_anlegen"})
+FreigabeFachlich = Literal["aendern", "kritisch", "nie"]
 
 MAX_ERGEBNIS_ZEICHEN = 12000
 
@@ -90,10 +98,17 @@ class Werkzeug:
         risiko: Risiko = "aendern",
         quelle: str = "eingebaut",
         integration: str | None = None,
+        bereich: Bereich | None = None,
+        schutz: bool = False,
     ):
         if risiko not in RISIKEN:
             raise ValueError(f"Ungültige Risikostufe: {risiko}")
+        if bereich is not None and bereich not in BEREICHE:
+            raise ValueError(f"Ungültiger Bereich: {bereich}")
         self.name = name
+        self.bereich: Bereich = bereich or ("fachlich" if name in FACHLICH_EINGEBAUT else "technisch")
+        #: Schutz: auch ohne technische Freigaben bestätigen lassen (Dateien löschen, Zugangsdaten lesen)
+        self.schutz = schutz
         self.beschreibung = beschreibung
         self.json_schema = json_schema or {"type": "object", "properties": {}}
         self.json_schema.setdefault("type", "object")
@@ -110,7 +125,9 @@ class Werkzeug:
         return self.risiko
 
     def freigabe_grund(self, argumente: dict[str, Any]) -> str:
-        return f"„{self.name}“ ist als kritisch eingestuft: {self.beschreibung}"
+        if self.risiko_fuer(argumente) == "kritisch":
+            return f"„{self.name}“ ist als kritisch eingestuft: {self.beschreibung}"
+        return f"„{self.name}“ ändert Daten (fachliche Aktion): {self.beschreibung}"
 
     def als_openai(self) -> dict[str, Any]:
         return {
@@ -128,6 +145,7 @@ class Werkzeug:
             "beschreibung": self.beschreibung,
             "quelle": self.quelle,
             "risiko": self.risiko,
+            "bereich": self.bereich,
         }
         if self.integration:
             info["integration"] = self.integration
@@ -148,8 +166,10 @@ class FunktionsWerkzeug(Werkzeug):
         integration: str | None = None,
         risiko_fuer: Callable[[dict[str, Any]], Risiko] | None = None,
         grund: Callable[[dict[str, Any]], str] | None = None,
+        bereich: Bereich | None = None,
+        schutz: bool = False,
     ):
-        super().__init__(name, beschreibung, json_schema, risiko, quelle, integration)
+        super().__init__(name, beschreibung, json_schema, risiko, quelle, integration, bereich, schutz)
         self._funktion = funktion
         self._risiko_fuer = risiko_fuer
         self._grund = grund
@@ -166,6 +186,30 @@ class FunktionsWerkzeug(Werkzeug):
         if self._grund:
             return self._grund(argumente)
         return super().freigabe_grund(argumente)
+
+
+def freigabe_noetig(
+    w: Werkzeug, argumente: dict[str, Any], freigabe_technisch: bool = False, freigabe_fachlich: str = "aendern"
+) -> Risiko | None:
+    """Entscheidet, ob ein Aufruf dem Nutzer vorgelegt wird; liefert die Risikostufe oder None.
+
+    * fachlich: alles außer Lesen (Stufe ``freigabe_fachlich``: „aendern“ = ab Ändern, „kritisch“ = nur
+      Kritisches, „nie“ = gar nicht).
+    * technisch: nur bei ``freigabe_technisch`` kritische Aufrufe – Ausnahme ``schutz`` (Dateien löschen,
+      Zugangsdaten lesen), das bleibt immer bestätigungspflichtig.
+    """
+    risiko = w.risiko_fuer(argumente)
+    if risiko == "lesen":
+        return None
+    if w.bereich == "fachlich":
+        if freigabe_fachlich == "nie":
+            return None
+        if freigabe_fachlich == "kritisch" and risiko != "kritisch":
+            return None
+        return risiko
+    if risiko == "kritisch" and (freigabe_technisch or w.schutz):
+        return risiko
+    return None
 
 
 def schema(eigenschaften: dict[str, Any] | None = None, pflicht: list[str] | None = None) -> dict:
