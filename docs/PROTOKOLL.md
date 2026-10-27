@@ -204,3 +204,19 @@ mit pwsh geparst (nicht ausgeführt).
   Upload- und Ausführen-Knöpfe. Nicht real durchgespielt: der Google-Anmeldelauf selbst.
 - Tests: `tests/test_einrichtung.py` (9), Oberfläche `integrationen-ansicht.test.tsx` (3) +
   `integration.test.tsx`; Kern 487 grün (ohne vorbestehenden Linux-Pfad-Test), Oberfläche 61 grün.
+
+---
+
+## 27.10.2026 – Werkzeugaufrufe als Text („DSML“) bei OpenRouter-Modellen
+
+- Symptom: Auf „welche Verzeichnisse gibt es?“ zeigte Javit `<｜DSML｜ calls> <｜DSML｜ invoke name="dateisystem_listallowed_directories">…`
+  als Antwort. Ursache: `litellm.supports_function_calling()` kennt die meisten OpenRouter-Modelle nicht
+  (GLM 5.3 Flash, DeepSeek V4.1 → False), Javit fiel in den Prompt-Modus, und DeepSeek/GLM antworteten
+  dort mit ihrem eigenen DSML-Aufrufformat statt mit dem verlangten JSON; direkt getestet liefern beide
+  Modelle über OpenRouter native Tool-Calls, auch im Streaming.
+- Behebung in `llm.py`: Cloud-Modelle gelten als tool-fähig; bei OpenRouter entscheidet die Live-Liste
+  (`supported_parameters` enthält „tools“), unbekannt → tool-fähig. Zusätzlich DSML-Parser
+  (`dsml_aufrufe_parsen`, Vollbreite- und ASCII-Striche, Parameter als JSON oder Text), Markup wird nie
+  mehr roh angezeigt (Stream hält `<｜`/`<|` zurück, auch im nativen Modus), und kleine Namensfehler des
+  Modells (`dateisystem_listallowed_directories`) werden eindeutig auf das echte Werkzeug aufgelöst.
+- Live mit `openrouter/z-ai/glm-5.3-flash`: nativer Modus, Aufruf `dateisystem__list_allowed_directories`.

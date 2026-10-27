@@ -163,6 +163,62 @@ _NAME_SCHLUESSEL = ("werkzeug", "tool", "name", "function", "funktion")
 _ARG_SCHLUESSEL = ("argumente", "arguments", "parameters", "parameter", "args", "input")
 
 
+def _normiert(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def werkzeugname_aufloesen(name: str, erlaubt: set[str]) -> str | None:
+    """Exakter Name oder – bei kleinen Schreibfehlern des Modells wie ``dateisystem_listallowed_directories``
+    statt ``dateisystem__list_allowed_directories`` – der eindeutige Treffer ohne Unterstriche/Groß-Klein."""
+    if not name:
+        return None
+    if not erlaubt or name in erlaubt:
+        return name
+    treffer = [n for n in erlaubt if _normiert(n) == _normiert(name)]
+    return treffer[0] if len(treffer) == 1 else None
+
+
+# Aufrufformat von DeepSeek/GLM („DSML“), das manche Modelle als Text ausgeben, z. B.
+# <｜DSML｜invoke name="x"><｜DSML｜parameter name="a">1</｜DSML｜parameter></｜DSML｜invoke>
+_DSML = r"<\s*/?\s*[｜|]\s*DSML\s*[｜|]"
+_DSML_INVOKE = re.compile(
+    r"<\s*[｜|]\s*DSML\s*[｜|]\s*invoke\s+name=\"([^\"]+)\"\s*>(.*?)(?:<\s*/\s*[｜|]\s*DSML\s*[｜|]\s*invoke\s*>|$)", re.S
+)
+_DSML_PARAM = re.compile(
+    r"<\s*[｜|]\s*DSML\s*[｜|]\s*parameter\s+name=\"([^\"]+)\"\s*>(.*?)<\s*/\s*[｜|]\s*DSML\s*[｜|]\s*parameter\s*>", re.S
+)
+_DSML_BLOCK = re.compile(r"<\s*[｜|]\s*DSML\s*[｜|]\s*(?:function_)?calls\s*>.*?(?:<\s*/\s*[｜|]\s*DSML\s*[｜|]\s*(?:function_)?calls\s*>|$)", re.S)
+_DSML_TAG = re.compile(_DSML + r"[^>]*>")
+
+
+def enthaelt_dsml(text: str) -> bool:
+    return bool(re.search(_DSML, text))
+
+
+def dsml_aufrufe_parsen(text: str, erlaubt: set[str]) -> tuple[str, list[WerkzeugAufruf]]:
+    """Werkzeugaufrufe im DSML-Format aus dem Text; das Markup wird in jedem Fall entfernt."""
+    if not enthaelt_dsml(text):
+        return text, []
+    aufrufe: list[WerkzeugAufruf] = []
+    for m in _DSML_INVOKE.finditer(text):
+        name = werkzeugname_aufloesen(m.group(1).strip(), erlaubt)
+        if not name:
+            continue
+        argumente: dict[str, Any] = {}
+        for pm in _DSML_PARAM.finditer(m.group(2)):
+            wert = pm.group(2).strip()
+            try:
+                argumente[pm.group(1).strip()] = json.loads(wert)
+            except json.JSONDecodeError:
+                argumente[pm.group(1).strip()] = wert
+        aufrufe.append(WerkzeugAufruf(id=f"aufruf_{uuid.uuid4().hex[:12]}", name=name, argumente=argumente,
+                                      roh=json.dumps(argumente, ensure_ascii=False)))
+    rest = _DSML_BLOCK.sub("", text)
+    rest = _DSML_INVOKE.sub("", rest)
+    rest = _DSML_TAG.sub("", rest)
+    return rest.strip(), aufrufe
+
+
 def _als_aufruf(obj: Any, erlaubt: set[str]) -> WerkzeugAufruf | None:
     if not isinstance(obj, dict):
         return None
@@ -170,7 +226,8 @@ def _als_aufruf(obj: Any, erlaubt: set[str]) -> WerkzeugAufruf | None:
     if isinstance(obj.get("function"), dict):  # OpenAI-ähnliches Format
         name = obj["function"].get("name")
         obj = {"argumente": obj["function"].get("arguments", {})}
-    if not name or (erlaubt and name not in erlaubt):
+    name = werkzeugname_aufloesen(name or "", erlaubt)
+    if not name:
         return None
     argumente: Any = next((obj[k] for k in _ARG_SCHLUESSEL if k in obj), {})
     argumente, fehler = argumente_parsen(argumente) if not isinstance(argumente, dict) else (argumente, None)
@@ -184,8 +241,10 @@ def _als_aufruf(obj: Any, erlaubt: set[str]) -> WerkzeugAufruf | None:
 
 
 def werkzeug_aufrufe_parsen(text: str, erlaubte_namen: set[str] | None = None) -> tuple[str, list[WerkzeugAufruf]]:
-    """Sucht JSON-Werkzeugaufrufe im Text. Gibt (Resttext, Aufrufe) zurück."""
+    """Sucht JSON- (oder DSML-)Werkzeugaufrufe im Text. Gibt (Resttext, Aufrufe) zurück."""
     erlaubt = erlaubte_namen or set()
+    if enthaelt_dsml(text):
+        return dsml_aufrufe_parsen(text, erlaubt)
     kandidaten: list[tuple[int, int, str]] = []
     for m in re.finditer(r"```(?:json|JSON)?\s*(.*?)```", text, re.S):
         kandidaten.append((m.start(), m.end(), m.group(1)))
@@ -264,9 +323,6 @@ LOKALE_VORSCHLAEGE = [
 
 # Ollama-Modelle, die keine Chatmodelle sind (Einbettungen) – nicht als Sprachmodell vorschlagen
 _KEIN_CHATMODELL = ("embed", "bge-", "minilm", "nomic-embed")
-
-_NATIVE_ANBIETER = {"anthropic", "openai", "gemini", "vertex_ai", "mistral", "groq", "azure", "bedrock", "deepseek", "xai"}
-
 
 def ist_ollama(modell: str) -> bool:
     return modell.startswith(("ollama/", "ollama_chat/"))
@@ -348,17 +404,26 @@ class LLMFassade:
         ergebnis = True
         if ist_ollama(modell):
             ergebnis = await self._ollama_kann_werkzeuge(ollama_name(modell))
-        else:
-            anbieter = modell.split("/", 1)[0] if "/" in modell else ""
-            if anbieter not in _NATIVE_ANBIETER:
-                try:
-                    import litellm
-
-                    ergebnis = bool(litellm.supports_function_calling(model=modell))
-                except Exception:  # noqa: BLE001
-                    ergebnis = True
+        elif modell.startswith("openrouter/"):
+            # LiteLLMs Tabelle kennt die meisten OpenRouter-Modelle nicht (→ fälschlich „keine Werkzeuge“,
+            # dann antworten DeepSeek/GLM im Prompt-Modus mit DSML-Markup). Die Live-Liste von OpenRouter
+            # weiß es („tools“ in supported_parameters); ohne Angabe gilt: tool-fähig.
+            ergebnis = await self._openrouter_kann_werkzeuge(modell.split("/", 1)[1])
         self._werkzeug_cache[modell] = ergebnis
         return ergebnis
+
+    async def _openrouter_kann_werkzeuge(self, kennung: str) -> bool:
+        a = anbieter_register.anbieter_finden("openrouter")
+        if a is None:
+            return True
+        try:
+            live = await self.modelllisten.laden(a)
+        except Exception:  # noqa: BLE001
+            return True
+        for e in live:
+            if e.id == kennung:
+                return e.werkzeuge is not False
+        return True
 
     async def _ollama_kann_werkzeuge(self, name: str) -> bool:
         try:
@@ -424,6 +489,9 @@ class LLMFassade:
                     continue
                 text += inhalt
                 if nativ:
+                    if zurueckhalten or text.lstrip().startswith(("<｜", "<|")):
+                        zurueckhalten = True  # DSML-Markup als Text – wird am Ende geparst
+                        continue
                     gestreamt = len(text)
                     yield {"typ": "text", "delta": inhalt}
                     continue
@@ -431,10 +499,10 @@ class LLMFassade:
                     neu = text[gestreamt:]
                     if not text.strip():
                         continue
-                    if text.lstrip()[0] in "{[`":
+                    if text.lstrip()[0] in "{[`" or text.lstrip().startswith(("<｜", "<|")):
                         zurueckhalten = True
                         continue
-                    pos = min((neu.find(z) for z in "{`" if z in neu), default=-1)
+                    pos = min((neu.find(z) for z in ("{", "`", "<｜", "<|") if z in neu), default=-1)
                     if pos >= 0:
                         zurueckhalten = True
                         neu = neu[:pos]
@@ -445,11 +513,11 @@ class LLMFassade:
             raise LLMFehler(self._fehlertext(e, modell)) from e
 
         aufrufe = sammler.ergebnis()
-        if not nativ and werkzeuge:
+        if werkzeuge and (not nativ or (not aufrufe and enthaelt_dsml(text))):
             namen = {(w.get("function") or w).get("name") for w in werkzeuge}
             rest, aufrufe_prompt = werkzeug_aufrufe_parsen(text, namen)
-            if aufrufe_prompt:
-                aufrufe = aufrufe_prompt
+            if aufrufe_prompt or enthaelt_dsml(text):
+                aufrufe = aufrufe_prompt or aufrufe
                 text = rest
         if not aufrufe and gestreamt < len(text):
             yield {"typ": "text", "delta": text[gestreamt:]}

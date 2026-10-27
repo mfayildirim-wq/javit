@@ -220,3 +220,65 @@ async def test_api_base_nur_fuer_das_konfigurierte_modell():
     # Ein anderes Modell (anderer Anbieter-Schlüssel) geht nie an diesen Endpunkt
     await _sammeln(llm.antwort_streamen([{"role": "user", "content": "x"}], modell="anthropic/claude-sonnet-5-5"))
     assert "api_base" not in skript.aufrufe[1]
+
+
+# ---------- DSML-Aufrufformat (DeepSeek/GLM) und Werkzeugnamen ----------
+
+from jarvis.llm import dsml_aufrufe_parsen, werkzeug_aufrufe_parsen, werkzeugname_aufloesen  # noqa: E402
+
+
+def test_werkzeugname_aufloesen():
+    erlaubt = {"dateisystem__list_allowed_directories", "dateisystem__read_file", "uhrzeit_datum"}
+    assert werkzeugname_aufloesen("uhrzeit_datum", erlaubt) == "uhrzeit_datum"
+    assert werkzeugname_aufloesen("dateisystem_listallowed_directories", erlaubt) == "dateisystem__list_allowed_directories"
+    assert werkzeugname_aufloesen("Dateisystem__Read_File", erlaubt) == "dateisystem__read_file"
+    assert werkzeugname_aufloesen("gibtsnicht", erlaubt) is None
+    assert werkzeugname_aufloesen("x", set()) == "x"
+
+
+def test_dsml_aufrufe_parsen():
+    erlaubt = {"dateisystem__list_allowed_directories", "web_suchen"}
+    # genau so kam es in der Oberfläche an (Leerzeichen in den Tags, Vollbreite-Striche)
+    text = '<｜DSML｜ calls> <｜DSML｜ invoke name="dateisystem_listallowed_directories"> </｜DSML｜ invoke> </｜DSML｜ calls>'
+    rest, aufrufe = werkzeug_aufrufe_parsen(text, erlaubt)
+    assert rest == "" and [a.name for a in aufrufe] == ["dateisystem__list_allowed_directories"] and aufrufe[0].argumente == {}
+    # Parameter (JSON und Text), ASCII-Striche, Text davor bleibt
+    text = 'Ich suche das.\n<|DSML|function_calls><|DSML|invoke name="web_suchen"><|DSML|parameter name="anfrage">Wetter Köln</|DSML|parameter><|DSML|parameter name="anzahl">3</|DSML|parameter></|DSML|invoke></|DSML|function_calls>'
+    rest, aufrufe = dsml_aufrufe_parsen(text, erlaubt)
+    assert rest == "Ich suche das." and aufrufe[0].name == "web_suchen" and aufrufe[0].argumente == {"anfrage": "Wetter Köln", "anzahl": 3}
+    # unbekanntes Werkzeug: kein Aufruf, aber das Markup verschwindet trotzdem
+    rest, aufrufe = dsml_aufrufe_parsen('Hallo <｜DSML｜invoke name="nix"></｜DSML｜invoke>', erlaubt)
+    assert rest == "Hallo" and aufrufe == []
+    assert dsml_aufrufe_parsen("normaler Text", erlaubt) == ("normaler Text", [])
+
+
+async def test_streaming_haelt_dsml_zurueck_und_parst_nativ_und_prompt():
+    werkzeuge = [{"type": "function", "function": {"name": "uhrzeit_datum", "parameters": {"type": "object", "properties": {}}}}]
+    dsml = '<｜DSML｜ calls> <｜DSML｜ invoke name="uhrzeit_datum"> </｜DSML｜ invoke> </｜DSML｜ calls>'
+    for modus in ("nativ", "prompt"):
+        e = Einstellungen(modell="openrouter/z-ai/glm-5.3-flash", werkzeug_modus=modus)
+        llm = LLMFassade(e, acompletion=SkriptLLM([text_chunks(dsml)]))
+        texte, ende = await _sammeln(llm.antwort_streamen([{"role": "user", "content": "x"}], werkzeuge=werkzeuge))
+        assert texte == [], modus  # kein Markup beim Nutzer
+        assert [a.name for a in ende["werkzeug_aufrufe"]] == ["uhrzeit_datum"] and ende["text"] == "", modus
+
+
+async def test_openrouter_gilt_als_toolfaehig_ausser_liveliste_verneint(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "openrouter.ai":
+            return httpx.Response(200, json={"data": [
+                {"id": "z-ai/glm-5.3-flash", "pricing": {"prompt": "1", "completion": "1"}, "supported_parameters": ["tools"]},
+                {"id": "x/ohne-tools", "pricing": {"prompt": "1", "completion": "1"}, "supported_parameters": ["temperature"]},
+            ]})
+        raise httpx.ConnectError("weg")
+
+    llm = LLMFassade(Einstellungen(), http_client_fabrik=mock_fabrik(handler))
+    assert await llm.unterstuetzt_werkzeuge("openrouter/z-ai/glm-5.3-flash") is True
+    assert await llm.unterstuetzt_werkzeuge("openrouter/x/ohne-tools") is False
+    assert await llm.unterstuetzt_werkzeuge("openrouter/unbekannt/modell") is True
+    assert await llm.unterstuetzt_werkzeuge("moonshot/kimi-k3") is True  # kein LiteLLM-Tabellenblick mehr
+    # ohne Erreichbarkeit der Liste: tool-fähig
+    llm2 = LLMFassade(Einstellungen(), http_client_fabrik=mock_fabrik(lambda r: (_ for _ in ()).throw(httpx.ConnectError("weg"))))
+    assert await llm2.unterstuetzt_werkzeuge("openrouter/z-ai/glm-5.3-flash") is True
