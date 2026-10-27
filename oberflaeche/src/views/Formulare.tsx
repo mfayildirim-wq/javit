@@ -518,6 +518,103 @@ export function EigeneFormular({ art, onAnlegen }: { art: EigeneArt; onAnlegen: 
   }
 }
 
+/** Eine Gruppe zusammengehöriger Katalogeinträge (z. B. Google Workspace): Dienste wählen, gemeinsame
+ * Werte einmal eingeben, Einrichtungsschritte des ersten Mitglieds zeigen. */
+export function GruppenFormular({
+  mitglieder,
+  installiert,
+  onAnlegen,
+  onFertig,
+}: {
+  mitglieder: KatalogEintrag[];
+  installiert: Set<string>;
+  onAnlegen: Anlegen;
+  onFertig: () => void;
+}) {
+  const erster = mitglieder[0];
+  const [gewaehlt, setGewaehlt] = useState<Set<string>>(() => new Set(mitglieder.slice(0, 2).map((m) => m.id)));
+  const [werte, setWerte] = useState<Record<string, string>>(() => (erster ? katalogStart(erster) : {}));
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState<string | null>(null);
+  const [fertig, setFertig] = useState<string[]>([]);
+  if (!erster) return null;
+  const umschalten = (id: string) => {
+    const n = new Set(gewaehlt);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    setGewaehlt(n);
+  };
+  const anlegen = async (e: FormEvent) => {
+    e.preventDefault();
+    const ziele = mitglieder.filter((m) => gewaehlt.has(m.id));
+    if (ziele.length === 0) {
+      setFehler('Mindestens einen Dienst auswählen.');
+      return;
+    }
+    setFehler(null);
+    const geschafft: string[] = [];
+    try {
+      for (const m of ziele) {
+        const r = katalogBody(m, werte);
+        if (!r.ok) {
+          setFehler(r.fehler);
+          return;
+        }
+        setLaeuft(m.name);
+        await onAnlegen(r.body);
+        geschafft.push(m.name);
+        setFertig([...geschafft]);
+      }
+      onFertig();
+    } catch (err) {
+      setFehler(`${geschafft.length ? `${geschafft.join(', ')} angelegt. ` : ''}${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLaeuft(null);
+    }
+  };
+  return (
+    <form className="formular" onSubmit={anlegen}>
+      <Feld label="Dienste" gruppe>
+        {() => (
+          <div className="dienste-wahl">
+            {mitglieder.map((m) => (
+              <label key={m.id} className={`dienst ${installiert.has(m.id) ? 'ist-da' : ''}`}>
+                <input type="checkbox" checked={gewaehlt.has(m.id)} onChange={() => umschalten(m.id)} />
+                <span>
+                  {m.name}
+                  {installiert.has(m.id) && <span className="marke-chip lokal">installiert</span>}
+                </span>
+                <span className="gedaempft">{m.beschreibung}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </Feld>
+      {erster.benoetigt.map((f) => (
+        <Feld key={f.name} label={f.titel} hilfe={<code>{f.name}</code>}>
+          {(id) => (
+            <input
+              id={id}
+              type={f.geheim ? 'password' : 'text'}
+              autoComplete={f.geheim ? 'new-password' : 'off'}
+              className={f.geheim ? '' : 'mono'}
+              value={werte[f.name] ?? ''}
+              onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
+            />
+          )}
+        </Feld>
+      ))}
+      <p className="formular-hinweis">
+        Für jeden gewählten Dienst öffnet sich einmal die Anmeldung im Browser (Google fragt die Berechtigungen je Dienst ab).
+        {erster.hinweis ? ` ${erster.hinweis}` : ''}
+      </p>
+      {fertig.length > 0 && <p className="ok-text">Angelegt: {fertig.join(', ')}</p>}
+      <Fehler text={fehler} />
+      <Absenden laeuft={laeuft !== null} text={laeuft ? `Verbinde ${laeuft} …` : `${gewaehlt.size} ${gewaehlt.size === 1 ? 'Dienst' : 'Dienste'} hinzufügen`} />
+    </form>
+  );
+}
+
 /** Bearbeiten einer installierten Integration: passendes Formular, vorbelegt aus den Details. */
 export function BearbeitenFormular({
   details,

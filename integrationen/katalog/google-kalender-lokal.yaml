@@ -1,0 +1,27 @@
+id: google-kalender-lokal
+name: Google Kalender (lokal, Community)
+beschreibung: Community-Server für Google Kalender, läuft lokal per npx mit eigener OAuth-Datei
+kategorie: Produktivität
+icon: calendar
+art: mcp_stdio
+befehl: npx -y @cocal/google-calendar-mcp
+benoetigt:
+- name: GOOGLE_OAUTH_CREDENTIALS
+  titel: Pfad zur OAuth-Datei (gcp-oauth.keys.json)
+  typ: datei
+  standard: ~/.jarvis/dateien/google-kalender-oauth.json
+  beschreibung: Wird durch den Upload unter „Einrichtung“ angelegt; alternativ Pfad zu einer vorhandenen Datei.
+hinweis: 'Alternative zum offiziellen Google-Kalender-Server: OAuth-Client vom Typ „Desktop-App“ anlegen, JSON unter
+  „Einrichtung“ hochladen. Beim ersten Start öffnet sich der Browser.'
+webseite: https://github.com/nspady/google-calendar-mcp
+einrichtung:
+- titel: Calendar API aktivieren
+  text: In der Google Cloud Console ein Projekt wählen oder anlegen und die Google Calendar API aktivieren.
+  link: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com
+- titel: OAuth-Client anlegen und JSON herunterladen
+  text: Unter „Anmeldedaten“ einen OAuth-Client vom Typ „Desktop-App“ erstellen und die JSON-Datei herunterladen.
+  link: https://console.cloud.google.com/apis/credentials
+- titel: OAuth-Datei ablegen
+  text: Die heruntergeladene JSON-Datei hier hochladen.
+  datei: ~/.jarvis/dateien/google-kalender-oauth.json
+risiko_standard: aendern

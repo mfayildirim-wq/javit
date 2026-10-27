@@ -104,19 +104,19 @@ async def test_rest_aus_katalog_persistieren_und_entfernen(isoliert):
 async def test_fehlende_werte_und_geheimnisse(isoliert):
     m = _manager()
     with pytest.raises(FehlendeWerte) as fehler:
-        await m.hinzufuegen({"katalog": "notion"})
-    assert [b.name for b in fehler.value.fehlend] == ["NOTION_TOKEN"]
-    assert "notion.so" in fehler.value.hinweis
+        await m.hinzufuegen({"katalog": "github-token"})
+    assert [b.name for b in fehler.value.fehlend] == ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+    assert "github.com" in fehler.value.hinweis
     # github: geheimer Token landet im Speicher, nicht in der JSON
-    info = await m.hinzufuegen({"katalog": "github", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_supergeheim"}}, starten=False)
+    info = await m.hinzufuegen({"katalog": "github-token", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_supergeheim"}}, starten=False)
     assert info["status"] == "aus"
     inhalt = (isoliert / "integrationen.json").read_text()
     assert "ghp_supergeheim" not in inhalt and "${GITHUB_PERSONAL_ACCESS_TOKEN}" in inhalt
     assert m.geheimnisse.holen("GITHUB_PERSONAL_ACCESS_TOKEN") == "ghp_supergeheim"
-    # Ein gespeichertes Geheimnis wird wiederverwendet (z. B. per Sprache „integriere Notion“)
-    m.geheimnisse.setzen("NOTION_TOKEN", "ntn_x")
-    konfig = m.konfig_aus_anfrage({"katalog": "notion"})
-    assert konfig.geheimnisse == ["NOTION_TOKEN"] and konfig.befehl == ["npx", "-y", "@notionhq/notion-mcp-server"]
+    # Ein gespeichertes Geheimnis wird wiederverwendet (z. B. per Sprache „integriere GitHub“)
+    m.geheimnisse.setzen("TODOIST_API_KEY", "td_x")
+    konfig = m.konfig_aus_anfrage({"katalog": "todoist"})
+    assert konfig.geheimnisse == ["TODOIST_API_KEY"] and konfig.befehl[:2] == ["npx", "-y"]
     # Standardwerte und Platzhalter
     konfig = m.konfig_aus_anfrage({"katalog": "dateisystem"})
     assert konfig.umgebung == {"VERZEICHNIS": "~/Documents"} and konfig.befehl[-1] == "${VERZEICHNIS}"

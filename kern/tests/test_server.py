@@ -59,8 +59,8 @@ def test_rest_endpunkte():
         spotify = next(x for x in k if x["id"] == "spotify")
         assert spotify["icon"] == "music" and spotify["benoetigt"][0]["name"] == "SPOTIFY_CLIENT_ID"
 
-        r = c.post("/api/integrationen", json={"katalog": "notion"})
-        assert r.status_code == 400 and r.json()["fehlend"][0]["name"] == "NOTION_TOKEN"
+        r = c.post("/api/integrationen", json={"katalog": "github-token"})
+        assert r.status_code == 400 and r.json()["fehlend"][0]["name"] == "GITHUB_PERSONAL_ACCESS_TOKEN"
         r = c.post("/api/integrationen", json={"name": "Wetter", "rest": [
             {"name": "wetter_abrufen", "methode": "GET", "url": "https://api.open-meteo.com/v1/forecast",
              "parameter": {"latitude": "zahl", "longitude": "zahl", "current_weather": "text"}, "beschreibung": "Wetter"}]})

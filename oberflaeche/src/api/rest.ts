@@ -104,6 +104,8 @@ export const api = {
     anfrage<SchrittStand>('GET', `/integrationen/katalog/${encodeURIComponent(id)}/einrichtung/${schritt}/stand`),
   integrationNeuVerbinden: (id: string) =>
     anfrage<unknown>('POST', `/integrationen/${encodeURIComponent(id)}/neu-verbinden`),
+  integrationAbmelden: (id: string) => anfrage<Integration>('POST', `/integrationen/${encodeURIComponent(id)}/abmelden`),
+  integrationAnmelden: (id: string) => anfrage<Integration>('POST', `/integrationen/${encodeURIComponent(id)}/anmelden`),
   verlauf: async (limit = 20) =>
     liste<VerlaufEintrag>(await anfrage<unknown>('GET', `/verlauf?limit=${limit}`), 'verlauf', 'nachrichten'),
   gedaechtnis: async () =>

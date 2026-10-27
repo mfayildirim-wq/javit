@@ -1,0 +1,14 @@
+id: microsoft-learn
+name: Microsoft Learn
+beschreibung: Offizielle Microsoft-Dokumentation durchsuchen, Artikel und Codebeispiele abrufen (Azure, .NET, Windows,
+  M365)
+kategorie: Wissen
+icon: book-open
+art: mcp_http
+url: https://learn.microsoft.com/api/mcp
+benoetigt: []
+vertrauen: offiziell
+quelle: https://learn.microsoft.com/en-us/training/support/mcp
+hinweis: Offizieller Server, ohne Anmeldung nutzbar.
+webseite: https://learn.microsoft.com/en-us/training/support/mcp
+risiko_standard: lesen

@@ -32,6 +32,7 @@ def isoliert(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("JARVIS_GEHEIMNIS_BACKEND", "datei")
     monkeypatch.setenv("JARVIS_OBERFLAECHE", str(tmp_path / "keine_oberflaeche"))
     monkeypatch.setenv("JARVIS_KEIN_DOWNLOAD", "1")  # z. B. keine Piper-Stimmen laden
+    monkeypatch.setenv("JARVIS_OHNE_BROWSER", "1")  # OAuth-Anmeldungen öffnen in Tests keinen Browser
     monkeypatch.delenv("JARVIS_PLATTFORM", raising=False)
     from jarvis import konfig
 

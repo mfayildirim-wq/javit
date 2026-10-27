@@ -20,6 +20,20 @@ const dateisystemKatalog = {
   benoetigt: [{ name: 'VERZEICHNIS', titel: 'Freigegebener Ordner', geheim: false, typ: 'ordner', standard: '~/Documents' }], hinweis: 'Nur der Ordner', einrichtung: [],
 };
 
+const notionKatalog = {
+  id: 'notion', name: 'Notion', beschreibung: 'Seiten', kategorie: 'Produktivität', icon: 'notebook', art: 'mcp_http', benoetigt: [], hinweis: 'Offiziell',
+  oauth: 'entdeckung', vertrauen: 'offiziell', quelle: 'https://developers.notion.com/docs/mcp', einrichtung: [],
+};
+const googleFelder = [
+  { name: 'GOOGLE_OAUTH_CLIENT_ID', titel: 'OAuth-Client-ID', geheim: false },
+  { name: 'GOOGLE_OAUTH_CLIENT_SECRET', titel: 'OAuth-Client-Secret', geheim: true },
+];
+const googleKatalog = [
+  { id: 'google-gmail', name: 'Gmail', beschreibung: 'E-Mails', kategorie: 'Google Workspace', icon: 'mail', art: 'mcp_http', benoetigt: googleFelder, hinweis: 'Google', oauth: 'manuell', vertrauen: 'offiziell', quelle: 'https://developers.google.com/workspace/guides/configure-mcp-servers', gruppe: 'google-workspace', einrichtung: [] },
+  { id: 'google-kalender', name: 'Google Kalender', beschreibung: 'Termine', kategorie: 'Google Workspace', icon: 'calendar', art: 'mcp_http', benoetigt: googleFelder, hinweis: 'Google', oauth: 'manuell', vertrauen: 'offiziell', quelle: 'https://developers.google.com/workspace/guides/configure-mcp-servers', gruppe: 'google-workspace', einrichtung: [] },
+  { id: 'google-drive', name: 'Google Drive', beschreibung: 'Dateien', kategorie: 'Google Workspace', icon: 'hard-drive', art: 'mcp_http', benoetigt: googleFelder, hinweis: 'Google', oauth: 'manuell', vertrauen: 'offiziell', quelle: 'https://developers.google.com/workspace/guides/configure-mcp-servers', gruppe: 'google-workspace', einrichtung: [] },
+];
+
 function fetchAttrappe(aufrufe: Aufruf[]) {
   let dateiDa = false;
   const einrichtung = () => gmailKatalog.einrichtung.map((s, i) => ({ ...s, erfuellt: i === 1 ? dateiDa : null }));
@@ -33,8 +47,9 @@ function fetchAttrappe(aufrufe: Aufruf[]) {
       return json([
         { id: 'gmail', name: 'Gmail', art: 'mcp_stdio', status: 'fehler', werkzeuge: 0, fehler: 'Server meldet: OAuth keys file not found' },
         { id: 'dateisystem', name: 'Dateisystem', art: 'mcp_stdio', status: 'verbunden', werkzeuge: 14 },
+        { id: 'notion', name: 'Notion', art: 'mcp_http', status: 'verbunden', werkzeuge: 3 },
       ]);
-    if (pfad === '/api/integrationen/katalog' && methode === 'GET') return json([gmailKatalog, dateisystemKatalog]);
+    if (pfad === '/api/integrationen/katalog' && methode === 'GET') return json([gmailKatalog, dateisystemKatalog, notionKatalog, ...googleKatalog]);
     if (pfad === '/api/integrationen/katalog/gmail' && methode === 'GET') return json({ ...gmailKatalog, einrichtung: einrichtung(), installiert: true });
     if (pfad === '/api/integrationen/katalog/gmail/einrichtung/1/datei' && methode === 'POST') {
       dateiDa = true;
@@ -52,6 +67,14 @@ function fetchAttrappe(aufrufe: Aufruf[]) {
         werkzeug_liste: [],
         protokoll: ['Error: OAuth keys file not found'],
       });
+    if (pfad === '/api/integrationen/notion' && methode === 'GET')
+      return json({
+        id: 'notion', name: 'Notion', art: 'mcp_http', status: 'verbunden', werkzeuge: 3, oauth: { modus: 'entdeckung', angemeldet: true },
+        katalog: { id: 'notion', name: 'Notion', hinweis: 'Offiziell', webseite: null, benoetigt: [], einrichtung: [] }, werte: {},
+        konfig: { befehl: null, url: 'https://mcp.notion.com/mcp', kopfzeilen: {}, umgebung: {}, auth: null, rest: null, geheimnisse: [], risiko_standard: 'aendern', werkzeug_risiko: {}, aktiv: true, hinzugefuegt: '' },
+        werkzeug_liste: [], protokoll: [],
+      });
+    if (pfad === '/api/integrationen/notion/abmelden' && methode === 'POST') return json({ id: 'notion', name: 'Notion', art: 'mcp_http', status: 'aus', werkzeuge: 0 });
     if (pfad === '/api/integrationen/dateisystem' && methode === 'GET')
       return json({
         id: 'dateisystem', name: 'Dateisystem', art: 'mcp_stdio', status: 'verbunden', werkzeuge: 1,
@@ -153,5 +176,43 @@ describe('Integrationen: Detailseite, Einrichtung, Bearbeiten, Hinzufügen', () 
     await u.click(screen.getByRole('button', { name: /Dateisystem/ }));
     expect(await screen.findByLabelText('Freigegebener Ordner')).toHaveValue('~/Documents');
     expect(screen.getByText(/keine Platzhalter/)).toBeInTheDocument();
+  });
+
+  it('Katalog: Herkunfts-Chips, Google-Workspace-Gruppe legt gewählte Dienste mit gemeinsamen Werten an', async () => {
+    const u = userEvent.setup();
+    render(<IntegrationsAnsicht />);
+    await screen.findByRole('button', { name: 'Gmail öffnen' });
+    await u.click(screen.getByRole('button', { name: 'Integration hinzufügen' }));
+    const notion = await screen.findByRole('button', { name: /Notion/ });
+    expect(notion).toHaveTextContent('Offiziell');
+    expect(notion).toHaveTextContent('Anmeldung im Browser');
+    expect(screen.getByRole('button', { name: /Dateisystem/ })).toHaveTextContent('Community');
+    expect(screen.queryByRole('button', { name: /^Google Drive/ })).not.toBeInTheDocument();
+    await u.click(screen.getByRole('button', { name: 'Google Workspace öffnen' }));
+    expect(screen.getByRole('checkbox', { name: /Gmail/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Google Drive/ })).not.toBeChecked();
+    await u.click(screen.getByRole('checkbox', { name: /Google Kalender/ }));
+    await u.type(screen.getByLabelText('OAuth-Client-ID'), 'cid.apps');
+    await u.type(screen.getByLabelText('OAuth-Client-Secret'), 'cs-1');
+    await u.click(screen.getByRole('button', { name: '1 Dienst hinzufügen' }));
+    await waitFor(() =>
+      expect(aufrufe).toContainEqual({ methode: 'POST', pfad: '/api/integrationen', body: { katalog: 'google-gmail', werte: { GOOGLE_OAUTH_CLIENT_ID: 'cid.apps', GOOGLE_OAUTH_CLIENT_SECRET: 'cs-1' } } }),
+    );
+    expect(aufrufe.filter((a) => a.pfad === '/api/integrationen' && a.methode === 'POST')).toHaveLength(1);
+  });
+
+  it('OAuth-Hinweis mit Anmeldelink und Abmelden auf der Detailseite', async () => {
+    const u = userEvent.setup();
+    render(<IntegrationsAnsicht />);
+    await screen.findByRole('button', { name: 'Notion öffnen' });
+    useJarvis.getState().verarbeiten({ typ: 'oauth_anmeldung', integration: 'notion', url: 'https://mcp.notion.com/authorize?state=abc' });
+    const link = await screen.findByRole('link', { name: 'Anmeldeseite öffnen' });
+    expect(link).toHaveAttribute('href', 'https://mcp.notion.com/authorize?state=abc');
+    useJarvis.getState().verarbeiten({ typ: 'integration_geaendert', integration: { id: 'notion', status: 'verbunden' } });
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Anmeldeseite öffnen' })).not.toBeInTheDocument());
+    await u.click(screen.getByRole('button', { name: 'Notion öffnen' }));
+    expect(await screen.findByText('angemeldet')).toBeInTheDocument();
+    await u.click(screen.getByRole('button', { name: /Abmelden/ }));
+    await waitFor(() => expect(aufrufe).toContainEqual({ methode: 'POST', pfad: '/api/integrationen/notion/abmelden', body: undefined }));
   });
 });

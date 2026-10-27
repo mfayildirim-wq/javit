@@ -1,0 +1,16 @@
+id: paypal
+name: PayPal
+beschreibung: Rechnungen, Zahlungen und Bestellungen bei PayPal abfragen und anlegen
+kategorie: Finanzen
+icon: wallet
+art: mcp_http
+url: https://mcp.paypal.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developer.paypal.com/tools/mcp-server/
+hinweis: Offizieller PayPal-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei PayPal; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developer.paypal.com/tools/mcp-server/
+risiko_standard: kritisch

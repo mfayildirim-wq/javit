@@ -20,6 +20,9 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | POST | `/api/integrationen/{id}/neu-verbinden` | neu starten |
 | GET | `/api/integrationen/{id}` | Details ohne Geheimnisse: `{…wie Liste, katalog?: {id, name, hinweis, webseite, benoetigt, einrichtung:[{titel, text, link, datei, befehl, erfuellt: bool\|null}]}, werte?: {NAME: wert\|"gespeichert"}, konfig: {befehl, url, kopfzeilen, umgebung, auth, rest, geheimnisse, risiko_standard, werkzeug_risiko, aktiv, hinzugefuegt}, werkzeug_liste:[{name, beschreibung, risiko}], protokoll:[…]}` – Werte mit `${…}` erscheinen als „gespeichert“ |
 | PUT | `/api/integrationen/{id}` | Konfiguration ersetzen (Body wie POST; Katalog: `{werte, name?}`), Geheimnisse mit leerem Wert oder „gespeichert“ bleiben; stoppt, speichert, startet neu → Details; 400 bei ungültigen Werten |
+| POST | `/api/integrationen/{id}/abmelden` | OAuth: Tokens und Client-Registrierung aus dem Schlüsselbund löschen, Integration stoppen (Status `aus`) |
+| POST | `/api/integrationen/{id}/anmelden` | OAuth: neu verbinden und damit die Anmeldung im Browser auslösen |
+| GET | `/oauth/rueckruf?code=&state=[&error=]` | Rückruf des Autorisierungsservers nach der Browser-Anmeldung (HTML-Seite; kein `/api`-Pfad, ohne Origin-Prüfung, wirkt nur auf einen wartenden Flow mit passendem `state`) |
 | GET | `/api/integrationen/{id}/protokoll?zeilen=50` | `{zeilen:[…]}` letzte Zeilen des Server-Protokolls (`mcp-<id>.log`) |
 | GET | `/api/integrationen/katalog/{id}` | Katalogeintrag + `einrichtung[].erfuellt` (Datei vorhanden) + `installiert` |
 | POST | `/api/integrationen/katalog/{id}/einrichtung/{n}/datei` | `{inhalt_base64}` – schreibt an das `datei`-Ziel des Schritts n (0-basiert; max. 1 MB; `.json` wird geprüft) → `{pfad, erfuellt, einrichtung}` |
@@ -61,6 +64,7 @@ Server → Client:
 | `werkzeug_ende` | `id`, `ok: bool`, `ergebnis` (gekürzt, max 2000 Zeichen) |
 | `freigabe_noetig` | `id`, `werkzeug`, `argumente`, `grund`, `risiko`, `timeout?` (Sekunden bis „abgelehnt“) |
 | `integration_geaendert` | `integration` |
+| `oauth_anmeldung` | `integration`, `url` – Anmeldeseite wurde im Browser geöffnet; die Oberfläche zeigt den Link, falls kein Fenster aufging |
 | `fehler` | `text` |
 
 ## Integrationskatalog (`integrationen/katalog/*.yaml`)
@@ -88,8 +92,17 @@ einrichtung:                   # optional: Schritte vor der ersten Verbindung (O
 risiko_standard: aendern
 ```
 
-`GET /api/integrationen/katalog` liefert je Eintrag zusätzlich `webseite`, `einrichtung` und je Feld `typ`,
-`standard`, `beschreibung`.
+`GET /api/integrationen/katalog` liefert je Eintrag zusätzlich `webseite`, `einrichtung`, `oauth` (Modus oder null),
+`vertrauen` (`offiziell` | `community`), `quelle`, `gruppe` und je Feld `typ`, `standard`, `beschreibung`.
+
+OAuth (`mcp_http`): `oauth: {modus: entdeckung}` = MCP-Standard (401 mit `resource_metadata`, dynamische
+Registrierung, PKCE S256, Rückruf `http://127.0.0.1:<port>/oauth/rueckruf`); `oauth: {modus: manuell,
+autorisierung_url, token_url, scopes: [...], client_id: "${FELD}", client_secret: "${FELD}", extra: {...}}` für
+Anbieter ohne dynamische Registrierung (Google Workspace). Eigene `mcp_url`-Integrationen ohne
+`Authorization`-Kopfzeile bekommen automatisch `{modus: entdeckung}` (`"oauth": false` im POST schaltet es ab).
+Tokens und Client-Registrierung liegen im Schlüsselbund (`JARVIS_OAUTH_<ID>_TOKENS`/`_CLIENT`), nie in
+`integrationen.json`. `vertrauen: offiziell` verlangt `quelle` (Doku des Anbieters); `gruppe` fasst Einträge mit
+gemeinsamen Feldern zusammen (Oberfläche zeigt eine Kachel, z. B. `google-workspace`).
 
 Installierte Integrationen: `~/.jarvis/integrationen.json`. Einstellungen: `~/.jarvis/einstellungen.json`.
 Daten (Verlauf, Gedächtnis): `~/.jarvis/jarvis.db`.

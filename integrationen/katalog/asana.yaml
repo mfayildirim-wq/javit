@@ -1,0 +1,16 @@
+id: asana
+name: Asana
+beschreibung: Aufgaben, Projekte und Teams in Asana lesen und bearbeiten
+kategorie: Produktivität
+icon: check-square
+art: mcp_http
+url: https://mcp.asana.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developers.asana.com/docs/using-asanas-model-control-protocol-mcp-server
+hinweis: Offizieller Asana-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Asana; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developers.asana.com/docs/using-asanas-model-control-protocol-mcp-server
+risiko_standard: aendern

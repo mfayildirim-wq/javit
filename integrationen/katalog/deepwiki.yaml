@@ -1,0 +1,13 @@
+id: deepwiki
+name: DeepWiki
+beschreibung: Dokumentation und Fragen zu öffentlichen GitHub-Repositories (von Devin)
+kategorie: Entwicklung
+icon: git-branch
+art: mcp_http
+url: https://mcp.deepwiki.com/mcp
+benoetigt: []
+vertrauen: offiziell
+quelle: https://docs.devin.ai/work-with-devin/deepwiki-mcp
+hinweis: Offizieller Server, ohne Anmeldung nutzbar.
+webseite: https://docs.devin.ai/work-with-devin/deepwiki-mcp
+risiko_standard: lesen

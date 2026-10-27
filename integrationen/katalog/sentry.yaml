@@ -1,0 +1,16 @@
+id: sentry
+name: Sentry
+beschreibung: Fehler, Issues und Releases in Sentry abfragen und bearbeiten
+kategorie: Entwicklung
+icon: bug
+art: mcp_http
+url: https://mcp.sentry.dev/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://docs.sentry.io/product/sentry-mcp/
+hinweis: Offizieller Sentry-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Sentry; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://docs.sentry.io/product/sentry-mcp/
+risiko_standard: aendern

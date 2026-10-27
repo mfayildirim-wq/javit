@@ -62,17 +62,17 @@ async def test_hinzufuegen_prueft_ordner(isoliert, tmp_path, monkeypatch):
 
 async def test_details_ohne_geheimnisse_und_aendern(isoliert):
     m = _manager()
-    await m.hinzufuegen({"katalog": "github", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_geheim"}}, starten=False)
-    d = m.details("github")
+    await m.hinzufuegen({"katalog": "github-token", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_geheim"}}, starten=False)
+    d = m.details("github-token")
     assert d["werte"] == {"GITHUB_PERSONAL_ACCESS_TOKEN": "gespeichert"}
     assert d["konfig"]["kopfzeilen"] == {"Authorization": "gespeichert"} and d["konfig"]["geheimnisse"] == ["GITHUB_PERSONAL_ACCESS_TOKEN"]
-    assert "ghp_geheim" not in json.dumps(d) and d["katalog"]["id"] == "github" and d["werkzeug_liste"] == []
+    assert "ghp_geheim" not in json.dumps(d) and d["katalog"]["id"] == "github-token" and d["werkzeug_liste"] == []
     # Ändern ohne neuen Token → Token bleibt, Name ändert sich, Kennung bleibt
-    d = await m.aendern("github", {"werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "gespeichert"}, "name": "GitHub Arbeit"})
-    assert d["id"] == "github" and d["name"] == "GitHub Arbeit" and m.geheimnisse.holen("GITHUB_PERSONAL_ACCESS_TOKEN") == "ghp_geheim"
+    d = await m.aendern("github-token", {"werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "gespeichert"}, "name": "GitHub Arbeit"})
+    assert d["id"] == "github-token" and d["name"] == "GitHub Arbeit" and m.geheimnisse.holen("GITHUB_PERSONAL_ACCESS_TOKEN") == "ghp_geheim"
     assert "ghp_geheim" not in (isoliert / "integrationen.json").read_text()
     # neuer Token wird übernommen
-    await m.aendern("github", {"werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_neu"}})
+    await m.aendern("github-token", {"werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_neu"}})
     assert m.geheimnisse.holen("GITHUB_PERSONAL_ACCESS_TOKEN") == "ghp_neu"
     with pytest.raises(IntegrationsFehler):
         await m.aendern("gibtsnicht", {})
@@ -166,24 +166,24 @@ def test_server_details_aendern_einrichtung(isoliert, tmp_path, monkeypatch):
         assert c.post("/api/integrationen/katalog/testdienst/einrichtung/0/ausfuehren").status_code == 400
         assert c.post("/api/integrationen/katalog/testdienst/einrichtung/2/ausfuehren").json()["status"] == "laeuft"
 
-        assert c.get("/api/integrationen/github").status_code == 404
-        c.post("/api/integrationen", json={"katalog": "github", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_x"}})
-        d = c.get("/api/integrationen/github").json()
-        assert d["werte"] == {"GITHUB_PERSONAL_ACCESS_TOKEN": "gespeichert"} and "ghp_x" not in c.get("/api/integrationen/github").text
-        d = c.put("/api/integrationen/github", json={"name": "GitHub privat", "werte": {}}).json()
+        assert c.get("/api/integrationen/github-token").status_code == 404
+        c.post("/api/integrationen", json={"katalog": "github-token", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_x"}})
+        d = c.get("/api/integrationen/github-token").json()
+        assert d["werte"] == {"GITHUB_PERSONAL_ACCESS_TOKEN": "gespeichert"} and "ghp_x" not in c.get("/api/integrationen/github-token").text
+        d = c.put("/api/integrationen/github-token", json={"name": "GitHub privat", "werte": {}}).json()
         assert d["name"] == "GitHub privat" and j.geheimnisse.holen("GITHUB_PERSONAL_ACCESS_TOKEN") == "ghp_x"
         assert c.put("/api/integrationen/nix", json={}).status_code == 404
-        assert c.get("/api/integrationen/github/protokoll").json() == {"zeilen": []}
+        assert c.get("/api/integrationen/github-token/protokoll").json() == {"zeilen": []}
         assert c.get("/api/integrationen/nix/protokoll").status_code == 404
 
 
 async def test_prompt_nennt_fehlerhafte_integrationen(isoliert):
     m = _manager(lambda r: httpx.Response(500))
-    await m.hinzufuegen({"katalog": "github", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "x"}}, starten=False)
-    m.status["github"] = "fehler"
-    m.fehler["github"] = "401 Unauthorized"
+    await m.hinzufuegen({"katalog": "github-token", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "x"}}, starten=False)
+    m.status["github-token"] = "fehler"
+    m.fehler["github-token"] = "401 Unauthorized"
     zeilen = m.verbundene_beschreibungen()
-    assert zeilen == ["GitHub (github): NICHT VERBUNDEN – 401 Unauthorized"]
+    assert zeilen == ["GitHub (mit Token) (github-token): NICHT VERBUNDEN – 401 Unauthorized"]
 
 
 async def test_agent_werkzeuge_fuer_einrichtung(isoliert, tmp_path):
@@ -197,10 +197,10 @@ async def test_agent_werkzeuge_fuer_einrichtung(isoliert, tmp_path):
     assert wz["integration_schritt_ausfuehren"].risiko == "kritisch" and wz["integration_details"].risiko == "lesen"
     text = await wz["integration_einrichtung"].ausfuehren(id="testdienst")
     assert "1. Konsole" in text and "✗ offen" in text and "Nächster offener Schritt: Datei" in text
-    await j.manager.hinzufuegen({"katalog": "github", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "x"}}, starten=False)
-    text = await wz["integration_details"].ausfuehren(id="github")
-    assert "GitHub (github, mcp_http)" in text and "x" not in text.split("Werte:")[1].split("\n")[0].replace("gespeichert", "")
-    text = await wz["integration_konfigurieren"].ausfuehren(id="github", werte={}, name="GH")
+    await j.manager.hinzufuegen({"katalog": "github-token", "werte": {"GITHUB_PERSONAL_ACCESS_TOKEN": "x"}}, starten=False)
+    text = await wz["integration_details"].ausfuehren(id="github-token")
+    assert "GitHub (mit Token) (github-token, mcp_http)" in text and "x" not in text.split("Werte:")[1].split("\n")[0].replace("gespeichert", "")
+    text = await wz["integration_konfigurieren"].ausfuehren(id="github-token", werte={}, name="GH")
     assert text.startswith("GH: Status")
     text = await wz["integration_schritt_ausfuehren"].ausfuehren(id="testdienst", schritt=3)
     assert "läuft im Hintergrund" in text

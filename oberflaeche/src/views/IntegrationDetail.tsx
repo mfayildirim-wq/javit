@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowLeft, ExternalLink, MessageCircleQuestion, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ExternalLink, KeyRound, LogOut, MessageCircleQuestion, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
 import { api } from '../api/rest';
 import type { IntegrationAnlegen, IntegrationDetails, Schritt } from '../api/types';
 import { useJarvis, useName } from '../state/store';
@@ -74,6 +74,30 @@ export function IntegrationDetail({ id, onZurueck, onGeaendert }: { id: string; 
       setArbeitet(false);
     }
   };
+  const abmelden = async () => {
+    setArbeitet(true);
+    try {
+      await api.integrationAbmelden(id);
+      await laden();
+      onGeaendert();
+    } catch (e) {
+      setFehler((e as Error).message);
+    } finally {
+      setArbeitet(false);
+    }
+  };
+  const anmelden = async () => {
+    setArbeitet(true);
+    try {
+      await api.integrationAnmelden(id);
+      await laden();
+      onGeaendert();
+    } catch (e) {
+      setFehler((e as Error).message);
+    } finally {
+      setArbeitet(false);
+    }
+  };
   const speichern = async (body: IntegrationAnlegen) => {
     const neu = await api.integrationAendern(id, body);
     setD(neu);
@@ -117,9 +141,25 @@ export function IntegrationDetail({ id, onZurueck, onGeaendert }: { id: string; 
               <span className={`status-punkt s-${d.status}`} aria-hidden="true" />
               {STATUS_TEXT[d.status] ?? d.status}
             </span>
+            {d.oauth && (
+              <span className={`marke-chip ${d.oauth.angemeldet ? 'lokal' : 'aus'}`}>
+                <KeyRound size={11} aria-hidden="true" /> {d.oauth.angemeldet ? 'angemeldet' : 'nicht angemeldet'}
+              </span>
+            )}
           </div>
         </div>
         <div className="inst-knoepfe">
+          {d.oauth && (
+            d.oauth.angemeldet ? (
+              <button className="knopf klein leise" onClick={() => void abmelden()} disabled={arbeitet}>
+                <LogOut size={14} aria-hidden="true" /> Abmelden
+              </button>
+            ) : (
+              <button className="knopf klein" onClick={() => void anmelden()} disabled={arbeitet}>
+                <KeyRound size={14} aria-hidden="true" /> Anmelden
+              </button>
+            )
+          )}
           <button className="knopf klein" onClick={() => void neuVerbinden()} disabled={arbeitet}>
             <RefreshCw size={14} aria-hidden="true" className={arbeitet ? 'dreht' : ''} /> Neu verbinden
           </button>

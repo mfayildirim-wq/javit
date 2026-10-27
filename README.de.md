@@ -289,6 +289,15 @@ javit remove spotify
 **Per Sprache oder Chat:** „Javit, integriere Notion.“ – Javit sucht im Katalog, fragt nach
 fehlenden Schlüsseln und legt die Integration nach Ihrer Freigabe an.
 
+**Connectoren mit Anmeldung im Browser (OAuth):** Offizielle Server von Notion, Linear, GitHub, Sentry, Stripe,
+Cloudflare, Asana, Intercom, HubSpot, PayPal, Square, Figma, Vercel, Supabase, Neon, Canva, monday.com, Webflow,
+Slack, Box, Dropbox und AWS sind im Katalog als **Offiziell** gekennzeichnet (mit Link zur Anbieter-Doku).
+Hinzufügen → der Browser öffnet sich → anmelden → verbunden; Tokens liegen im Schlüsselbund, „Abmelden“ auf der
+Detailseite. **Google Workspace** (Gmail, Kalender, Drive, Docs, Sheets, Slides, Chat, Kontakte, Classroom) läuft
+über die offiziellen Google-Server mit **einem** selbst angelegten OAuth-Client – die Kachel „Google Workspace“
+führt durch die Schritte und legt die gewählten Dienste an. Ohne Anmeldung nutzbar: Microsoft Learn, Cloudflare
+Docs, Context7, DeepWiki, Hugging Face. Community-Server (von Dritten) sind entsprechend markiert.
+
 **In der Oberfläche:** Integrationen → **Hinzufügen** (Plus-Knopf): Katalog, MCP-Befehl, MCP-URL,
 OpenAPI, REST oder **JSON einfügen** (eine Konfiguration im Format von Claude Desktop/Claude Code wird
 erkannt und übernommen). Unter **Installiert** öffnet ein Klick die **Detailseite**: Status mit

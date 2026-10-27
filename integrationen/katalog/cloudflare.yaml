@@ -1,0 +1,16 @@
+id: cloudflare
+name: Cloudflare
+beschreibung: 'Cloudflare-Konto verwalten: Workers, KV, R2, D1 und Bindings'
+kategorie: Entwicklung
+icon: cloud
+art: mcp_http
+url: https://bindings.mcp.cloudflare.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/
+hinweis: Offizieller Cloudflare-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Cloudflare; die
+  Zugangsdaten landen im Schlüsselbund.
+webseite: https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/
+risiko_standard: aendern

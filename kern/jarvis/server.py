@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
 from .anwendung import Jarvis
@@ -277,6 +277,39 @@ def create_app(
             )
         except IntegrationsFehler as e:
             raise HTTPException(400, str(e)) from e
+
+    @app.post("/api/integrationen/{kennung}/abmelden")
+    async def integration_abmelden(kennung: str, request: Request) -> dict[str, Any]:
+        try:
+            return await j_(request).manager.abmelden(kennung)
+        except IntegrationsFehler as e:
+            raise HTTPException(404, str(e)) from e
+
+    @app.post("/api/integrationen/{kennung}/anmelden")
+    async def integration_anmelden(kennung: str, request: Request) -> dict[str, Any]:
+        try:
+            return await j_(request).manager.neu_verbinden(kennung)
+        except IntegrationsFehler as e:
+            raise HTTPException(404, str(e)) from e
+
+    @app.get("/oauth/rueckruf", response_class=HTMLResponse)
+    async def oauth_rueckruf(request: Request) -> HTMLResponse:
+        """Rückruf des Autorisierungsservers nach der Anmeldung im Browser (GET, nur state/code)."""
+        parameter = {k: v for k, v in request.query_params.items()}
+        gefunden = j_(request).manager.rueckrufe.erfuellen(parameter)
+        name = j_(request).name
+        if parameter.get("error"):
+            titel, text = "Anmeldung abgelehnt", f"{parameter.get('error')}: {parameter.get('error_description', '')}"
+        elif gefunden:
+            titel, text = "Anmeldung abgeschlossen", f"Dieses Fenster kann geschlossen werden – {name} verbindet sich jetzt."
+        else:
+            titel, text = "Keine wartende Anmeldung", "Bitte die Anmeldung in der Oberfläche erneut starten."
+        html = (
+            "<!doctype html><html lang='de'><meta charset='utf-8'><title>" + titel + "</title>"
+            "<body style='font-family:system-ui;background:#06121d;color:#dbe9f2;display:grid;place-items:center;height:100vh;margin:0'>"
+            "<div style='text-align:center'><h1 style='font-weight:500'>" + titel + "</h1><p>" + text + "</p></div></body></html>"
+        )
+        return HTMLResponse(html, status_code=200 if gefunden or parameter.get("error") else 404)
 
     @app.get("/api/integrationen/{kennung}/protokoll")
     async def integration_protokoll(kennung: str, request: Request, zeilen: int = 50) -> dict[str, Any]:

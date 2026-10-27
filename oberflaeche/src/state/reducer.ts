@@ -48,6 +48,8 @@ export interface KernZustand {
   hinweise: Hinweis[];
   /** Wird bei `integration_geaendert` erhöht, damit Ansichten neu laden. */
   integrationsStand: number;
+  /** Laufende OAuth-Anmeldung (Browserfenster), bis die Integration verbunden ist oder der Hinweis geschlossen wird. */
+  oauthAnmeldung: { integration: string; url: string; zeit: number } | null;
 }
 
 export const MAX_NACHRICHTEN = 60;
@@ -63,6 +65,7 @@ export const anfangsZustand: KernZustand = {
   freigaben: [],
   hinweise: [],
   integrationsStand: 0,
+  oauthAnmeldung: null,
 };
 
 let hinweisZaehler = 0;
@@ -90,6 +93,7 @@ export type LokaleAktion =
   | { typ: 'lokal_hinweis'; text: string }
   | { typ: 'lokal_abgebrochen' }
   | { typ: 'lokal_aktivitaet_leeren' }
+  | { typ: 'lokal_oauth_weg' }
   | { typ: 'lokal_verlauf'; nachrichten: Nachricht[] };
 
 export type Aktion = ServerEvent | LokaleAktion;
@@ -203,8 +207,17 @@ export function reduzieren(s: KernZustand, a: Aktion, jetzt: number = Date.now()
       return { ...s, freigaben: [...s.freigaben.filter((f) => f.id !== a.id), anfrage] };
     }
 
-    case 'integration_geaendert':
-      return { ...s, integrationsStand: s.integrationsStand + 1 };
+    case 'integration_geaendert': {
+      const i = a.integration as { id?: string; status?: string } | null;
+      const fertig = s.oauthAnmeldung && i && i.id === s.oauthAnmeldung.integration && i.status !== 'verbindet';
+      return { ...s, integrationsStand: s.integrationsStand + 1, oauthAnmeldung: fertig ? null : s.oauthAnmeldung };
+    }
+
+    case 'oauth_anmeldung':
+      return { ...s, oauthAnmeldung: { integration: a.integration, url: a.url, zeit: jetzt } };
+
+    case 'lokal_oauth_weg':
+      return { ...s, oauthAnmeldung: null };
 
     case 'fehler': {
       hinweisZaehler += 1;

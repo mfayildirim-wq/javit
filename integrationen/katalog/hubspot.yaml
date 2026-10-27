@@ -1,0 +1,16 @@
+id: hubspot
+name: HubSpot
+beschreibung: Kontakte, Unternehmen, Deals und Tickets im HubSpot-CRM abfragen und anlegen
+kategorie: Vertrieb
+icon: briefcase
+art: mcp_http
+url: https://mcp.hubspot.com/anthropic
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developers.hubspot.com/mcp
+hinweis: Offizieller HubSpot-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei HubSpot; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developers.hubspot.com/mcp
+risiko_standard: aendern

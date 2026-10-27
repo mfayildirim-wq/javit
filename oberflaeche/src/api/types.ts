@@ -31,6 +31,8 @@ export interface EvFreigabeNoetig {
   timeout?: number;
 }
 export interface EvIntegrationGeaendert { typ: 'integration_geaendert'; integration: unknown }
+/** OAuth-Anmeldung im Browser gestartet (Kern: integrationen/oauth.py); `url` = Anmeldeseite. */
+export interface EvOauthAnmeldung { typ: 'oauth_anmeldung'; integration: string; url: string }
 export interface EvFehler { typ: 'fehler'; text: string }
 
 export type ServerEvent =
@@ -44,6 +46,7 @@ export type ServerEvent =
   | EvWerkzeugEnde
   | EvFreigabeNoetig
   | EvIntegrationGeaendert
+  | EvOauthAnmeldung
   | EvFehler;
 
 export const SERVER_EVENT_TYPEN = [
@@ -57,6 +60,7 @@ export const SERVER_EVENT_TYPEN = [
   'werkzeug_ende',
   'freigabe_noetig',
   'integration_geaendert',
+  'oauth_anmeldung',
   'fehler',
 ] as const satisfies readonly ServerEvent['typ'][];
 
@@ -162,6 +166,14 @@ export interface KatalogEintrag {
   webseite?: string | null;
   einrichtung?: Schritt[];
   installiert?: boolean;
+  /** OAuth-Modus („entdeckung“ | „manuell“) oder null – Anmeldung im Browser. */
+  oauth?: string | null;
+  /** „offiziell“ (vom Anbieter betrieben) oder „community“. */
+  vertrauen?: 'offiziell' | 'community' | string;
+  /** Doku-Seite des Anbieters. */
+  quelle?: string | null;
+  /** Zusammengehörige Einträge, z. B. google-workspace. */
+  gruppe?: string | null;
 }
 /** Stand eines ausgeführten Einrichtungsbefehls. */
 export interface SchrittStand { status: 'nie' | 'laeuft' | 'fertig' | 'fehler' | string; rueckgabe: number | null; ausgabe: string[]; sekunden: number }
@@ -185,6 +197,7 @@ export interface IntegrationDetails extends Integration {
   };
   werkzeug_liste: WerkzeugKurz[];
   protokoll: string[];
+  oauth?: { modus: string; angemeldet: boolean } | null;
 }
 
 export type RestParamTyp = 'text' | 'zahl' | 'bool' | string;

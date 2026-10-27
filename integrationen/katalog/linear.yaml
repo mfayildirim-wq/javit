@@ -1,0 +1,16 @@
+id: linear
+name: Linear
+beschreibung: Issues, Projekte und Zyklen in Linear lesen und bearbeiten
+kategorie: Produktivität
+icon: list-checks
+art: mcp_http
+url: https://mcp.linear.app/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://linear.app/docs/mcp
+hinweis: Offizieller Linear-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Linear; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://linear.app/docs/mcp
+risiko_standard: aendern

@@ -1,0 +1,16 @@
+id: vercel
+name: Vercel
+beschreibung: Projekte, Deployments und Logs bei Vercel abfragen und verwalten
+kategorie: Entwicklung
+icon: triangle
+art: mcp_http
+url: https://mcp.vercel.com
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://vercel.com/docs/mcp/vercel-mcp
+hinweis: Offizieller Vercel-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Vercel; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://vercel.com/docs/mcp/vercel-mcp
+risiko_standard: aendern

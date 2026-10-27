@@ -1,26 +1,29 @@
 id: gmail
-name: Gmail
-beschreibung: E-Mails in Gmail suchen, lesen, entwerfen, senden und Labels verwalten
+name: Gmail (lokal, Community)
+beschreibung: Community-Server für Gmail, läuft lokal per npx mit eigener OAuth-Datei – Alternative zum offiziellen
+  Google-Server
 kategorie: Kommunikation
 icon: mail
 art: mcp_stdio
 befehl: npx -y @gongrzhe/server-gmail-autoauth-mcp
 benoetigt: []
-hinweis: "Einmalig: OAuth-Client (Desktop-App) in der Google Cloud Console mit aktivierter Gmail API anlegen, die JSON-Datei unter „Einrichtung“ hochladen und die Anmeldung starten (Browser öffnet sich)."
+hinweis: 'Einmalig: OAuth-Client (Desktop-App) in der Google Cloud Console mit aktivierter Gmail API anlegen, die
+  JSON-Datei unter „Einrichtung“ hochladen und die Anmeldung starten (Browser öffnet sich).'
 webseite: https://github.com/GongRzhe/Gmail-MCP-Server
 einrichtung:
-  - titel: Gmail API aktivieren
-    text: In der Google Cloud Console ein Projekt wählen oder anlegen und die Gmail API aktivieren.
-    link: https://console.cloud.google.com/apis/library/gmail.googleapis.com
-  - titel: OAuth-Client anlegen und JSON herunterladen
-    text: Unter „Anmeldedaten“ einen OAuth-Client vom Typ „Desktop-App“ erstellen und die JSON-Datei herunterladen. Beim ersten Mal vorher den OAuth-Zustimmungsbildschirm anlegen (extern, Testnutzer = eigene Adresse).
-    link: https://console.cloud.google.com/apis/credentials
-  - titel: OAuth-Datei ablegen
-    text: Die heruntergeladene JSON-Datei hier hochladen; sie wird als gcp-oauth.keys.json gespeichert.
-    datei: ~/.gmail-mcp/gcp-oauth.keys.json
-  - titel: Bei Google anmelden
-    text: Startet die einmalige Anmeldung; der Browser öffnet sich. Danach „Neu verbinden“.
-    befehl: npx -y @gongrzhe/server-gmail-autoauth-mcp auth
+- titel: Gmail API aktivieren
+  text: In der Google Cloud Console ein Projekt wählen oder anlegen und die Gmail API aktivieren.
+  link: https://console.cloud.google.com/apis/library/gmail.googleapis.com
+- titel: OAuth-Client anlegen und JSON herunterladen
+  text: Unter „Anmeldedaten“ einen OAuth-Client vom Typ „Desktop-App“ erstellen und die JSON-Datei herunterladen.
+    Beim ersten Mal vorher den OAuth-Zustimmungsbildschirm anlegen (extern, Testnutzer = eigene Adresse).
+  link: https://console.cloud.google.com/apis/credentials
+- titel: OAuth-Datei ablegen
+  text: Die heruntergeladene JSON-Datei hier hochladen; sie wird als gcp-oauth.keys.json gespeichert.
+  datei: ~/.gmail-mcp/gcp-oauth.keys.json
+- titel: Bei Google anmelden
+  text: Startet die einmalige Anmeldung; der Browser öffnet sich. Danach „Neu verbinden“.
+  befehl: npx -y @gongrzhe/server-gmail-autoauth-mcp auth
 risiko_standard: aendern
 werkzeug_risiko:
   send_email: kritisch

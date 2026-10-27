@@ -1,0 +1,16 @@
+id: canva
+name: Canva
+beschreibung: Designs in Canva suchen, erstellen und exportieren
+kategorie: Design
+icon: palette
+art: mcp_http
+url: https://mcp.canva.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://www.canva.dev/docs/connect/canva-mcp-server-setup/
+hinweis: Offizieller Canva-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Canva; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://www.canva.dev/docs/connect/canva-mcp-server-setup/
+risiko_standard: aendern

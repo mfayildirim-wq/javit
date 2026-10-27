@@ -1,0 +1,54 @@
+id: google-gmail
+name: Gmail
+beschreibung: E-Mails lesen, suchen und Entwürfe verfassen (offizieller Google-Server)
+kategorie: Google Workspace
+icon: mail
+art: mcp_http
+url: https://gmailmcp.googleapis.com/mcp/v1
+benoetigt:
+- name: GOOGLE_OAUTH_CLIENT_ID
+  titel: OAuth-Client-ID (…apps.googleusercontent.com)
+  geheim: false
+- name: GOOGLE_OAUTH_CLIENT_SECRET
+  titel: OAuth-Client-Secret
+  geheim: true
+gruppe: google-workspace
+oauth:
+  modus: manuell
+  autorisierung_url: https://accounts.google.com/o/oauth2/v2/auth
+  token_url: https://oauth2.googleapis.com/token
+  scopes:
+  - https://www.googleapis.com/auth/gmail.readonly
+  - https://www.googleapis.com/auth/gmail.compose
+  client_id: ${GOOGLE_OAUTH_CLIENT_ID}
+  client_secret: ${GOOGLE_OAUTH_CLIENT_SECRET}
+  extra:
+    access_type: offline
+    prompt: consent
+einrichtung:
+- titel: Google-Cloud-Projekt und Zustimmungsbildschirm
+  text: In der Google Cloud Console ein Projekt wählen oder anlegen; unter „Google Auth Platform“ den Zustimmungsbildschirm
+    einrichten (extern, die eigene Adresse als Testnutzer eintragen).
+  link: https://console.cloud.google.com/auth/overview
+- titel: APIs und MCP-APIs aktivieren
+  text: Für jeden gewünschten Dienst die Standard-API (z. B. Gmail API) und die MCP-API (z. B. „Gmail MCP API“)
+    aktivieren.
+  link: https://console.cloud.google.com/apis/library
+- titel: OAuth-Client anlegen
+  text: Unter „Anmeldedaten“ einen OAuth-Client vom Typ „Webanwendung“ erstellen und die Option „Diesen Client für
+    einen KI-Agenten verwenden“ wählen. Als autorisierte Weiterleitungs-URI http://127.0.0.1:8765/oauth/rueckruf
+    eintragen (Port ggf. anpassen).
+  link: https://console.cloud.google.com/apis/credentials
+- titel: Scopes freigeben
+  text: Im Zustimmungsbildschirm unter „Datenzugriff“ die Scopes des Dienstes manuell hinzufügen (z. B. gmail.readonly,
+    gmail.compose).
+  link: https://console.cloud.google.com/auth/scopes
+- titel: Client-ID und Secret eintragen
+  text: Client-ID und Client-Secret aus der Cloud Console unten in die Felder übernehmen. Beim Hinzufügen öffnet
+    sich der Browser zur Anmeldung bei Google.
+vertrauen: offiziell
+quelle: https://developers.google.com/workspace/guides/configure-mcp-servers
+hinweis: Offizieller Google-Server. Einmalig einen OAuth-Client in der Google Cloud Console anlegen (siehe Einrichtung)
+  – derselbe Client gilt für alle Google-Workspace-Dienste. Beim Hinzufügen öffnet sich der Browser zur Anmeldung.
+webseite: https://developers.google.com/workspace/guides/configure-mcp-servers
+risiko_standard: aendern

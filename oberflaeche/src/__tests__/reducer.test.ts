@@ -135,6 +135,7 @@ describe('Event-Reducer', () => {
       werkzeug_ende: { typ: 'werkzeug_ende', id: 'w', ok: true, ergebnis: null },
       freigabe_noetig: { typ: 'freigabe_noetig', id: 'f', werkzeug: 'n', argumente: {}, grund: 'g', risiko: 'kritisch' },
       integration_geaendert: { typ: 'integration_geaendert', integration: {} },
+      oauth_anmeldung: { typ: 'oauth_anmeldung', integration: 'notion', url: 'https://as.example/authorize?state=x' },
       fehler: { typ: 'fehler', text: 'x' },
     };
     for (const typ of SERVER_EVENT_TYPEN) {
@@ -142,5 +143,20 @@ describe('Event-Reducer', () => {
       const nachher = reduzieren(vorher, beispiele[typ]);
       expect(nachher, typ).not.toBe(vorher);
     }
+  });
+});
+
+describe('oauth_anmeldung', () => {
+  it('merkt die laufende Anmeldung und räumt sie auf, sobald die Integration einen Endzustand meldet', () => {
+    let s = reduzieren(anfangsZustand, { typ: 'oauth_anmeldung', integration: 'notion', url: 'https://as.example/authorize?state=x' }, 5);
+    expect(s.oauthAnmeldung).toEqual({ integration: 'notion', url: 'https://as.example/authorize?state=x', zeit: 5 });
+    s = reduzieren(s, { typ: 'integration_geaendert', integration: { id: 'notion', status: 'verbindet' } });
+    expect(s.oauthAnmeldung).not.toBeNull();
+    s = reduzieren(s, { typ: 'integration_geaendert', integration: { id: 'andere', status: 'verbunden' } });
+    expect(s.oauthAnmeldung).not.toBeNull();
+    s = reduzieren(s, { typ: 'integration_geaendert', integration: { id: 'notion', status: 'verbunden' } });
+    expect(s.oauthAnmeldung).toBeNull();
+    s = reduzieren(reduzieren(s, { typ: 'oauth_anmeldung', integration: 'n', url: 'u' }), { typ: 'lokal_oauth_weg' });
+    expect(s.oauthAnmeldung).toBeNull();
   });
 });

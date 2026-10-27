@@ -32,6 +32,7 @@ from .eingebaut import eingebaute_werkzeuge
 from .einrichtung import EinrichtungsFehler, einrichtung_stand, pfad_aufloesen
 from .katalog import Benoetigt, Katalog, KatalogEintrag, platzhalter_ersetzen, platzhalter_finden
 from .mcp_hub import McpFehler, McpVerbindung, fehler_text, werkzeuge_aus_mcp
+from .oauth import OAuthFehler, Rueckrufe, SchluesselbundSpeicher, auth_fuer
 from .openapi import basis_url_ermitteln, spec_parsen, werkzeuge_aus_openapi
 from .rest import werkzeuge_aus_rest
 
@@ -67,10 +68,18 @@ class IntegrationsKonfig(BaseModel):
     auth: dict[str, str] | None = None
     rest: list[dict[str, Any]] | None = None
     eingebaut: str | None = None
+    #: OAuth-Anmeldung für mcp_http (siehe oauth.py); Tokens liegen im Schlüsselbund
+    oauth: dict[str, Any] | None = None
     risiko_standard: Risiko = "aendern"
     werkzeug_risiko: dict[str, Risiko] = Field(default_factory=dict)
     aktiv: bool = True
     hinzugefuegt: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+
+
+def _oauth_kompakt(konfig: Any) -> dict[str, Any]:
+    """OAuth-Konfiguration ohne leere Felder (modus bleibt immer)."""
+    daten = konfig.model_dump(exclude_none=True)
+    return {k: v for k, v in daten.items() if k == "modus" or v not in ([], {}, "")}
 
 
 def wert_pruefen(feld: Benoetigt, wert: str) -> str:
@@ -142,6 +151,9 @@ class IntegrationsManager:
         self.fehler: dict[str, str | None] = {}
         self.verbindungen: dict[str, McpVerbindung] = {}
         self._sperren: dict[str, asyncio.Lock] = {}
+        self.rueckrufe = Rueckrufe()
+        #: Rückruf-URL für OAuth (Port der Einstellungen); setzt die Anwendung
+        self.rueckruf_url: Callable[[], str] = lambda: "http://127.0.0.1:8765/oauth/rueckruf"
         self.laden()
 
     # ---------- Persistenz ----------
@@ -253,6 +265,7 @@ class IntegrationsManager:
         info["werkzeug_liste"] = [
             {"name": w.name, "beschreibung": w.beschreibung, "risiko": w.risiko} for w in self.register.von_integration(kennung)
         ]
+        info["oauth"] = self.oauth_stand(kennung)
         info["protokoll"] = self.protokoll_zeilen(kennung, 40) if k.art == "mcp_stdio" else []
         return info
 
@@ -385,6 +398,7 @@ class IntegrationsManager:
                 auth=dict(eintrag.auth) if eintrag.auth else None,
                 rest=eintrag.rest,
                 eingebaut=eintrag.eingebaut,
+                oauth=_oauth_kompakt(eintrag.oauth) if eintrag.oauth else None,
                 risiko_standard=eintrag.risiko_standard,
                 werkzeug_risiko=dict(eintrag.werkzeug_risiko),
             )
@@ -433,9 +447,13 @@ class IntegrationsManager:
                     if auth.get(feld):
                         auth[feld] = self._geheim_ablegen(f"JARVIS_{kennung.upper()}_{feld.upper()}", str(auth[feld]))
             geheime = sorted(platzhalter_finden(kopfzeilen) | platzhalter_finden(auth or {}))
+            oauth = None
+            if ist_mcp and anfrage.get("oauth", True) and not any(k.lower() == "authorization" for k in kopfzeilen):
+                # Ohne eigene Anmeldung: OAuth nach MCP-Standard, greift nur bei 401 des Servers
+                oauth = anfrage["oauth"] if isinstance(anfrage.get("oauth"), dict) else {"modus": "entdeckung"}
             return IntegrationsKonfig(
                 id=kennung, name=name, art="mcp_http" if ist_mcp else "openapi", url=url,
-                kopfzeilen=kopfzeilen, auth=auth, geheimnisse=geheime,
+                kopfzeilen=kopfzeilen, auth=auth, geheimnisse=geheime, oauth=oauth,
             )
 
         if anfrage.get("rest"):
@@ -497,7 +515,7 @@ class IntegrationsManager:
     async def _werkzeuge_erzeugen(self, k: IntegrationsKonfig) -> list[Werkzeug]:
         werte = self._werte(k)
         fehlende = sorted(
-            platzhalter_finden([k.befehl or [], k.url or "", k.kopfzeilen, k.auth or {}, k.rest or []]) - set(werte)
+            platzhalter_finden([k.befehl or [], k.url or "", k.kopfzeilen, k.auth or {}, k.rest or [], k.oauth or {}]) - set(werte)
         )
         if fehlende:
             raise IntegrationsFehler(f"Fehlende Werte/Geheimnisse: {', '.join(fehlende)}")
@@ -507,10 +525,16 @@ class IntegrationsManager:
                     k.id, befehl=platzhalter_ersetzen(k.befehl or [], werte), umgebung=werte
                 )
             else:
+                url = platzhalter_ersetzen(k.url or "", werte)
+                try:
+                    auth = auth_fuer(
+                        k.id, url, k.oauth, werte, self.geheimnisse, self.rueckruf_url(), self.rueckrufe,
+                        self.ereignis, self.http_client_fabrik,
+                    )
+                except OAuthFehler as e:
+                    raise IntegrationsFehler(str(e)) from e
                 verbindung = McpVerbindung(
-                    k.id,
-                    url=platzhalter_ersetzen(k.url or "", werte),
-                    kopfzeilen=platzhalter_ersetzen(k.kopfzeilen, werte),
+                    k.id, url=url, kopfzeilen=platzhalter_ersetzen(k.kopfzeilen, werte), auth=auth,
                 )
             self.verbindungen[k.id] = verbindung
             await verbindung.start()
@@ -579,10 +603,28 @@ class IntegrationsManager:
     async def neu_verbinden(self, kennung: str) -> dict[str, Any]:
         return await self.starten(kennung)
 
+    def oauth_stand(self, kennung: str) -> dict[str, Any] | None:
+        k = self.konfigs.get(kennung)
+        if not k or not k.oauth:
+            return None
+        return {"modus": k.oauth.get("modus", "entdeckung"), "angemeldet": SchluesselbundSpeicher(self.geheimnisse, kennung).angemeldet()}
+
+    async def abmelden(self, kennung: str) -> dict[str, Any]:
+        """Löscht Tokens und Client-Registrierung der OAuth-Anmeldung und stoppt die Integration."""
+        if kennung not in self.konfigs:
+            raise IntegrationsFehler(f"Integration „{kennung}“ ist nicht installiert.")
+        await self._stoppen(kennung)
+        SchluesselbundSpeicher(self.geheimnisse, kennung).loeschen()
+        self.fehler[kennung] = None
+        await self._melden(kennung)
+        return self.info(kennung)
+
     async def entfernen(self, kennung: str) -> bool:
         if kennung not in self.konfigs:
             return False
         await self._stoppen(kennung)
+        if self.konfigs[kennung].oauth:
+            SchluesselbundSpeicher(self.geheimnisse, kennung).loeschen()
         del self.konfigs[kennung]
         self.status.pop(kennung, None)
         self.fehler.pop(kennung, None)

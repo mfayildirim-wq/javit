@@ -1,0 +1,16 @@
+id: supabase
+name: Supabase
+beschreibung: Supabase-Projekte, Datenbanken, Tabellen und Edge Functions verwalten
+kategorie: Entwicklung
+icon: database
+art: mcp_http
+url: https://mcp.supabase.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://supabase.com/docs/guides/getting-started/mcp
+hinweis: Offizieller Supabase-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Supabase; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://supabase.com/docs/guides/getting-started/mcp
+risiko_standard: aendern

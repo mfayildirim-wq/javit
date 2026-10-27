@@ -73,6 +73,7 @@ class McpVerbindung:
         cwd: str | None = None,
         start_timeout: float = 120.0,
         aufruf_timeout: float = 120.0,
+        auth: Any | None = None,
     ):
         if not befehl and not url:
             raise ValueError("Entweder befehl (stdio) oder url (HTTP) angeben")
@@ -82,7 +83,9 @@ class McpVerbindung:
         self.url = url
         self.kopfzeilen = kopfzeilen or {}
         self.cwd = cwd
-        self.start_timeout = start_timeout
+        self.auth = auth  # httpx.Auth, z. B. OAuth (Anmeldung im Browser)
+        # Bei OAuth wartet der Start auf die Anmeldung im Browser
+        self.start_timeout = max(start_timeout, 330.0) if auth is not None else start_timeout
         self.aufruf_timeout = aufruf_timeout
         self.status = "aus"
         self.fehler: str | None = None
@@ -144,7 +147,7 @@ class McpVerbindung:
                         stdio_client(parameter, errlog=self._protokoll)
                     )
                 else:
-                    http_client = create_mcp_http_client(headers=self.kopfzeilen)
+                    http_client = create_mcp_http_client(headers=self.kopfzeilen, auth=self.auth)
                     await stack.enter_async_context(http_client)
                     lesen, schreiben = await stack.enter_async_context(
                         streamable_http_client(self.url or "", http_client=http_client)

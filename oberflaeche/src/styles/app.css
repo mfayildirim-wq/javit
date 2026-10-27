@@ -2800,3 +2800,59 @@ input[type='range'] {
   width: 100%;
   resize: vertical;
 }
+
+/* Katalog: Herkunft, Gruppen, OAuth */
+.marke-chip.offiziell {
+  color: var(--ok);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.marke-chip.community {
+  color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.marke-chip.cloud {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.kat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+.kat-kachel.gruppe {
+  border-style: double;
+}
+.oauth-hinweis {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dienste-wahl {
+  display: grid;
+  gap: 8px;
+}
+.dienst {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--linie);
+  cursor: pointer;
+}
+.dienst.ist-da {
+  border-color: var(--ok);
+}
+.dienst > span:first-of-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--eis);
+}

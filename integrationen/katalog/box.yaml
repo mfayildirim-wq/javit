@@ -1,0 +1,16 @@
+id: box
+name: Box
+beschreibung: Dateien und Ordner in Box suchen, lesen und verwalten
+kategorie: Dateien
+icon: box
+art: mcp_http
+url: https://mcp.box.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developer.box.com/guides/box-mcp/remote/
+hinweis: Offizieller Box-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Box; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developer.box.com/guides/box-mcp/remote/
+risiko_standard: aendern

@@ -3,13 +3,17 @@ name: Slack
 beschreibung: Kanäle und Direktnachrichten lesen, durchsuchen und Nachrichten senden
 kategorie: Kommunikation
 icon: message-square
-art: mcp_stdio
-befehl: npx -y slack-mcp-server@latest --transport stdio
-benoetigt:
-  - {name: SLACK_MCP_XOXP_TOKEN, titel: User-OAuth-Token (xoxp-…), geheim: true}
-  - {name: SLACK_MCP_ADD_MESSAGE_TOOL, titel: Senden erlauben (true/false), geheim: false, standard: "true", optional: true}
-hinweis: "Unter api.slack.com/apps eine App anlegen, User Token Scopes (channels:history, chat:write, search:read …) vergeben und den User OAuth Token (xoxp-…) kopieren."
-webseite: https://github.com/korotovsky/slack-mcp-server
+art: mcp_http
+url: https://mcp.slack.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://docs.slack.dev/ai/mcp-server/
+hinweis: Offizieller Slack-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Slack; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://docs.slack.dev/ai/mcp-server/
 risiko_standard: aendern
 werkzeug_risiko:
-  conversations_add_message: kritisch
+  send_message: kritisch
+  chat_postMessage: kritisch

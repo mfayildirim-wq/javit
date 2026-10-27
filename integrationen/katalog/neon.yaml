@@ -1,0 +1,16 @@
+id: neon
+name: Neon
+beschreibung: Serverlose Postgres-Datenbanken bei Neon anlegen, abfragen und verwalten
+kategorie: Entwicklung
+icon: database-zap
+art: mcp_http
+url: https://mcp.neon.tech/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://neon.com/docs/ai/neon-mcp-server
+hinweis: Offizieller Neon-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Neon; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://neon.com/docs/ai/neon-mcp-server
+risiko_standard: aendern

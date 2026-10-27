@@ -1,0 +1,16 @@
+id: webflow
+name: Webflow
+beschreibung: Webflow-Sites, Seiten, CMS-Inhalte und Komponenten verwalten
+kategorie: Web
+icon: layout
+art: mcp_http
+url: https://mcp.webflow.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developers.webflow.com/data/docs/ai-tools
+hinweis: Offizieller Webflow-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Webflow; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developers.webflow.com/data/docs/ai-tools
+risiko_standard: aendern

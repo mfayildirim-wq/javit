@@ -3,10 +3,11 @@ name: Context7 (Entwickler-Doku)
 beschreibung: Aktuelle Dokumentation und Codebeispiele zu Programmierbibliotheken nachschlagen
 kategorie: Entwicklung
 icon: book-open
-art: mcp_stdio
-befehl: npx -y @upstash/context7-mcp
-benoetigt:
-  - {name: CONTEXT7_API_KEY, titel: "API-Schlüssel (optional, höhere Limits)", geheim: true, optional: true}
-hinweis: "Funktioniert ohne Schlüssel; optionaler Schlüssel unter context7.com/dashboard."
-webseite: https://github.com/upstash/context7
+art: mcp_http
+url: https://mcp.context7.com/mcp
+benoetigt: []
+vertrauen: offiziell
+quelle: https://context7.com/docs
+hinweis: Offizieller Server, ohne Anmeldung nutzbar.
+webseite: https://context7.com/docs
 risiko_standard: lesen

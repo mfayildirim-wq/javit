@@ -1,0 +1,16 @@
+id: dropbox
+name: Dropbox
+beschreibung: Dateien und Ordner in Dropbox suchen, lesen und verwalten
+kategorie: Dateien
+icon: folder
+art: mcp_http
+url: https://mcp.dropbox.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://www.dropbox.com/developers/documentation/mcp
+hinweis: Offizieller Dropbox-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Dropbox; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://www.dropbox.com/developers/documentation/mcp
+risiko_standard: aendern

@@ -1,0 +1,16 @@
+id: monday
+name: monday.com
+beschreibung: Boards, Elemente und Updates in monday.com lesen und bearbeiten
+kategorie: Produktivität
+icon: kanban
+art: mcp_http
+url: https://mcp.monday.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developer.monday.com/apps/docs/mondaycom-mcp-integration
+hinweis: Offizieller monday.com-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei monday.com; die
+  Zugangsdaten landen im Schlüsselbund.
+webseite: https://developer.monday.com/apps/docs/mondaycom-mcp-integration
+risiko_standard: aendern

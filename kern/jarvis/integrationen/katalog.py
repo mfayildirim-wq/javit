@@ -15,6 +15,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..konfig import jarvis_home
+from .oauth import OAuthKonfig
 
 Art = Literal["mcp_stdio", "mcp_http", "openapi", "rest", "eingebaut"]
 RisikoStufe = Literal["lesen", "aendern", "kritisch"]
@@ -81,6 +82,14 @@ class KatalogEintrag(BaseModel):
     werkzeug_risiko: dict[str, RisikoStufe] = Field(default_factory=dict)
     voraussetzungen: list[str] = Field(default_factory=list)
     einrichtung: list[Schritt] = Field(default_factory=list)
+    #: OAuth-Anmeldung (mcp_http): {"modus": "entdeckung"} oder manuell mit URLs/Scopes/Client-Platzhaltern
+    oauth: OAuthKonfig | None = None
+    #: „offiziell“ = vom Anbieter selbst betrieben/veröffentlicht; „community“ = Dritte
+    vertrauen: Literal["offiziell", "community"] = "community"
+    #: Doku-Seite des Anbieters, die den Server beschreibt
+    quelle: str | None = None
+    #: Einträge, die zusammengehören (z. B. google-workspace: ein OAuth-Client für alle)
+    gruppe: str | None = None
 
     @field_validator("id")
     @classmethod
@@ -99,6 +108,12 @@ class KatalogEintrag(BaseModel):
             raise ValueError(f"{self.id}: art rest benötigt 'rest'")
         if self.art == "eingebaut" and not self.eingebaut:
             raise ValueError(f"{self.id}: art eingebaut benötigt 'eingebaut'")
+        if self.oauth is not None:
+            if self.art != "mcp_http":
+                raise ValueError(f"{self.id}: oauth nur bei art mcp_http")
+            self.oauth.pruefen()
+        if self.vertrauen == "offiziell" and not self.quelle:
+            raise ValueError(f"{self.id}: offizielle Einträge brauchen 'quelle' (Doku des Anbieters)")
         return self
 
     def als_info(self) -> dict[str, Any]:
@@ -120,6 +135,10 @@ class KatalogEintrag(BaseModel):
             "hinweis": self.hinweis,
             "webseite": self.webseite,
             "einrichtung": [s.als_info() for s in self.einrichtung],
+            "oauth": self.oauth.modus if self.oauth else None,
+            "vertrauen": self.vertrauen,
+            "quelle": self.quelle,
+            "gruppe": self.gruppe,
         }
 
 
@@ -161,7 +180,7 @@ class Katalog:
         return None
 
     def alle(self) -> list[KatalogEintrag]:
-        return sorted(self.eintraege.values(), key=lambda e: (e.kategorie, e.name))
+        return sorted(self.eintraege.values(), key=lambda e: (e.kategorie, e.vertrauen != "offiziell", e.name))
 
     def suchen(self, begriff: str | None = None) -> list[KatalogEintrag]:
         if not begriff:

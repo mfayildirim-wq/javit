@@ -1,0 +1,13 @@
+id: huggingface
+name: Hugging Face
+beschreibung: Modelle, Datensätze, Spaces und Papers auf Hugging Face suchen
+kategorie: KI
+icon: sparkles
+art: mcp_http
+url: https://huggingface.co/mcp
+benoetigt: []
+vertrauen: offiziell
+quelle: https://huggingface.co/docs/hub/mcp
+hinweis: Offizieller Server, ohne Anmeldung nutzbar.
+webseite: https://huggingface.co/docs/hub/mcp
+risiko_standard: lesen

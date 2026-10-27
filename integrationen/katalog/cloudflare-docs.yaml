@@ -1,0 +1,13 @@
+id: cloudflare-docs
+name: Cloudflare Docs
+beschreibung: Cloudflare-Dokumentation durchsuchen
+kategorie: Wissen
+icon: cloud
+art: mcp_http
+url: https://docs.mcp.cloudflare.com/mcp
+benoetigt: []
+vertrauen: offiziell
+quelle: https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/
+hinweis: Offizieller Server, ohne Anmeldung nutzbar.
+webseite: https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/
+risiko_standard: lesen

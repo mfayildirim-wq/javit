@@ -1,0 +1,16 @@
+id: figma
+name: Figma
+beschreibung: Designs, Komponenten und Variablen aus Figma-Dateien lesen
+kategorie: Design
+icon: pen-tool
+art: mcp_http
+url: https://mcp.figma.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://help.figma.com/hc/en-us/articles/32132100833559
+hinweis: Offizieller Figma-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Figma; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://help.figma.com/hc/en-us/articles/32132100833559
+risiko_standard: lesen

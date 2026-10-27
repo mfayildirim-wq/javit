@@ -1,0 +1,28 @@
+id: aws
+name: AWS
+beschreibung: 'AWS-Konto per Sprache bedienen: über 15.000 AWS-APIs, Dokumentation und Best Practices (verwalteter
+  AWS MCP Server)'
+kategorie: Cloud
+icon: server
+art: mcp_http
+url: https://aws-mcp.${AWS_MCP_REGION}.api.aws/mcp?oauth=initialize
+benoetigt:
+- name: AWS_MCP_REGION
+  titel: Region des Servers
+  geheim: false
+  standard: eu-central-1
+  beschreibung: eu-central-1, eu-west-1, eu-west-2, us-east-1, us-west-2, ap-southeast-1, ap-southeast-2 oder ap-northeast-1
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://docs.aws.amazon.com/agent-toolkit/latest/userguide/getting-started-aws-mcp-server.html
+hinweis: Beim ersten Werkzeugaufruf öffnet sich der Browser zur AWS-Anmeldung. Dem IAM-Nutzer/der Rolle vorher die
+  verwaltete Richtlinie AWSMCPSignInOAuthAccessPolicy zuweisen. Tokens gelten 1 Stunde und werden bis 12 Stunden
+  automatisch erneuert.
+webseite: https://docs.aws.amazon.com/agent-toolkit/latest/userguide/mcp-server.html
+risiko_standard: kritisch
+werkzeug_risiko:
+  aws___search_documentation: lesen
+  aws___read_documentation: lesen
+  aws___retrieve_skill: lesen
+  aws___recommend: lesen

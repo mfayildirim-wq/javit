@@ -220,3 +220,29 @@ mit pwsh geparst (nicht ausgeführt).
   mehr roh angezeigt (Stream hält `<｜`/`<|` zurück, auch im nativen Modus), und kleine Namensfehler des
   Modells (`dateisystem_listallowed_directories`) werden eindeutig auf das echte Werkzeug aufgelöst.
 - Live mit `openrouter/z-ai/glm-5.3-flash`: nativer Modus, Aufruf `dateisystem__list_allowed_directories`.
+
+---
+
+## 27.10.2026 – OAuth-Connectoren und seriöser Katalog (Phase 2a)
+
+- Spezifikation: `docs/superpowers/specs/2026-10-27-oauth-connectoren-design.md`. Recherche vorab: MCP-OAuth-
+  Spezifikation, Google-Workspace-MCP-Doku (Client „Webanwendung“ + „für KI-Agenten“, keine dynamische
+  Registrierung), AWS MCP Server (OAuth je Region), Microsoft Learn (ohne Anmeldung); 36 Kandidaten-URLs automatisch
+  geprüft (401 + `resource_metadata` = Standard; Atlassian/Zapier ohne Metadaten → nicht aufgenommen).
+- Kern: `integrationen/oauth.py` – `SchluesselbundSpeicher` (TokenStorage des SDK), `Rueckrufe` (state → Future,
+  300 s), `entdeckungs_auth` (SDK `OAuthClientProvider`, Rückruf `http://127.0.0.1:<port>/oauth/rueckruf`,
+  Zusatzparameter an die Autorisierungs-URL), `ManuellerOAuth` (httpx2.Auth: PKCE, Code-Tausch, Refresh, 401-Retry).
+  Stolperstein: Das MCP-SDK nutzt das Paket **httpx2**, nicht httpx – Auth-Klassen und Tests müssen httpx2 nutzen.
+  MCP-Hub reicht `auth` an `create_mcp_http_client`, Startzeitlimit 330 s bei OAuth. Manager: `oauth` in der
+  Konfiguration, automatisch `entdeckung` für eigene MCP-URLs ohne Authorization, `abmelden()`, `oauth_stand()`.
+  Server: `GET /oauth/rueckruf`, `POST …/abmelden`, `POST …/anmelden`; Ereignis `oauth_anmeldung`.
+- Katalog (56 Einträge): 21 offizielle OAuth-Connectoren, AWS, 5 anmeldefreie, Google Workspace als Gruppe
+  (9 Dienste, gemeinsame Felder `GOOGLE_OAUTH_CLIENT_ID/SECRET`, Scopes laut Google-Doku, Einrichtungs-Checkliste);
+  `github` jetzt OAuth, `github-token`/`slack-lokal`/`google-kalender-lokal` als Alternativen; Felder `vertrauen`,
+  `quelle`, `gruppe`, Sortierung offiziell vor community. Tests auf `github-token` umgestellt; `conftest` setzt
+  `JARVIS_OHNE_BROWSER=1` (sonst öffnete ein Test den echten Browser und wartete 300 s).
+- Oberfläche: Chips „Offiziell“/„Community“/„Anmeldung im Browser“, Quelle-Link, Kachel „Google Workspace“ mit
+  Dienste-Auswahl und gemeinsamen Feldern, OAuth-Hinweis mit „Anmeldeseite öffnen“, Detailseite mit
+  angemeldet/Abmelden/Anmelden.
+- Tests: `tests/test_oauth.py` (7: Entdeckungsflow gegen gefälschten Autorisierungsserver, manueller Google-Flow
+  mit Refresh, Rückrufe, Katalog, Manager, Server), Oberfläche 64 grün.

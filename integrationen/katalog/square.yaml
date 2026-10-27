@@ -1,0 +1,16 @@
+id: square
+name: Square
+beschreibung: Zahlungen, Kunden, Bestellungen und Katalog in Square verwalten
+kategorie: Finanzen
+icon: shopping-bag
+art: mcp_http
+url: https://mcp.squareup.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developer.squareup.com/docs/mcp
+hinweis: Offizieller Square-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Square; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developer.squareup.com/docs/mcp
+risiko_standard: kritisch

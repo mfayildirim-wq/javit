@@ -5,12 +5,14 @@ kategorie: Entwicklung
 icon: github
 art: mcp_http
 url: https://api.githubcopilot.com/mcp/
-kopfzeilen:
-  Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
-benoetigt:
-  - {name: GITHUB_PERSONAL_ACCESS_TOKEN, titel: Personal Access Token, geheim: true}
-hinweis: "Offizieller GitHub-MCP-Server (gehostet). Token unter github.com › Settings › Developer settings › Personal access tokens (fine-grained) anlegen, nur benötigte Rechte vergeben."
-webseite: https://github.com/github/github-mcp-server
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://docs.github.com/en/copilot/how-tos/context/use-mcp/use-the-github-mcp-server
+hinweis: Offizieller GitHub-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei GitHub; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://docs.github.com/en/copilot/how-tos/context/use-mcp/use-the-github-mcp-server
 risiko_standard: aendern
 werkzeug_risiko:
   merge_pull_request: kritisch

@@ -1,0 +1,16 @@
+id: intercom
+name: Intercom
+beschreibung: Gespräche, Kontakte und Tickets in Intercom durchsuchen
+kategorie: Kommunikation
+icon: messages-square
+art: mcp_http
+url: https://mcp.intercom.com/mcp
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://developers.intercom.com/docs/guides/mcp
+hinweis: Offizieller Intercom-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Intercom; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://developers.intercom.com/docs/guides/mcp
+risiko_standard: aendern

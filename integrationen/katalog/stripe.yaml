@@ -1,0 +1,16 @@
+id: stripe
+name: Stripe
+beschreibung: Kunden, Zahlungen, Rechnungen und Abonnements in Stripe abfragen und anlegen
+kategorie: Finanzen
+icon: credit-card
+art: mcp_http
+url: https://mcp.stripe.com
+benoetigt: []
+oauth:
+  modus: entdeckung
+vertrauen: offiziell
+quelle: https://docs.stripe.com/mcp
+hinweis: Offizieller Stripe-Server. Beim Hinzufügen öffnet sich der Browser zur Anmeldung bei Stripe; die Zugangsdaten
+  landen im Schlüsselbund.
+webseite: https://docs.stripe.com/mcp
+risiko_standard: kritisch

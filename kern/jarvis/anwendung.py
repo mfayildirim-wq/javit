@@ -49,6 +49,7 @@ class Jarvis:
         self.manager = IntegrationsManager(
             self.register, self.geheimnisse, self.katalog, self.senden, http_client_fabrik=http_client_fabrik
         )
+        self.manager.rueckruf_url = lambda: f"http://127.0.0.1:{self.einstellungen.port}/oauth/rueckruf"
         self.agent = Agent(
             lambda: self.konfig.einstellungen,
             self.llm,
