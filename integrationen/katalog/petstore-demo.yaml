@@ -1,0 +1,11 @@
+id: petstore-demo
+name: Petstore (OpenAPI-Demo)
+beschreibung: Beispiel-API zum Ausprobieren der OpenAPI-Integration (Swagger Petstore)
+kategorie: Demo
+icon: flask-conical
+art: openapi
+url: https://petstore3.swagger.io/api/v3/openapi.json
+benoetigt: []
+hinweis: "Öffentliche Demo-API von Swagger – zeigt, wie jede OpenAPI-Schnittstelle in Sekunden zu Werkzeugen des Assistenten wird."
+webseite: https://petstore3.swagger.io
+risiko_standard: aendern

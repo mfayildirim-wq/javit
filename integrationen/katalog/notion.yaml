@@ -1,0 +1,12 @@
+id: notion
+name: Notion
+beschreibung: Seiten und Datenbanken in Notion suchen, lesen, anlegen und bearbeiten
+kategorie: Produktivität
+icon: notebook-pen
+art: mcp_stdio
+befehl: npx -y @notionhq/notion-mcp-server
+benoetigt:
+  - {name: NOTION_TOKEN, titel: Integration-Token (ntn_…), geheim: true}
+hinweis: "Unter notion.so/profile/integrations eine interne Integration anlegen, Token kopieren und die gewünschten Seiten mit der Integration teilen („Verbindungen“)."
+webseite: https://github.com/makenotion/notion-mcp-server
+risiko_standard: aendern

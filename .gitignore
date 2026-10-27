@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+build/
+
+# Node / Oberfläche
+oberflaeche/node_modules/
+oberflaeche/dist/
+*.tsbuildinfo
+
+# System, Editor, Protokolle
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Lokale Daten und Geheimnisse (gehören nach ~/.jarvis, nie ins Repo)
+.env
+.env.*
+geheimnisse.enc
+geheimnisse.schluessel

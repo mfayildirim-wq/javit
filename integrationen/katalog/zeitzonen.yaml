@@ -1,0 +1,12 @@
+id: zeitzonen
+name: Zeitzonen
+beschreibung: Uhrzeit in anderen Zeitzonen abfragen und Zeiten umrechnen
+kategorie: Alltag
+icon: clock
+art: mcp_stdio
+befehl: uvx mcp-server-time --local-timezone ${ZEITZONE}
+benoetigt:
+  - {name: ZEITZONE, titel: Eigene Zeitzone, geheim: false, standard: "Europe/Berlin"}
+hinweis: "Benötigt uv (brew install uv)."
+webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/time
+risiko_standard: lesen

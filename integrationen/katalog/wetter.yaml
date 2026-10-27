@@ -1,0 +1,34 @@
+id: wetter
+name: Wetter (Open-Meteo)
+beschreibung: Aktuelles Wetter und Vorhersage für jeden Ort – ohne API-Schlüssel
+kategorie: Alltag
+icon: cloud-sun
+art: rest
+benoetigt: []
+hinweis: "Nutzt die freie Open-Meteo-API (nicht kommerzielle Nutzung). Kein Schlüssel nötig."
+webseite: https://open-meteo.com
+risiko_standard: lesen
+rest:
+  - name: ort_suchen
+    methode: GET
+    url: https://geocoding-api.open-meteo.com/v1/search
+    beschreibung: Sucht einen Ort und liefert Breiten-/Längengrad (für wetter_abrufen).
+    parameter:
+      name: {typ: text, beschreibung: Ortsname, pflicht: true}
+      count: {typ: ganzzahl, standard: 3}
+      language: {typ: text, standard: de}
+  - name: wetter_abrufen
+    methode: GET
+    url: https://api.open-meteo.com/v1/forecast
+    beschreibung: >-
+      Aktuelles Wetter und Tagesvorhersage für Koordinaten. weather_code ist ein WMO-Code
+      (0 klar, 1–3 heiter bis bedeckt, 45/48 Nebel, 51–57 Niesel, 61–67 Regen, 71–77 Schnee,
+      80–82 Regenschauer, 85/86 Schneeschauer, 95–99 Gewitter).
+    parameter:
+      latitude: {typ: zahl, pflicht: true}
+      longitude: {typ: zahl, pflicht: true}
+      forecast_days: {typ: ganzzahl, standard: 3, beschreibung: "1–16 Tage"}
+    feste_parameter:
+      current: temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m
+      daily: weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset
+      timezone: auto

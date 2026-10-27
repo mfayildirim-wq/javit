@@ -1,0 +1,11 @@
+id: fetch
+name: Webseiten abrufen (Fetch)
+beschreibung: Webseiten abrufen und als Markdown lesen (offizieller Referenzserver)
+kategorie: Web
+icon: download
+art: mcp_stdio
+befehl: uvx mcp-server-fetch
+benoetigt: []
+hinweis: "Benötigt uv (brew install uv). Der Assistent hat zusätzlich das eingebaute Werkzeug webseite_lesen."
+webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/fetch
+risiko_standard: lesen

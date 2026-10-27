@@ -1,0 +1,13 @@
+id: obsidian
+name: Obsidian
+beschreibung: Notizen im Obsidian-Vault suchen, lesen, anlegen und bearbeiten
+kategorie: Wissen
+icon: gem
+art: mcp_stdio
+befehl: npx -y obsidian-mcp-server
+benoetigt:
+  - {name: OBSIDIAN_API_KEY, titel: API-Schlüssel (Local REST API), geheim: true}
+  - {name: OBSIDIAN_BASE_URL, titel: Adresse, geheim: false, standard: "http://127.0.0.1:27123"}
+hinweis: "In Obsidian das Community-Plugin „Local REST API“ installieren, „Non-encrypted (HTTP) Server“ aktivieren und den API-Schlüssel aus den Plugin-Einstellungen kopieren."
+webseite: https://github.com/cyanheads/obsidian-mcp-server
+risiko_standard: aendern

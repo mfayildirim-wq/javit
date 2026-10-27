@@ -1,0 +1,14 @@
+id: dateisystem
+name: Dateisystem
+beschreibung: Dateien und Ordner in einem freigegebenen Verzeichnis lesen, schreiben, durchsuchen
+kategorie: System
+icon: folder-open
+art: mcp_stdio
+befehl: npx -y @modelcontextprotocol/server-filesystem ${VERZEICHNIS}
+benoetigt:
+  - {name: VERZEICHNIS, titel: Freigegebener Ordner, geheim: false, standard: "~/Documents"}
+hinweis: "Nur der angegebene Ordner (absoluter Pfad oder ~/…) ist für den Assistenten zugänglich. Benötigt Node.js."
+webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem
+risiko_standard: aendern
+werkzeug_risiko:
+  move_file: aendern

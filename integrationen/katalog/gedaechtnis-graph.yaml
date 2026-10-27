@@ -1,0 +1,15 @@
+id: gedaechtnis-graph
+name: Wissensgraph (Memory)
+beschreibung: Dauerhaftes Wissen als Graph aus Personen, Dingen und Beziehungen speichern
+kategorie: Wissen
+icon: brain
+art: mcp_stdio
+befehl: npx -y @modelcontextprotocol/server-memory
+benoetigt: []
+hinweis: "Ergänzt das eingebaute Gedächtnis des Assistenten um einen strukturierten Wissensgraphen. Benötigt Node.js."
+webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/memory
+risiko_standard: aendern
+werkzeug_risiko:
+  delete_entities: kritisch
+  delete_observations: aendern
+  delete_relations: aendern

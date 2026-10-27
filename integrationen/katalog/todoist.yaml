@@ -1,0 +1,12 @@
+id: todoist
+name: Todoist
+beschreibung: Aufgaben und Projekte in Todoist anlegen, abhaken und abfragen
+kategorie: Produktivität
+icon: list-checks
+art: mcp_stdio
+befehl: npx -y @doist/todoist-mcp
+benoetigt:
+  - {name: TODOIST_API_KEY, titel: API-Token, geheim: true}
+hinweis: "API-Token unter todoist.com › Einstellungen › Integrationen › Entwickler kopieren. Offizieller Server von Doist."
+webseite: https://github.com/Doist/todoist-mcp
+risiko_standard: aendern

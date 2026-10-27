@@ -1,0 +1,12 @@
+id: tavily
+name: Tavily-Recherche
+beschreibung: KI-optimierte Websuche und Extraktion von Webseiteninhalten
+kategorie: Web
+icon: telescope
+art: mcp_stdio
+befehl: npx -y tavily-mcp
+benoetigt:
+  - {name: TAVILY_API_KEY, titel: API-Schlüssel, geheim: true}
+hinweis: "Kostenloser Schlüssel unter app.tavily.com. Mit gesetztem TAVILY_API_KEY nutzt auch die eingebaute Websuche Tavily."
+webseite: https://github.com/tavily-ai/tavily-mcp
+risiko_standard: lesen

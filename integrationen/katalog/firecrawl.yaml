@@ -1,0 +1,12 @@
+id: firecrawl
+name: Firecrawl
+beschreibung: Webseiten crawlen, scrapen und strukturiert extrahieren
+kategorie: Web
+icon: flame
+art: mcp_stdio
+befehl: npx -y firecrawl-mcp
+benoetigt:
+  - {name: FIRECRAWL_API_KEY, titel: API-Schlüssel (fc-…), geheim: true}
+hinweis: "Schlüssel unter firecrawl.dev anlegen."
+webseite: https://github.com/firecrawl/firecrawl-mcp-server
+risiko_standard: lesen

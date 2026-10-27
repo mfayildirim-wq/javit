@@ -1,0 +1,17 @@
+id: browser
+name: Browser (Playwright)
+beschreibung: Webseiten im echten Browser öffnen, klicken, Formulare ausfüllen, Inhalte auslesen
+kategorie: Web
+icon: globe
+art: mcp_stdio
+befehl: npx -y @playwright/mcp@latest
+benoetigt: []
+hinweis: "Benötigt Node.js (brew install node). Beim ersten Start lädt npx das Paket @playwright/mcp; ggf. fehlende Browser mit „npx playwright install chromium“ nachinstallieren."
+webseite: https://github.com/microsoft/playwright-mcp
+risiko_standard: aendern
+werkzeug_risiko:
+  browser_snapshot: lesen
+  browser_take_screenshot: lesen
+  browser_console_messages: lesen
+  browser_network_requests: lesen
+  browser_tabs: lesen

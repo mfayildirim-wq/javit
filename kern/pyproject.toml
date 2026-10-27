@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis"
+version = "0.1.0"
+description = "Javit (Paket jarvis) – persönlicher KI-Assistent für macOS, Windows und Linux mit Sprachsteuerung, Werkzeugen und Integrationen"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "litellm>=1.50",
+    "mcp>=2.0",
+    "httpx>=0.27",
+    "PyYAML>=6.0",
+    "cryptography>=42",
+    # Papierkorb unter Windows/Linux (macOS nutzt weiter den Finder)
+    "send2trash>=1.8",
+    # Geheimnisse unter Windows (Anmeldeinformationsverwaltung) und Linux (Secret Service);
+    # macOS nutzt weiter die security-CLI
+    "keyring>=24; sys_platform != 'darwin'",
+]
+
+[project.optional-dependencies]
+stimme = [
+    "openwakeword>=0.6",
+    # Freies Weckwort („Javit“): 0.3.45 hat kein macOS-Wheel – pip nimmt dort automatisch 0.3.44
+    # (universal2, arm64 + x86_64); Windows (win_amd64) und Linux (x86_64, aarch64) haben 0.3.45
+    "vosk>=0.3.44",
+    "faster-whisper>=1.0",
+    "sounddevice>=0.4.6",
+    "numpy>=1.26",
+    "webrtcvad-wheels>=2.0.11",
+    # Lokale Sprachausgabe unter Linux (Wheels für x86_64 und aarch64); Fallback espeak-ng
+    "piper-tts>=1.2; sys_platform == 'linux'",
+]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+]
+
+[project.scripts]
+jarvis = "jarvis.cli:main"
+javit = "jarvis.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["jarvis*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,0 +1,15 @@
+id: home-assistant
+name: Home Assistant
+beschreibung: Smart Home steuern – Licht, Heizung, Szenen, Sensoren über Home Assistant
+kategorie: Smart Home
+icon: house
+art: mcp_http
+url: ${HA_URL}/api/mcp
+kopfzeilen:
+  Authorization: "Bearer ${HA_TOKEN}"
+benoetigt:
+  - {name: HA_URL, titel: Home-Assistant-Adresse, geheim: false, standard: "http://homeassistant.local:8123"}
+  - {name: HA_TOKEN, titel: Langlebiges Zugriffstoken, geheim: true}
+hinweis: "In Home Assistant die Integration „Model Context Protocol Server“ hinzufügen und unter Profil › Sicherheit ein langlebiges Zugriffstoken erstellen."
+webseite: https://www.home-assistant.io/integrations/mcp_server/
+risiko_standard: aendern

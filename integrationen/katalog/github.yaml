@@ -1,0 +1,17 @@
+id: github
+name: GitHub
+beschreibung: Repositories, Issues, Pull Requests und Code auf GitHub durchsuchen und bearbeiten
+kategorie: Entwicklung
+icon: github
+art: mcp_http
+url: https://api.githubcopilot.com/mcp/
+kopfzeilen:
+  Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
+benoetigt:
+  - {name: GITHUB_PERSONAL_ACCESS_TOKEN, titel: Personal Access Token, geheim: true}
+hinweis: "Offizieller GitHub-MCP-Server (gehostet). Token unter github.com › Settings › Developer settings › Personal access tokens (fine-grained) anlegen, nur benötigte Rechte vergeben."
+webseite: https://github.com/github/github-mcp-server
+risiko_standard: aendern
+werkzeug_risiko:
+  merge_pull_request: kritisch
+  delete_file: kritisch

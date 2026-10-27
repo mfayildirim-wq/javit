@@ -1,0 +1,15 @@
+id: gmail
+name: Gmail
+beschreibung: E-Mails in Gmail suchen, lesen, entwerfen, senden und Labels verwalten
+kategorie: Kommunikation
+icon: mail
+art: mcp_stdio
+befehl: npx -y @gongrzhe/server-gmail-autoauth-mcp
+benoetigt: []
+hinweis: "Einmalig: OAuth-Client (Desktop-App) in der Google Cloud Console mit aktivierter Gmail API anlegen, JSON als ~/.gmail-mcp/gcp-oauth.keys.json speichern und „npx @gongrzhe/server-gmail-autoauth-mcp auth“ im Terminal ausführen."
+webseite: https://github.com/GongRzhe/Gmail-MCP-Server
+risiko_standard: aendern
+werkzeug_risiko:
+  send_email: kritisch
+  delete_email: kritisch
+  batch_delete_emails: kritisch

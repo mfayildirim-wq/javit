@@ -1,0 +1,12 @@
+id: google-kalender
+name: Google Kalender
+beschreibung: Termine in Google Kalender abfragen, anlegen, verschieben und freie Zeiten finden
+kategorie: Produktivität
+icon: calendar
+art: mcp_stdio
+befehl: npx -y @cocal/google-calendar-mcp
+benoetigt:
+  - {name: GOOGLE_OAUTH_CREDENTIALS, titel: Pfad zur OAuth-Datei (gcp-oauth.keys.json), geheim: false}
+hinweis: "In der Google Cloud Console die Calendar API aktivieren, OAuth-Client vom Typ „Desktop-App“ anlegen und die JSON-Datei herunterladen. Beim ersten Start öffnet sich der Browser zur Anmeldung. Die Kalender-App des Macs ist zusätzlich über die eingebauten Werkzeuge nutzbar."
+webseite: https://github.com/nspady/google-calendar-mcp
+risiko_standard: aendern

@@ -1,0 +1,12 @@
+id: brave-suche
+name: Brave Search
+beschreibung: Websuche, Nachrichten-, Bild- und Ortssuche über die Brave-Search-API
+kategorie: Web
+icon: search
+art: mcp_stdio
+befehl: npx -y @brave/brave-search-mcp-server
+benoetigt:
+  - {name: BRAVE_API_KEY, titel: API-Schlüssel, geheim: true}
+hinweis: "Kostenlosen Schlüssel unter brave.com/search/api anlegen. Mit gesetztem BRAVE_API_KEY nutzt auch die eingebaute Websuche Brave."
+webseite: https://github.com/brave/brave-search-mcp-server
+risiko_standard: lesen

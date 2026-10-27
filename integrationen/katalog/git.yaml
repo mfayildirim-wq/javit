@@ -1,0 +1,14 @@
+id: git
+name: Git
+beschreibung: Git-Repositories untersuchen – Status, Diffs, Log, Branches, Commits
+kategorie: Entwicklung
+icon: git-branch
+art: mcp_stdio
+befehl: uvx mcp-server-git --repository ${REPOSITORY}
+benoetigt:
+  - {name: REPOSITORY, titel: Pfad zum Repository, geheim: false}
+hinweis: "Benötigt uv (brew install uv)."
+webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/git
+risiko_standard: aendern
+werkzeug_risiko:
+  git_reset: kritisch
