@@ -152,3 +152,27 @@ mit pwsh geparst (nicht ausgeführt).
   wurde nie gegen `MCP_API_KEYS` geprüft. Behoben auf gg-Seite (Commit 89392fe, Deployment 14:14 Uhr,
   Schlüsseleintrag `cowork:read+write:<sha256>`); in Javit „neu verbinden“ → verbunden, 9 Werkzeuge.
   Keine Änderung in Javit nötig.
+
+---
+
+## 27.10.2026 – Anbieterwahl und Modellliste je Anbieter
+
+- Auslöser: OpenRouter-Schlüssel ließ sich eintragen, aber kein OpenRouter-Modell wählen; Wunsch nach
+  DeepSeek, Kimi, GLM, OpenCode und eigenen Anbietern. Spezifikation:
+  `docs/superpowers/specs/2026-10-27-anbieter-modellwahl-design.md`.
+- Kern: neues Register `jarvis/anbieter.py` (12 eingebaute Anbieter, eigene OpenAI-kompatible über
+  `anbieter_eigene`), Live-Modelllisten mit 8-s-Zeitlimit und 10-Minuten-Cache, OpenRouter-Gratismodelle
+  (`pricing == 0`) und Werkzeugfähigkeit (`supported_parameters`) ausgewertet. `llm.CLOUD_VORSCHLAEGE`
+  wird aus dem Register abgeleitet. OpenCode/eigene Anbieter → `openai/<modell>` + `api_base` +
+  eigener `api_key` (nie `OPENAI_API_KEY`). `GET /api/modelle?anbieter=&neu=` rückwärtskompatibel erweitert.
+- Oberfläche: Anbieterleiste (Chips mit Schlüsselstatus) → Schlüsselfeld des Anbieters → Modellliste
+  (Chips „kostenlos“/„Werkzeuge“, „Modelle neu laden“) → Freitext-ID → „Anbieter hinzufügen“/entfernen.
+  Ab 9 Einträgen Filterfeld und Schalter „nur kostenlose“ (OpenRouter liefert ~450 Modelle).
+  Live geprüft mit zweiter Instanz auf Port 8766 (Gemini- und OpenRouter-Listen, Schlüsselstatus).
+- Recherche: OpenCode-Gratismodelle sind laut Doku nur in OpenCode nutzbar („Free-tier chat models
+  require OpenCode“) – daher nur bezahlte Modelle, `-free`/`big-pickle` werden ausgefiltert. Modell-IDs
+  für DeepSeek (`deepseek-flash`, `deepseek-v4-pro`), Z.AI (`glm-5.3`), xAI (`grok-4.7`), Groq und
+  OpenRouter über Doku bzw. Live-Listen geprüft; Kimi-/Mistral-IDs nur plausibel (Live-Liste deckt es ab).
+- Tests: `tests/test_anbieter.py` (Register, Übersetzung, Parser, Cache, Fassade, Server),
+  Oberfläche `einstellungen.test.tsx` (Anbieterwahl, Schlüssel, Gratis-Chip, eigener Anbieter).
+  Kern 478 grün (Mac: `test_kritische_pfade_linux` schlägt vorbestehend fehl), Oberfläche 56 grün.

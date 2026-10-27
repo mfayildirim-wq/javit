@@ -181,6 +181,9 @@ class Einstellungen(BaseModel):
     # Schlüssel = vollständige Modell-ID (z. B. "openai/mein-modell"), Wert = api_base.
     # Bewusst je Modell und nicht global, damit API-Schlüssel anderer Anbieter nie dorthin gehen.
     api_basen: dict[str, str] = Field(default_factory=dict)
+    # Eigene OpenAI-kompatible Anbieter: [{"id", "name", "api_base", "schluessel"?, "modelle"?}]
+    # (Regeln in jarvis/anbieter.py: Kennung a-z0-9_-, keine Kollision mit eingebauten Anbietern).
+    anbieter_eigene: list[dict[str, Any]] = Field(default_factory=list)
     port: int = 8765
     verlauf_kontext: int = 10
     stimme: StimmEinstellungen = Field(default_factory=StimmEinstellungen)
@@ -219,6 +222,24 @@ class Einstellungen(BaseModel):
     @classmethod
     def _name_pruefen(cls, wert: Any) -> str:
         return name_bereinigen(wert)
+
+    @field_validator("anbieter_eigene")
+    @classmethod
+    def _anbieter_pruefen(cls, wert: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        from .anbieter import eigener_anbieter  # noqa: PLC0415 (Importzyklus vermeiden)
+
+        gesehen: set[str] = set()
+        ergebnis = []
+        for eintrag in wert or []:
+            a = eigener_anbieter(eintrag)  # ValueError → Validierungsfehler mit Meldung
+            if a.id in gesehen:
+                raise ValueError(f"Anbieter „{a.id}“ ist doppelt.")
+            gesehen.add(a.id)
+            ergebnis.append({
+                "id": a.id, "name": a.name, "api_base": a.api_base, "schluessel": a.schluessel,
+                "modelle": [m for m, _ in a.vorschlaege],
+            })
+        return ergebnis
 
     @field_validator("persona", mode="before")
     @classmethod

@@ -66,6 +66,11 @@ export function modellAnbieter(id: string): string {
     groq: 'Groq',
     mistral: 'Mistral',
     openrouter: 'OpenRouter',
+    deepseek: 'DeepSeek',
+    moonshot: 'Kimi (Moonshot)',
+    zai: 'GLM (Z.AI)',
+    opencode: 'OpenCode',
+    xai: 'xAI (Grok)',
   };
   return namen[p] ?? (p || 'Modell');
 }

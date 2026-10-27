@@ -65,7 +65,14 @@ function liste<T>(daten: unknown, ...schluessel: string[]): T[] {
 
 export const api = {
   status: () => anfrage<Status>('GET', '/status'),
-  modelle: () => anfrage<Modelle>('GET', '/modelle'),
+  /** Ohne Anbieter: Ollama live + alle Vorschläge; mit Anbieter: nur dessen Modelle (live, wenn möglich). */
+  modelle: (anbieter?: string, neu = false) => {
+    const q = new URLSearchParams();
+    if (anbieter) q.set('anbieter', anbieter);
+    if (neu) q.set('neu', '1');
+    const s = q.toString();
+    return anfrage<Modelle>('GET', s ? `/modelle?${s}` : '/modelle');
+  },
   modellSetzen: (modell: string) => anfrage<unknown>('PUT', '/modelle', { modell }),
   einstellungen: () => anfrage<Einstellungen>('GET', '/einstellungen'),
   einstellungenSpeichern: (teil: Partial<Einstellungen>) => anfrage<Einstellungen>('PUT', '/einstellungen', teil),

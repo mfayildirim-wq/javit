@@ -553,6 +553,12 @@ kbd {
 .marke-chip.aus {
   color: var(--text-3);
 }
+.marke-chip.frei {
+  color: var(--ok);
+}
+.marke-chip.werkzeuge {
+  color: var(--text-2);
+}
 
 .led {
   width: 8px;
@@ -1792,6 +1798,66 @@ select option {
 }
 form > .abschnitt + .abschnitt {
   margin-top: 34px;
+}
+.anbieter-leiste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.anbieter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: var(--t-s);
+  color: var(--text-2);
+  background: rgba(8, 20, 33, 0.5);
+  border: 1px solid var(--linie);
+}
+.anbieter-chip:hover {
+  border-color: var(--linie-mittel);
+}
+.anbieter-chip.an {
+  border-color: var(--cyan);
+  background: rgba(127, 232, 255, 0.08);
+  color: var(--eis);
+}
+.anbieter-chip.eigen {
+  border-style: dashed;
+}
+.anbieter-chip .led {
+  background: var(--text-3);
+}
+.anbieter-chip .led.an {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.modell-kopf {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+}
+.anbieter-neu {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed var(--linie-mittel);
+}
+.anbieter-aktionen {
+  align-items: center;
+}
+.modell-filter {
+  align-items: end;
+  flex-wrap: wrap;
+}
+.modell-filter .feld {
+  flex: 1 1 220px;
+}
+.schalter-zeile.kompakt {
+  gap: 10px;
+  padding-bottom: 8px;
 }
 .modell-liste {
   list-style: none;

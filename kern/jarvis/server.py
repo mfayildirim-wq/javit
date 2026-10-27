@@ -21,6 +21,7 @@ from pydantic import ValidationError
 
 from .anwendung import Jarvis
 from .integrationen.manager import FehlendeWerte, IntegrationsFehler
+from .llm import LLMFehler
 
 log = logging.getLogger("jarvis.server")
 
@@ -141,9 +142,11 @@ def create_app(
         return j_(request).status()
 
     @app.get("/api/modelle")
-    async def modelle(request: Request) -> dict[str, Any]:
-        j = j_(request)
-        return {"aktuell": j.einstellungen.modell, "vorschlaege": await j.llm.modell_vorschlaege()}
+    async def modelle(request: Request, anbieter: str | None = None, neu: bool = False) -> dict[str, Any]:
+        try:
+            return await j_(request).llm.modelle_uebersicht(anbieter or None, neu=neu)
+        except LLMFehler as e:
+            raise HTTPException(404, str(e)) from e
 
     @app.put("/api/modelle")
     async def modell_setzen(request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
@@ -183,8 +186,10 @@ def create_app(
         wert = daten.get("wert")
         if not isinstance(wert, str) or not wert:
             raise HTTPException(400, "Feld 'wert' fehlt")
-        j_(request).geheimnisse.setzen(name, wert)
+        j = j_(request)
+        j.geheimnisse.setzen(name, wert)
         os.environ[name] = wert
+        j.llm.modelllisten_vergessen()  # Modelllisten mit dem neuen Schlüssel neu laden
         return {"name": name, "gespeichert": True}
 
     @app.get("/api/werkzeuge")

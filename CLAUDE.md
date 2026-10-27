@@ -52,7 +52,8 @@ Kommentare, Meldungen, Commits, Doku.
   Aufruf über `risiko_fuer` verschärft werden (siehe `werkzeuge/dateien.py`).
 * Geheimnisse nie in Logs, Events oder `integrationen.json` (dort nur `${NAME}`); Events über
   `geheimnisse.schwaerzen` leiten.
-* Modellaufrufe nur über `LLMFassade`. Cloud-Modell-IDs stehen in `llm.CLOUD_VORSCHLAEGE`
+* Modellaufrufe nur über `LLMFassade`. Anbieter und Modell-Vorschläge stehen in `anbieter.py`
+  (`EINGEBAUTE`; `llm.CLOUD_VORSCHLAEGE` wird daraus abgeleitet)
   (LiteLLM-Schreibweise) – vor Änderungen die aktuellen IDs bei den Anbietern prüfen.
 * Keine fremden Pakete im Container ausführen (`npx -y …`, `uvx …`). Für MCP-Tests nur
   `kern/tests/mini_mcp_server.py`. Installer nur statisch prüfen (`bash -n`, `shellcheck`;

@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from . import anbieter as anbieter_register
 from .konfig import Einstellungen
 
 
@@ -247,27 +248,18 @@ def nachrichten_fuer_prompt_modus(
 # ---------------------------------------------------------------------------
 # Fassade
 # ---------------------------------------------------------------------------
-# Stand Oktober 2026 (Quellen: platform.claude.com/docs/en/models/overview,
-# developers.openai.com/docs/changelog, ai.google.dev/gemini-api/docs/models) in LiteLLM-Schreibweise.
+# Cloud-Vorschläge (Modell-ID, Anzeigename, Schlüsselname) – abgeleitet aus dem Anbieter-Register
+# (jarvis/anbieter.py, Stand Oktober 2026). Für bestehende Aufrufer unverändert im Format.
 CLOUD_VORSCHLAEGE = [
-    ("anthropic/claude-sonnet-5-5", "Claude Sonnet 5.5", "ANTHROPIC_API_KEY"),
-    ("anthropic/claude-opus-5-5", "Claude Opus 5.5", "ANTHROPIC_API_KEY"),
-    ("anthropic/claude-haiku-5-5", "Claude Haiku 5.5", "ANTHROPIC_API_KEY"),
-    ("anthropic/claude-fable-5-1", "Claude Fable 5.1", "ANTHROPIC_API_KEY"),
-    ("openai/gpt-6.1-sol", "GPT-6.1 Sol", "OPENAI_API_KEY"),
-    ("openai/gpt-6-luna", "GPT-6 Luna", "OPENAI_API_KEY"),
-    ("openai/gpt-5.4-mini", "GPT-5.4 mini", "OPENAI_API_KEY"),
-    ("gemini/gemini-4-argon", "Gemini 4 Argon", "GEMINI_API_KEY"),
-    ("gemini/gemini-3.8-flash", "Gemini 3.8 Flash", "GEMINI_API_KEY"),
-    ("gemini/gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", "GEMINI_API_KEY"),
+    (a.modell_id(m), n, a.schluessel)
+    for a in anbieter_register.EINGEBAUTE
+    if not a.lokal
+    for m, n in a.vorschlaege
 ]
 
 # Lokale Vorschläge: nur Modelle mit zuverlässigem Tool-Calling in Ollama.
 LOKALE_VORSCHLAEGE = [
-    ("ollama/qwen2.5:7b", "Qwen 2.5 7B"),
-    ("ollama/qwen3:8b", "Qwen 3 8B"),
-    ("ollama/llama3.1:8b", "Llama 3.1 8B"),
-    ("ollama/llama3.2:3b", "Llama 3.2 3B (klein, schnell)"),
+    (f"ollama/{m}", n) for m, n in anbieter_register.anbieter_finden("ollama").vorschlaege  # type: ignore[union-attr]
 ]
 
 # Ollama-Modelle, die keine Chatmodelle sind (Einbettungen) – nicht als Sprachmodell vorschlagen
@@ -305,6 +297,7 @@ class LLMFassade:
         self._http = http_client_fabrik or (lambda **kw: httpx.AsyncClient(**kw))
         self._werkzeug_cache: dict[str, bool] = {}
         self._einbettung_aus_bis = 0.0
+        self.modelllisten = anbieter_register.ModellListen(http_client_fabrik)
 
     @property
     def einstellungen(self) -> Einstellungen:
@@ -328,13 +321,19 @@ class LLMFassade:
             self._aembedding = litellm.aembedding
         return self._aembedding
 
-    def _zusatz_kwargs(self, modell: str) -> dict[str, Any]:
+    def _aufruf_kwargs(self, modell: str) -> dict[str, Any]:
+        """``model`` für LiteLLM plus ``api_base``/``api_key``, wo nötig.
+
+        Reihenfolge: Ollama → lokaler Server; ``api_basen`` je Modell-ID (eigener Endpunkt, ohne
+        fremden Schlüssel); OpenCode/eigene Anbieter → ``openai/<modell>`` mit eigener Basis und
+        eigenem Schlüssel; alles andere unverändert an LiteLLM (Schlüssel aus der Umgebung).
+        """
         if ist_ollama(modell):
-            return {"api_base": self.einstellungen.ollama_url}
+            return {"model": litellm_modell(modell), "api_base": self.einstellungen.ollama_url}
         basis = (self.einstellungen.api_basen or {}).get(modell)
         if basis:
-            return {"api_base": basis}
-        return {}
+            return {"model": modell, "api_base": basis}
+        return anbieter_register.aufruf_parameter(modell, self.einstellungen.anbieter_eigene)
 
     # ---------- Fähigkeiten ----------
     async def unterstuetzt_werkzeuge(self, modell: str | None = None) -> bool:
@@ -391,11 +390,10 @@ class LLMFassade:
         werkzeuge = werkzeuge or []
         nativ = not werkzeuge or await self.unterstuetzt_werkzeuge(modell)
         kwargs: dict[str, Any] = {
-            "model": litellm_modell(modell),
             "stream": True,
             "temperature": self.einstellungen.temperatur if temperatur is None else temperatur,
             "timeout": self.einstellungen.llm_timeout,
-            **self._zusatz_kwargs(modell),
+            **self._aufruf_kwargs(modell),
         }
         if nativ:
             kwargs["messages"] = nachrichten
@@ -473,10 +471,11 @@ class LLMFassade:
         if ist_ollama(modell) and ("not found" in meldung or "404" in meldung):
             return f"Das Ollama-Modell ist nicht installiert. Bitte ausführen: ollama pull {ollama_name(modell)}"
         if "Authentication" in name or "api key" in meldung.lower() or "api_key" in meldung.lower():
-            anbieter = modell.split("/", 1)[0].upper()
+            a = anbieter_register.anbieter_von_modell(modell, self.einstellungen.anbieter_eigene)
+            schluessel = (a.schluessel if a else None) or f"{modell.split('/', 1)[0].upper()}_API_KEY"
             return (
                 f"API-Schlüssel für {modell} fehlt oder ist ungültig. Hinterlegen mit: "
-                f"jarvis schluessel {anbieter}_API_KEY"
+                f"jarvis schluessel {schluessel}"
             )
         if "RateLimit" in name:
             return f"Ratenlimit des Anbieters erreicht ({modell}). Bitte kurz warten."
@@ -489,9 +488,7 @@ class LLMFassade:
         if not modell or not texte or time.monotonic() < self._einbettung_aus_bis:
             return None
         try:
-            antwort = await self._embedding_funktion()(
-                model=modell, input=texte, **self._zusatz_kwargs(modell)
-            )
+            antwort = await self._embedding_funktion()(input=texte, **self._aufruf_kwargs(modell))
             daten = _feld(antwort, "data") or []
             vektoren = [list(_feld(d, "embedding")) for d in daten]
             if len(vektoren) != len(texte):
@@ -512,12 +509,20 @@ class LLMFassade:
             return []
 
     async def modell_vorschlaege(self) -> list[dict[str, Any]]:
+        """Alle Vorschläge (Ollama live + Cloud-Vorschläge) – Kurzform von ``modelle_uebersicht``."""
+        return (await self.modelle_uebersicht())["vorschlaege"]
+
+    def modelllisten_vergessen(self) -> None:
+        """Nach neuem Schlüssel: Live-Listen beim nächsten Abruf neu laden."""
+        self.modelllisten.vergessen()
+
+    async def _ollama_eintraege(self) -> list[dict[str, Any]]:
         vorschlaege: list[dict[str, Any]] = []
         lokale = await self.ollama_modelle()
         for name in lokale:
             if any(m in name.lower() for m in _KEIN_CHATMODELL):
                 continue
-            vorschlaege.append({"id": f"ollama/{name}", "name": f"{name} (lokal)", "lokal": True, "verfuegbar": True})
+            vorschlaege.append(self._eintrag(f"ollama/{name}", f"{name} (lokal)", "ollama", lokal=True, verfuegbar=True, live=True))
         aktuell = self.einstellungen.modell
         ids = {v["id"] for v in vorschlaege}
         # „ollama/qwen2.5“ und „ollama/qwen2.5:latest“ gelten als gleich
@@ -527,16 +532,71 @@ class LLMFassade:
         for kandidat, name in kandidaten:
             if kandidat in ids or kandidat.removesuffix(":latest") in installiert:
                 continue
-            vorschlaege.append(
-                {"id": kandidat, "name": f"{name} (lokal, nicht installiert – ollama pull {ollama_name(kandidat)})",
-                 "lokal": True, "verfuegbar": False}
-            )
+            vorschlaege.append(self._eintrag(
+                kandidat, f"{name} (lokal, nicht installiert – ollama pull {ollama_name(kandidat)})",
+                "ollama", lokal=True, verfuegbar=False,
+            ))
             ids.add(kandidat)
-        for mid, name, schluessel in CLOUD_VORSCHLAEGE:
-            vorschlaege.append(
-                {"id": mid, "name": name, "lokal": False, "verfuegbar": bool(os.environ.get(schluessel))}
-            )
-            ids.add(mid)
-        if aktuell not in ids:
-            vorschlaege.insert(0, {"id": aktuell, "name": aktuell, "lokal": ist_ollama(aktuell), "verfuegbar": True})
         return vorschlaege
+
+    @staticmethod
+    def _eintrag(
+        mid: str, name: str, anbieter: str, *, lokal: bool, verfuegbar: bool, live: bool = False,
+        kostenlos: bool | None = None, werkzeuge: bool | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "id": mid, "name": name, "lokal": lokal, "verfuegbar": verfuegbar, "anbieter": anbieter,
+            "kostenlos": kostenlos, "werkzeuge": werkzeuge, "live": live,
+        }
+
+    async def _anbieter_eintraege(self, a: anbieter_register.Anbieter, neu: bool) -> list[dict[str, Any]]:
+        """Live-Liste des Anbieters (wenn möglich), sonst seine Vorschläge."""
+        if a.lokal:
+            return await self._ollama_eintraege()
+        live = await self.modelllisten.laden(a, neu=neu)
+        eintraege = anbieter_register.sortiert(a, live) if live else anbieter_register.vorschlaege(a)
+        verfuegbar = a.verfuegbar()
+        return [
+            self._eintrag(a.modell_id(e.id), e.name, a.id, lokal=False, verfuegbar=verfuegbar, live=e.live,
+                          kostenlos=e.kostenlos, werkzeuge=e.werkzeuge)
+            for e in eintraege
+        ]
+
+    async def modelle_uebersicht(self, anbieter_id: str | None = None, neu: bool = False) -> dict[str, Any]:
+        """``{aktuell, anbieter, vorschlaege}`` für ``GET /api/modelle``.
+
+        Ohne ``anbieter_id``: Ollama live plus die festen Cloud-Vorschläge aller Anbieter. Mit
+        ``anbieter_id``: nur dieser Anbieter – live, wenn Schlüssel/Endpunkt es erlauben.
+        """
+        eigene = self.einstellungen.anbieter_eigene
+        alle = anbieter_register.alle_anbieter(eigene)
+        aktuell = self.einstellungen.modell
+        if anbieter_id:
+            gewaehlt = anbieter_register.anbieter_finden(anbieter_id, eigene)
+            if gewaehlt is None:
+                raise LLMFehler(f"Unbekannter Anbieter „{anbieter_id}“.")
+            vorschlaege = await self._anbieter_eintraege(gewaehlt, neu)
+        else:
+            vorschlaege = await self._ollama_eintraege()
+            for a in alle:
+                if a.lokal:
+                    continue
+                verfuegbar = a.verfuegbar()
+                vorschlaege += [
+                    self._eintrag(a.modell_id(m), n, a.id, lokal=False, verfuegbar=verfuegbar)
+                    for m, n in a.vorschlaege
+                ]
+        # Das aktive Modell steht immer in der Liste (Freitext-ID oder nicht mehr vorgeschlagen)
+        a_aktuell = anbieter_register.anbieter_von_modell(aktuell, eigene)
+        gehoert_dazu = not anbieter_id or (a_aktuell is not None and a_aktuell.id == anbieter_id)
+        if gehoert_dazu and aktuell not in {v["id"] for v in vorschlaege}:
+            vorschlaege.insert(0, self._eintrag(
+                aktuell, aktuell, a_aktuell.id if a_aktuell else "", lokal=ist_ollama(aktuell), verfuegbar=True,
+            ))
+        infos = []
+        for a in alle:
+            info = a.als_info()
+            if a.lokal:
+                info["verfuegbar"] = any(v["anbieter"] == "ollama" and v["verfuegbar"] for v in vorschlaege) if not anbieter_id or anbieter_id == "ollama" else True
+            infos.append(info)
+        return {"aktuell": aktuell, "anbieter": infos, "vorschlaege": vorschlaege}

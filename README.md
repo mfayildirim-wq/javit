@@ -248,18 +248,27 @@ javit modell ollama/qwen3:8b               # switch (applies from the next reque
 ```
 
 Cloud models (LiteLLM notation) need an API key, which is stored in the **macOS Keychain**
-(Windows: Credential Manager, Linux: Secret Service):
+(Windows: Credential Manager, Linux: Secret Service). In the UI under **Einstellungen → Modell** you
+pick the **provider** at the top, enter its key right below and get the **model list live from the
+provider** (without a key: a fixed list of suggestions). Free models are marked "kostenlos".
 
-| Provider | Store key | Example models |
+| Provider | Key | Example model IDs |
 |---|---|---|
-| Anthropic | `javit schluessel ANTHROPIC_API_KEY` | `anthropic/claude-sonnet-5-5`, `anthropic/claude-opus-5-5`, `anthropic/claude-haiku-5-5` |
-| OpenAI | `javit schluessel OPENAI_API_KEY` | `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, `openai/gpt-5.4-mini` |
-| Google | `javit schluessel GEMINI_API_KEY` | `gemini/gemini-4-argon`, `gemini/gemini-3.8-flash`, `gemini/gemini-3.5-flash-lite` |
+| Anthropic | `ANTHROPIC_API_KEY` | `anthropic/claude-sonnet-5-5`, `anthropic/claude-opus-5-5` |
+| OpenAI | `OPENAI_API_KEY` | `openai/gpt-6.1-sol`, `openai/gpt-5.4-mini` |
+| Google Gemini | `GEMINI_API_KEY` | `gemini/gemini-4-argon`, `gemini/gemini-3.8-flash` (free tier) |
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/deepseek/deepseek-v4.1-flash`, `openrouter/moonshotai/kimi-k3`, `openrouter/z-ai/glm-5.3-flash`; **free models** end in `:free` |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/deepseek-flash`, `deepseek/deepseek-v4-pro` |
+| Kimi (Moonshot) | `MOONSHOT_API_KEY` | `moonshot/kimi-k3` |
+| GLM (Z.AI) | `ZAI_API_KEY` | `zai/glm-5.3`, `zai/glm-5.3-flash` |
+| OpenCode | `OPENCODE_API_KEY` | `opencode/kimi-k2.5`, `opencode/glm-5.3-flash` – **paid** models only (OpenCode's free models only work inside OpenCode itself, per its docs) |
+| Groq, Mistral, xAI | `GROQ_API_KEY`, `MISTRAL_API_KEY`, `XAI_API_KEY` | `groq/llama-3.3-70b-versatile`, `mistral/mistral-large-latest`, `xai/grok-4.7` |
 
-The key is entered hidden. Models can also be switched in the UI under **Einstellungen → Modell**
-or by voice ("Wechsle auf Claude Sonnet"). Your own OpenAI-compatible servers (LM Studio, vLLM) go
-into `~/.jarvis/einstellungen.json` under `api_basen`, e.g.
-`{"openai/mein-modell": "http://127.0.0.1:1234/v1"}`.
+Keys from the terminal: `javit schluessel OPENROUTER_API_KEY` (hidden input). Models can also be
+switched by voice ("Wechsle auf Claude Sonnet"). **Your own OpenAI-compatible providers** (LM Studio,
+vLLM, a proxy …) are added in the UI via "Anbieter hinzufügen" (name, base URL, optional key) and
+appear as their own provider with model IDs `<id>/<model>` (`einstellungen.json`: `anbieter_eigene`).
+Alternatively `api_basen` per model ID still works, e.g. `{"openai/mein-modell": "http://127.0.0.1:1234/v1"}`.
 
 ## Integrations
 

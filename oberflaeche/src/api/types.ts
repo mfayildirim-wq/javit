@@ -84,8 +84,34 @@ export interface Status {
   plattform?: 'mac' | 'windows' | 'linux';
 }
 
-export interface ModellVorschlag { id: string; name: string; lokal: boolean; verfuegbar: boolean }
-export interface Modelle { aktuell: string; vorschlaege: ModellVorschlag[] }
+export interface ModellVorschlag {
+  id: string;
+  name: string;
+  lokal: boolean;
+  verfuegbar: boolean;
+  /** Anbieter-Kennung (Kern ab Anbieter-Register; sonst aus dem Präfix der ID ableitbar). */
+  anbieter?: string;
+  /** Kostenlos laut Anbieter (OpenRouter „:free“); null/undefined = unbekannt. */
+  kostenlos?: boolean | null;
+  /** Werkzeugaufrufe laut Anbieter; null/undefined = unbekannt. */
+  werkzeuge?: boolean | null;
+  /** Eintrag stammt aus der Live-Liste des Anbieters (sonst fester Vorschlag). */
+  live?: boolean;
+}
+export interface AnbieterInfo {
+  id: string;
+  name: string;
+  /** Name des Geheimnisses (API-Schlüssel); null bei Ollama oder Anbietern ohne Schlüssel. */
+  schluessel: string | null;
+  /** Schlüssel hinterlegt bzw. Ollama erreichbar. */
+  verfuegbar: boolean;
+  lokal: boolean;
+  /** Vom Nutzer angelegter OpenAI-kompatibler Anbieter. */
+  eigen: boolean;
+}
+export interface Modelle { aktuell: string; vorschlaege: ModellVorschlag[]; anbieter?: AnbieterInfo[] }
+/** Eintrag in einstellungen.anbieter_eigene (Kern: jarvis/anbieter.py eigener_anbieter). */
+export interface EigenerAnbieter { id: string; name?: string; api_base: string; schluessel?: string | null; modelle?: string[] }
 
 export interface Werkzeug {
   name: string;
@@ -138,6 +164,7 @@ export interface Einstellungen {
   /** Name des Assistenten (Standard „Javit“). */
   name?: string;
   modell?: string;
+  anbieter_eigene?: EigenerAnbieter[];
   /** Anrede, z. B. „Sir“. */
   anrede?: string;
   /** Persona „Sir“ an/aus. */

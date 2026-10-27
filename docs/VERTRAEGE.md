@@ -7,7 +7,7 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | Methode | Pfad | Zweck |
 |---|---|---|
 | GET | `/api/status` | `{version, name?, modell, stimme:{aktiv, weckwort, hoert, engine?: openwakeword|vosk}, integrationen: n, werkzeuge: n, zustand?, plattform?: mac|windows|linux}` – `name` = Name des Assistenten (Standard „Javit“) |
-| GET | `/api/modelle` | `{aktuell, vorschlaege:[{id, name, lokal:bool, verfuegbar:bool}]}` (Ollama-Modelle werden live abgefragt) |
+| GET | `/api/modelle[?anbieter=<id>&neu=1]` | `{aktuell, anbieter:[{id, name, schluessel, verfuegbar, lokal, eigen}], vorschlaege:[{id, name, lokal, verfuegbar, anbieter, kostenlos?: bool\|null, werkzeuge?: bool\|null, live}]}` – ohne `anbieter`: Ollama live + feste Vorschläge aller Anbieter; mit `anbieter`: nur dieser Anbieter, live vom Anbieter, wenn Schlüssel/Endpunkt es erlauben (`neu=1` umgeht den 10-Minuten-Cache); unbekannter Anbieter → 404 |
 | PUT | `/api/modelle` | `{modell}` – Modell wechseln (z. B. `ollama/qwen2.5:7b`, `anthropic/claude-sonnet-5-5`, `openai/gpt-6.1-sol`) |
 | GET | `/api/einstellungen` | Einstellungen (ohne Geheimnisse) |
 | PUT | `/api/einstellungen` | Teilupdate |
@@ -76,6 +76,15 @@ risiko_standard: aendern
 
 Installierte Integrationen: `~/.jarvis/integrationen.json`. Einstellungen: `~/.jarvis/einstellungen.json`.
 Daten (Verlauf, Gedächtnis): `~/.jarvis/jarvis.db`.
+
+Anbieter (`jarvis/anbieter.py`): eingebaut `ollama`, `anthropic`, `openai`, `gemini`, `openrouter`,
+`deepseek`, `moonshot` (Kimi), `zai` (GLM), `opencode` (nur bezahlte Modelle, OpenAI-kompatibel),
+`groq`, `mistral`, `xai`. Modell-IDs sind `<anbieter>/<modell>` in LiteLLM-Schreibweise; `opencode/…`
+und eigene Anbieter werden intern nach `openai/<modell>` mit eigener Basis-URL und eigenem Schlüssel
+übersetzt. Eigene OpenAI-kompatible Anbieter: `einstellungen.anbieter_eigene` =
+`[{id, name?, api_base, schluessel?, modelle?: [..]}]` (`id` `[a-z0-9][a-z0-9_-]{0,30}`, keine eingebaute
+Kennung; `api_base` mit http(s); `schluessel` Großbuchstaben/Ziffern/_; Liste wird komplett ersetzt,
+ungültig → 422). `PUT /api/geheimnisse/{name}` leert den Cache der Live-Modelllisten.
 
 Einstellungen (Auszug): `name` (Standard „Javit“; leer → Standard) – Name des Assistenten für
 Persona (Platzhalter `{name}` in `persona`), Oberfläche, Ansagen und Meldungen. Fehlt `name` in einer

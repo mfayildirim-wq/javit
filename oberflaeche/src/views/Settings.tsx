@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Check, KeyRound, Trash2 } from 'lucide-react';
+import { Check, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../api/rest';
-import type { Einstellungen, Erinnerung, Modelle } from '../api/types';
+import type { AnbieterInfo, EigenerAnbieter, Einstellungen, Erinnerung, Modelle, ModellVorschlag } from '../api/types';
 import { useJarvis, useName } from '../state/store';
 import { STANDARD_NAME, weckwortAnzeige } from '../lib/name';
 import { statusLaden } from '../state/verbindung';
@@ -55,19 +55,169 @@ function Segmente<T extends string>({ wert, optionen, onChange, label }: { wert:
   );
 }
 
+/** Anbieter des Modells aus der ID („openrouter/x/y“ → „openrouter“); ollama_chat zählt als ollama. */
+export function anbieterVonModell(id: string): string {
+  const p = id.includes('/') ? (id.split('/')[0] ?? '') : '';
+  return p === 'ollama_chat' ? 'ollama' : p;
+}
+
+/** Anbieterliste aus der Antwort; ältere Kerne ohne `anbieter` → aus den Vorschlägen abgeleitet. */
+export function anbieterAus(m: Modelle): AnbieterInfo[] {
+  if (m.anbieter && m.anbieter.length) return m.anbieter;
+  const gesehen = new Map<string, AnbieterInfo>();
+  for (const v of m.vorschlaege) {
+    const id = v.anbieter ?? anbieterVonModell(v.id);
+    if (!id || gesehen.has(id)) continue;
+    gesehen.set(id, { id, name: modellAnbieter(v.id), schluessel: null, verfuegbar: v.verfuegbar, lokal: v.lokal, eigen: false });
+  }
+  return [...gesehen.values()];
+}
+
+/** Kennung für einen eigenen Anbieter aus dem Namen („LM Studio“ → „lm-studio“). */
+export function anbieterKennung(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 31);
+}
+
+/** Schlüsselname für einen eigenen Anbieter („lm-studio“ → „LM_STUDIO_API_KEY“). */
+export function schluesselName(kennung: string): string {
+  const k = kennung.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return k ? `${k}_API_KEY` : '';
+}
+
+function AnbieterNeu({ onAngelegt }: { onAngelegt: (kennung: string) => void }) {
+  const [offen, setOffen] = useState(false);
+  const [name, setName] = useState('');
+  const [basis, setBasis] = useState('');
+  const [schluessel, setSchluessel] = useState('');
+  const [wert, setWert] = useState('');
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+  const kennung = anbieterKennung(name);
+  const schluesselVorschlag = schluesselName(kennung);
+  const schluesselFinal = (schluessel.trim() || schluesselVorschlag).toUpperCase();
+
+  const anlegen = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!kennung || !basis.trim()) return;
+    setLaeuft(true);
+    setFehler(null);
+    try {
+      const aktuell = await api.einstellungen();
+      const bisher = (aktuell?.anbieter_eigene ?? []).filter((a) => a.id !== kennung);
+      const eintrag: EigenerAnbieter = { id: kennung, name: name.trim(), api_base: basis.trim(), schluessel: wert.trim() ? schluesselFinal : schluessel.trim() ? schluesselFinal : null };
+      await api.einstellungenSpeichern({ anbieter_eigene: [...bisher, eintrag] });
+      if (wert.trim()) await api.geheimnisSetzen(schluesselFinal, wert.trim());
+      setName('');
+      setBasis('');
+      setSchluessel('');
+      setWert('');
+      setOffen(false);
+      onAngelegt(kennung);
+    } catch (err) {
+      setFehler((err as Error).message);
+    } finally {
+      setLaeuft(false);
+    }
+  };
+
+  if (!offen)
+    return (
+      <button type="button" className="knopf klein" onClick={() => setOffen(true)}>
+        <Plus size={14} aria-hidden="true" /> Anbieter hinzufügen
+      </button>
+    );
+  return (
+    <form className="anbieter-neu" onSubmit={anlegen} aria-label="Eigenen Anbieter anlegen">
+      <div className="feld">
+        <label htmlFor="anbieter-name">Name</label>
+        <input id="anbieter-name" placeholder="z. B. LM Studio" value={name} onChange={(e) => setName(e.target.value)} />
+        {kennung && <p className="feld-hilfe">Kennung: <code>{kennung}</code> – Modell-IDs lauten dann <code>{kennung}/…</code></p>}
+      </div>
+      <div className="feld">
+        <label htmlFor="anbieter-basis">Basis-URL (OpenAI-kompatibel)</label>
+        <input id="anbieter-basis" className="mono" placeholder="http://127.0.0.1:1234/v1" value={basis} onChange={(e) => setBasis(e.target.value)} />
+      </div>
+      <div className="feld">
+        <label htmlFor="anbieter-schluessel">Schlüsselname (optional)</label>
+        <input id="anbieter-schluessel" className="mono" placeholder={schluesselVorschlag || 'NAME_API_KEY'} value={schluessel} onChange={(e) => setSchluessel(e.target.value)} />
+      </div>
+      <div className="feld">
+        <label htmlFor="anbieter-wert">API-Schlüssel (optional, Schlüsselbund)</label>
+        <input id="anbieter-wert" type="password" autoComplete="new-password" placeholder="leer lassen für Server ohne Schlüssel" value={wert} onChange={(e) => setWert(e.target.value)} />
+      </div>
+      <div className="feld-reihe">
+        <button className="knopf" type="submit" disabled={!kennung || !basis.trim() || laeuft}>
+          Anlegen
+        </button>
+        <button className="knopf klein" type="button" onClick={() => setOffen(false)}>
+          Abbrechen
+        </button>
+      </div>
+      {fehler && <p className="formular-fehler">{fehler}</p>}
+    </form>
+  );
+}
+
 function ModellWahl() {
-  const [modelle, setModelle] = useState<Modelle | null>(null);
+  const [uebersicht, setUebersicht] = useState<Modelle | null>(null);
+  const [gewaehlt, setGewaehlt] = useState<string | null>(null);
+  const [liste, setListe] = useState<ModellVorschlag[] | null>(null);
+  const [laedt, setLaedt] = useState(false);
   const [frei, setFrei] = useState('');
   const [meldung, setMeldung] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [entfernen, setEntfernen] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const [nurKostenlos, setNurKostenlos] = useState(false);
 
-  const laden = () =>
-    api
-      .modelle()
-      .then(setModelle)
-      .catch((e: Error) => setFehler(e.message));
+  const uebersichtLaden = async (): Promise<Modelle | null> => {
+    try {
+      const m = await api.modelle();
+      setUebersicht(m);
+      return m;
+    } catch (e) {
+      setFehler((e as Error).message);
+      return null;
+    }
+  };
+
+  const listeLaden = async (anbieter: string, neu = false) => {
+    setLaedt(true);
+    setFehler(null);
+    try {
+      const m = await api.modelle(anbieter, neu);
+      setListe(m.vorschlaege);
+      setUebersicht((alt) => (alt ? { ...alt, aktuell: m.aktuell, anbieter: m.anbieter ?? alt.anbieter } : m));
+    } catch (e) {
+      setFehler((e as Error).message);
+      setListe([]);
+    } finally {
+      setLaedt(false);
+    }
+  };
+
+  const waehlen = (anbieter: string, neu = false) => {
+    setGewaehlt(anbieter);
+    setFilter('');
+    setNurKostenlos(false);
+    void listeLaden(anbieter, neu);
+  };
+
   useEffect(() => {
-    void laden();
+    void uebersichtLaden().then((m) => {
+      if (!m) return;
+      const anbieter = anbieterAus(m);
+      const aktuellAnbieter = anbieterVonModell(m.aktuell);
+      const start = anbieter.find((a) => a.id === aktuellAnbieter)?.id ?? anbieter.find((a) => a.verfuegbar)?.id ?? anbieter[0]?.id ?? null;
+      if (start) waehlen(start);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setzen = async (id: string) => {
@@ -78,39 +228,136 @@ function ModellWahl() {
       await api.modellSetzen(m);
       setMeldung(`Modell gewechselt: ${m}`);
       setFrei('');
-      await laden();
+      setUebersicht((alt) => (alt ? { ...alt, aktuell: m } : alt));
       void statusLaden();
     } catch (e) {
       setFehler((e as Error).message);
     }
   };
 
+  const anbieterEntfernen = async (kennung: string) => {
+    setFehler(null);
+    try {
+      const aktuell = await api.einstellungen();
+      await api.einstellungenSpeichern({ anbieter_eigene: (aktuell?.anbieter_eigene ?? []).filter((a) => a.id !== kennung) });
+      setEntfernen(null);
+      const m = await uebersichtLaden();
+      if (gewaehlt === kennung) waehlen(anbieterAus(m ?? { aktuell: '', vorschlaege: [] })[0]?.id ?? 'ollama');
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  };
+
+  const anbieter = uebersicht ? anbieterAus(uebersicht) : [];
+  const aktiv = anbieter.find((a) => a.id === gewaehlt) ?? null;
+  const aktuell = uebersicht?.aktuell ?? '';
+  const live = (liste ?? []).some((m) => m.live);
+  const hatKostenlose = (liste ?? []).some((m) => m.kostenlos === true);
+  const suchtext = filter.trim().toLowerCase();
+  const gefiltert = (liste ?? []).filter(
+    (m) => (!nurKostenlos || m.kostenlos === true) && (!suchtext || `${m.name} ${m.id}`.toLowerCase().includes(suchtext)),
+  );
+
   return (
-    <Abschnitt id="s-modell" titel="Modell" text="Lokale Modelle laufen über Ollama auf diesem Mac, Cloud-Modelle brauchen einen API-Schlüssel.">
+    <Abschnitt id="s-modell" titel="Modell" text="Oben den Anbieter wählen, darunter das Modell. Lokale Modelle laufen über Ollama, Cloud-Modelle brauchen einen API-Schlüssel.">
+      <div className="anbieter-leiste" role="radiogroup" aria-label="Anbieter">
+        {anbieter.map((a) => (
+          <button
+            type="button"
+            key={a.id}
+            role="radio"
+            aria-checked={gewaehlt === a.id}
+            className={`anbieter-chip ${gewaehlt === a.id ? 'an' : ''} ${a.eigen ? 'eigen' : ''}`}
+            onClick={() => waehlen(a.id)}
+            title={a.lokal ? (a.verfuegbar ? 'Ollama erreichbar' : 'Ollama nicht erreichbar') : a.verfuegbar ? 'Schlüssel hinterlegt' : 'Schlüssel fehlt'}
+          >
+            <span className={`led ${a.verfuegbar ? 'an' : ''}`} aria-hidden="true" />
+            {a.name}
+          </button>
+        ))}
+        {!uebersicht && !fehler && <span className="gedaempft">Lade Anbieter …</span>}
+      </div>
+
+      {aktiv && aktiv.lokal && (
+        <p className="feld-hilfe">
+          {aktiv.verfuegbar ? 'Ollama läuft. Weitere Modelle: ' : 'Ollama ist nicht erreichbar („ollama serve“). Modelle laden mit: '}
+          <code>ollama pull &lt;modell&gt;</code>
+        </p>
+      )}
+      {aktiv && aktiv.schluessel && (
+        <SchluesselZeile name={aktiv.schluessel} titel={aktiv.name} idPraefix="m" onGespeichert={() => waehlen(aktiv.id, true)} />
+      )}
+      {aktiv && aktiv.eigen && (
+        <div className="feld-reihe anbieter-aktionen">
+          {entfernen === aktiv.id ? (
+            <>
+              <span className="gedaempft">Anbieter „{aktiv.name}“ entfernen?</span>
+              <button type="button" className="knopf klein gefahr" onClick={() => void anbieterEntfernen(aktiv.id)}>
+                Ja, entfernen
+              </button>
+              <button type="button" className="knopf klein" onClick={() => setEntfernen(null)}>
+                Abbrechen
+              </button>
+            </>
+          ) : (
+            <button type="button" className="knopf klein" onClick={() => setEntfernen(aktiv.id)}>
+              <Trash2 size={14} aria-hidden="true" /> Anbieter entfernen
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="modell-kopf">
+        <span className="feld-hilfe">
+          {laedt ? 'Lade Modelle …' : live ? 'Liste vom Anbieter' : aktiv && !aktiv.lokal ? 'Vorschläge – mit hinterlegtem Schlüssel erscheint die vollständige Liste.' : ''}
+        </span>
+        {aktiv && !aktiv.lokal && (
+          <button type="button" className="knopf klein" onClick={() => waehlen(aktiv.id, true)} disabled={laedt}>
+            <RefreshCw size={14} aria-hidden="true" /> Modelle neu laden
+          </button>
+        )}
+      </div>
+      {liste && liste.length > 8 && (
+        <div className="feld-reihe modell-filter">
+          <div className="feld">
+            <label htmlFor="modell-filter">Filtern</label>
+            <input id="modell-filter" placeholder="Name oder ID, z. B. deepseek" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          </div>
+          {hatKostenlose && (
+            <label className="schalter-zeile kompakt">
+              <span className="schalter-label">nur kostenlose</span>
+              <input type="checkbox" role="switch" className="schalter" checked={nurKostenlos} onChange={(e) => setNurKostenlos(e.target.checked)} />
+            </label>
+          )}
+          <span className="gedaempft">{gefiltert.length} von {liste.length}</span>
+        </div>
+      )}
       <ul className="modell-liste" role="radiogroup" aria-label="Modell">
-        {modelle?.vorschlaege.map((m) => {
-          const aktiv = modelle.aktuell === m.id;
+        {gefiltert.map((m) => {
+          const an = aktuell === m.id;
           return (
             <li key={m.id}>
               <button
                 type="button"
                 role="radio"
-                aria-checked={aktiv}
-                className={`modell ${aktiv ? 'an' : ''} ${m.verfuegbar ? '' : 'nicht-da'}`}
+                aria-checked={an}
+                className={`modell ${an ? 'an' : ''} ${m.verfuegbar ? '' : 'nicht-da'}`}
                 onClick={() => setzen(m.id)}
               >
                 <span className="modell-name">{m.name}</span>
                 <span className="modell-id">{m.id}</span>
                 <span className="modell-chips">
                   <span className={`marke-chip ${m.lokal ? 'lokal' : 'cloud'}`}>{m.lokal ? 'lokal' : 'Cloud'}</span>
+                  {m.kostenlos === true && <span className="marke-chip frei">kostenlos</span>}
+                  {m.werkzeuge === true && <span className="marke-chip werkzeuge">Werkzeuge</span>}
                   {!m.verfuegbar && <span className="marke-chip aus">{m.lokal ? 'nicht geladen' : 'Schlüssel fehlt'}</span>}
-                  {aktiv && <Check size={16} aria-label="aktiv" />}
+                  {an && <Check size={16} aria-label="aktiv" />}
                 </span>
               </button>
             </li>
           );
         })}
-        {!modelle && !fehler && <li className="gedaempft">Lade Modelle …</li>}
+        {liste && gefiltert.length === 0 && !laedt && <li className="gedaempft">Keine Modelle gefunden. Eigene Modell-ID unten eintragen.</li>}
       </ul>
       <form
         className="feld-reihe frei"
@@ -121,20 +368,26 @@ function ModellWahl() {
       >
         <div className="feld">
           <label htmlFor="modell-frei">Eigene Modell-ID</label>
-          <input id="modell-frei" className="mono" placeholder="z. B. ollama/llama3.1:8b oder openai/gpt-5.4-mini" value={frei} onChange={(e) => setFrei(e.target.value)} />
+          <input id="modell-frei" className="mono" placeholder="z. B. ollama/llama3.1:8b oder openrouter/deepseek/deepseek-v4.1-flash" value={frei} onChange={(e) => setFrei(e.target.value)} />
         </div>
         <button className="knopf" type="submit" disabled={!frei.trim()}>
           Übernehmen
         </button>
       </form>
       {frei.includes('/') && <p className="feld-hilfe">Anbieter: {modellAnbieter(frei)}</p>}
+      <AnbieterNeu
+        onAngelegt={(kennung) => {
+          setMeldung(`Anbieter angelegt: ${kennung}`);
+          void uebersichtLaden().then(() => waehlen(kennung));
+        }}
+      />
       {meldung && <p className="ok-text">{meldung}</p>}
       {fehler && <p className="formular-fehler">{fehler}</p>}
     </Abschnitt>
   );
 }
 
-function SchluesselZeile({ name, titel }: { name: string; titel: string }) {
+function SchluesselZeile({ name, titel, idPraefix = 'k', onGespeichert }: { name: string; titel: string; idPraefix?: string; onGespeichert?: () => void }) {
   const [wert, setWert] = useState('');
   const [zustand, setZustand] = useState<'leer' | 'speichert' | 'gespeichert' | 'fehler'>('leer');
   const [fehler, setFehler] = useState('');
@@ -146,6 +399,7 @@ function SchluesselZeile({ name, titel }: { name: string; titel: string }) {
       await api.geheimnisSetzen(name, wert.trim());
       setWert('');
       setZustand('gespeichert');
+      onGespeichert?.();
     } catch (err) {
       setFehler((err as Error).message);
       setZustand('fehler');
@@ -153,12 +407,12 @@ function SchluesselZeile({ name, titel }: { name: string; titel: string }) {
   };
   return (
     <form className="schluessel" onSubmit={speichern}>
-      <label htmlFor={`k-${name}`}>
+      <label htmlFor={`${idPraefix}-${name}`}>
         <span className="schluessel-titel">{titel}</span>
         <code>{name}</code>
       </label>
       <input
-        id={`k-${name}`}
+        id={`${idPraefix}-${name}`}
         type="password"
         autoComplete="new-password"
         placeholder={zustand === 'gespeichert' ? 'Gespeichert im Schlüsselbund' : 'Schlüssel einfügen'}

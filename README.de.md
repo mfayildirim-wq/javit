@@ -249,18 +249,29 @@ javit modell ollama/qwen3:8b               # wechseln (gilt ab der nächsten Anf
 ```
 
 Cloud-Modelle (Schreibweise von LiteLLM) brauchen einen API-Schlüssel, der im
-**macOS-Schlüsselbund** (Windows: Anmeldeinformationsverwaltung, Linux: Secret Service) gespeichert wird:
+**macOS-Schlüsselbund** (Windows: Anmeldeinformationsverwaltung, Linux: Secret Service) gespeichert wird.
+In der Oberfläche unter **Einstellungen → Modell** wählt man oben den **Anbieter**, trägt direkt
+darunter dessen Schlüssel ein und bekommt dann die **Modellliste live vom Anbieter** (ohne Schlüssel
+eine feste Vorschlagsliste). Kostenlose Modelle sind als „kostenlos“ markiert.
 
-| Anbieter | Schlüssel speichern | Beispiel-Modelle |
+| Anbieter | Schlüssel | Beispiel-Modell-IDs |
 |---|---|---|
-| Anthropic | `javit schluessel ANTHROPIC_API_KEY` | `anthropic/claude-sonnet-5-5`, `anthropic/claude-opus-5-5`, `anthropic/claude-haiku-5-5` |
-| OpenAI | `javit schluessel OPENAI_API_KEY` | `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, `openai/gpt-5.4-mini` |
-| Google | `javit schluessel GEMINI_API_KEY` | `gemini/gemini-4-argon`, `gemini/gemini-3.8-flash`, `gemini/gemini-3.5-flash-lite` |
+| Anthropic | `ANTHROPIC_API_KEY` | `anthropic/claude-sonnet-5-5`, `anthropic/claude-opus-5-5` |
+| OpenAI | `OPENAI_API_KEY` | `openai/gpt-6.1-sol`, `openai/gpt-5.4-mini` |
+| Google Gemini | `GEMINI_API_KEY` | `gemini/gemini-4-argon`, `gemini/gemini-3.8-flash` (Gratis-Kontingent) |
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/deepseek/deepseek-v4.1-flash`, `openrouter/moonshotai/kimi-k3`, `openrouter/z-ai/glm-5.3-flash`; **Gratis-Modelle** mit Endung `:free` |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/deepseek-flash`, `deepseek/deepseek-v4-pro` |
+| Kimi (Moonshot) | `MOONSHOT_API_KEY` | `moonshot/kimi-k3` |
+| GLM (Z.AI) | `ZAI_API_KEY` | `zai/glm-5.3`, `zai/glm-5.3-flash` |
+| OpenCode | `OPENCODE_API_KEY` | `opencode/kimi-k2.5`, `opencode/glm-5.3-flash` – nur **bezahlte** Modelle (die Gratis-Modelle von OpenCode laufen laut OpenCode-Doku nur in OpenCode selbst) |
+| Groq, Mistral, xAI | `GROQ_API_KEY`, `MISTRAL_API_KEY`, `XAI_API_KEY` | `groq/llama-3.3-70b-versatile`, `mistral/mistral-large-latest`, `xai/grok-4.7` |
 
-Der Schlüssel wird verdeckt abgefragt. Modelle lassen sich auch in der Oberfläche unter
-**Einstellungen → Modell** oder per Sprache („Wechsle auf Claude Sonnet“) umschalten. Eigene
-OpenAI-kompatible Server (LM Studio, vLLM) trägt man in `~/.jarvis/einstellungen.json` unter
-`api_basen` ein, z. B. `{"openai/mein-modell": "http://127.0.0.1:1234/v1"}`.
+Schlüssel per Terminal: `javit schluessel OPENROUTER_API_KEY` (verdeckte Eingabe). Modelle lassen sich
+auch per Sprache umschalten („Wechsle auf Claude Sonnet“). **Eigene OpenAI-kompatible Anbieter**
+(LM Studio, vLLM, Proxy …) legt man in der Oberfläche über „Anbieter hinzufügen“ an (Name, Basis-URL,
+optional Schlüssel) – sie erscheinen als eigener Anbieter mit Modell-IDs `<kennung>/<modell>`
+(`einstellungen.json`: `anbieter_eigene`). Alternativ bleibt `api_basen` je Modell-ID, z. B.
+`{"openai/mein-modell": "http://127.0.0.1:1234/v1"}`.
 
 ## Integrationen
 
