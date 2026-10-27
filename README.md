@@ -8,6 +8,8 @@ einfache REST-Endpunkte. Als Gehirn dient ein **beliebiges Sprachmodell**: lokal
 Ollama oder in der Cloud (Claude, GPT, Gemini …). Kritische Aktionen führt Javit nur nach Ihrer
 **Freigabe** aus.
 
+![Javit-Konsole: Orb, Systeme-Leiste mit Modell, Stimme, Integrationen und Werkzeugen, Aktivitätsbereich](docs/bilder/konsole.png)
+
 ```
 „Javit“ → Weckwort → Spracherkennung → Agent (Modell + Werkzeuge) → Antwort (Text + Sprache)
                                                │
