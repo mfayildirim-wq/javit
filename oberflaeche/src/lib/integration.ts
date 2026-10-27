@@ -49,11 +49,53 @@ export function nameAusUrl(url: string): string {
 export function katalogBody(eintrag: KatalogEintrag, werte: Record<string, string>): Ergebnis {
   const sauber: Record<string, string> = {};
   for (const f of eintrag.benoetigt) {
-    const v = (werte[f.name] ?? '').trim();
-    if (!v) return { ok: false, fehler: `„${f.titel}“ fehlt.` };
+    const v = (werte[f.name] ?? f.standard ?? '').trim();
+    if (!v) {
+      if (f.optional) continue;
+      return { ok: false, fehler: `„${f.titel}“ fehlt.` };
+    }
+    if ((f.typ === 'ordner' || f.typ === 'datei') && /[*?]/.test(v)) return { ok: false, fehler: `„${f.titel}“: Platzhalter wie * sind nicht erlaubt – bitte einen Pfad angeben (z. B. ~/Documents).` };
     sauber[f.name] = v;
   }
   return { ok: true, body: { katalog: eintrag.id, werte: sauber } };
+}
+
+/** Importiert MCP-Server aus einer JSON-Konfiguration im Format von Claude Desktop / Claude Code
+ * (`{"mcpServers": {"name": {"command","args","env"} | {"type":"http","url","headers"}}}`); auch ein
+ * einzelner Server-Eintrag ohne Hülle wird angenommen. */
+export function mcpJsonParsen(text: string): { ok: true; eintraege: IntegrationAnlegen[] } | { ok: false; fehler: string } {
+  let daten: unknown;
+  try {
+    daten = JSON.parse(text);
+  } catch {
+    return { ok: false, fehler: 'Kein gültiges JSON. Erwartet wird z. B. {"mcpServers": {"name": {"command": "npx", "args": ["-y", "paket"]}}}' };
+  }
+  if (!daten || typeof daten !== 'object') return { ok: false, fehler: 'JSON muss ein Objekt sein.' };
+  const o = daten as Record<string, unknown>;
+  let server: Record<string, unknown>;
+  if (o.mcpServers && typeof o.mcpServers === 'object') server = o.mcpServers as Record<string, unknown>;
+  else if (o.servers && typeof o.servers === 'object') server = o.servers as Record<string, unknown>;
+  else if ('command' in o || 'url' in o) server = { [typeof o.name === 'string' && o.name ? o.name : 'Server']: o };
+  else server = o;
+  const eintraege: IntegrationAnlegen[] = [];
+  for (const [name, roh] of Object.entries(server)) {
+    if (!roh || typeof roh !== 'object') continue;
+    const s = roh as Record<string, unknown>;
+    const strMap = (v: unknown): Record<string, string> =>
+      v && typeof v === 'object' ? Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, w]) => [k, String(w)])) : {};
+    if (typeof s.url === 'string' && s.url) {
+      if (!istUrl(s.url)) return { ok: false, fehler: `„${name}“: URL ist ungültig.` };
+      eintraege.push({ name, mcp_url: s.url, kopfzeilen: strMap(s.headers) });
+    } else if (typeof s.command === 'string' && s.command) {
+      const args = Array.isArray(s.args) ? s.args.map(String) : [];
+      const befehl = [s.command, ...args].map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' ');
+      eintraege.push({ name, mcp_befehl: befehl, umgebung: strMap(s.env) });
+    } else {
+      return { ok: false, fehler: `„${name}“: weder command noch url gefunden.` };
+    }
+  }
+  if (eintraege.length === 0) return { ok: false, fehler: 'Keine Server in der JSON gefunden.' };
+  return { ok: true, eintraege };
 }
 
 export function mcpBefehlBody(name: string, befehl: string, umgebung: Paar[]): Ergebnis {

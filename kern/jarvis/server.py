@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import ValidationError
 
 from .anwendung import Jarvis
+from .integrationen.einrichtung import Ausfuehrer, EinrichtungsFehler, datei_ablegen, einrichtung_stand
 from .integrationen.manager import FehlendeWerte, IntegrationsFehler
 from .llm import LLMFehler
 
@@ -219,6 +220,70 @@ def create_app(
             )
         except IntegrationsFehler as e:
             raise HTTPException(400, str(e)) from e
+
+    ausfuehrer = Ausfuehrer()
+
+    def katalog_eintrag(request: Request, kennung: str) -> Any:
+        eintrag = j_(request).katalog.holen(kennung)
+        if eintrag is None:
+            raise HTTPException(404, "Katalogeintrag nicht gefunden")
+        return eintrag
+
+    @app.get("/api/integrationen/katalog/{kennung}")
+    async def katalog_detail(kennung: str, request: Request) -> dict[str, Any]:
+        eintrag = katalog_eintrag(request, kennung)
+        return {**eintrag.als_info(), "einrichtung": einrichtung_stand(eintrag), "installiert": kennung in j_(request).manager.konfigs}
+
+    @app.post("/api/integrationen/katalog/{kennung}/einrichtung/{nummer}/datei")
+    async def einrichtung_datei(kennung: str, nummer: int, request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        eintrag = katalog_eintrag(request, kennung)
+        try:
+            pfad = datei_ablegen(eintrag, nummer, str(daten.get("inhalt_base64") or ""))
+        except EinrichtungsFehler as e:
+            raise HTTPException(400, str(e)) from e
+        return {"pfad": str(pfad), "erfuellt": True, "einrichtung": einrichtung_stand(eintrag)}
+
+    @app.post("/api/integrationen/katalog/{kennung}/einrichtung/{nummer}/ausfuehren")
+    async def einrichtung_ausfuehren(kennung: str, nummer: int, request: Request) -> dict[str, Any]:
+        eintrag = katalog_eintrag(request, kennung)
+        try:
+            return await ausfuehrer.starten(eintrag, nummer)
+        except EinrichtungsFehler as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.get("/api/integrationen/katalog/{kennung}/einrichtung/{nummer}/stand")
+    async def einrichtung_stand_lesen(kennung: str, nummer: int, request: Request) -> dict[str, Any]:
+        katalog_eintrag(request, kennung)
+        return ausfuehrer.stand(kennung, nummer)
+
+    @app.get("/api/integrationen/{kennung}")
+    async def integration_details(kennung: str, request: Request) -> dict[str, Any]:
+        try:
+            return j_(request).manager.details(kennung)
+        except IntegrationsFehler as e:
+            raise HTTPException(404, str(e)) from e
+
+    @app.put("/api/integrationen/{kennung}")
+    async def integration_aendern(kennung: str, request: Request, anfrage: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        manager = j_(request).manager
+        if kennung not in manager.konfigs:
+            raise HTTPException(404, "Integration nicht gefunden")
+        try:
+            return await manager.aendern(kennung, anfrage)
+        except FehlendeWerte as e:
+            return JSONResponse(  # type: ignore[return-value]
+                {"detail": str(e), "fehlend": [{"name": b.name, "titel": b.titel, "geheim": b.geheim} for b in e.fehlend], "hinweis": e.hinweis},
+                status_code=400,
+            )
+        except IntegrationsFehler as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.get("/api/integrationen/{kennung}/protokoll")
+    async def integration_protokoll(kennung: str, request: Request, zeilen: int = 50) -> dict[str, Any]:
+        manager = j_(request).manager
+        if kennung not in manager.konfigs:
+            raise HTTPException(404, "Integration nicht gefunden")
+        return {"zeilen": manager.protokoll_zeilen(kennung, zeilen)}
 
     @app.delete("/api/integrationen/{kennung}")
     async def integration_entfernen(kennung: str, request: Request) -> dict[str, Any]:

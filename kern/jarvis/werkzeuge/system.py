@@ -79,6 +79,106 @@ def werkzeuge(app: Jarvis) -> list[Werkzeug]:
             for i in liste
         )
 
+    def _einrichtung_text(eintrag: Any) -> str:
+        from ..integrationen.einrichtung import einrichtung_stand
+
+        schritte = einrichtung_stand(eintrag)
+        if not schritte:
+            return ""
+        zeilen = []
+        for n, s in enumerate(schritte, 1):
+            stand = "✓ erledigt" if s["erfuellt"] else ("✗ offen" if s["erfuellt"] is False else "–")
+            zeile = f"{n}. {s['titel']} [{stand}]"
+            if s.get("text"):
+                zeile += f": {s['text']}"
+            if s.get("link"):
+                zeile += f" Link: {s['link']}"
+            if s.get("datei"):
+                zeile += f" Datei-Ziel: {s['datei']} (Upload in der Oberfläche: Integrationen → Eintrag → Einrichtung)"
+            if s.get("befehl"):
+                zeile += f" Befehl: {s['befehl']} (ausführbar mit integration_schritt_ausfuehren, Schritt {n})"
+            zeilen.append(zeile)
+        return "Einrichtungsschritte:\n" + "\n".join(zeilen)
+
+    async def integration_details(id: str) -> str:  # noqa: A002
+        from ..integrationen.manager import IntegrationsFehler
+
+        try:
+            d = app.manager.details(id)
+        except IntegrationsFehler as e:
+            raise WerkzeugFehler(str(e)) from e
+        teile = [f"{d['name']} ({d['id']}, {d['art']}): Status {d['status']}, {d['werkzeuge']} Werkzeuge"]
+        if d.get("fehler"):
+            teile.append(f"Fehler: {d['fehler']}")
+        k = d["konfig"]
+        if k.get("befehl"):
+            teile.append("Befehl: " + " ".join(k["befehl"]))
+        if k.get("url"):
+            teile.append(f"URL: {k['url']}")
+        if d.get("werte"):
+            teile.append("Werte: " + ", ".join(f"{n}={w}" for n, w in d["werte"].items()))
+        if k.get("umgebung") and not d.get("werte"):
+            teile.append("Umgebung: " + ", ".join(f"{n}={w}" for n, w in k["umgebung"].items()))
+        if k.get("kopfzeilen"):
+            teile.append("Kopfzeilen: " + ", ".join(f"{n}={w}" for n, w in k["kopfzeilen"].items()))
+        kat = d.get("katalog")
+        if kat:
+            if kat.get("hinweis"):
+                teile.append(f"Hinweis: {kat['hinweis']}")
+            eintrag = app.katalog.holen(kat["id"])
+            if eintrag is not None:
+                text = _einrichtung_text(eintrag)
+                if text:
+                    teile.append(text)
+        if d.get("protokoll"):
+            teile.append("Letzte Protokollzeilen:\n" + "\n".join(d["protokoll"][-8:]))
+        return "\n".join(teile)
+
+    async def integration_einrichtung(id: str) -> str:  # noqa: A002
+        eintrag = app.katalog.holen(id)
+        if eintrag is None and id in app.manager.konfigs and app.manager.konfigs[id].katalog:
+            eintrag = app.katalog.holen(app.manager.konfigs[id].katalog or "")
+        if eintrag is None:
+            raise WerkzeugFehler(f"Kein Katalogeintrag zu „{id}“.")
+        text = _einrichtung_text(eintrag)
+        if not text:
+            return f"{eintrag.name} braucht keine besonderen Einrichtungsschritte. {eintrag.hinweis}".strip()
+        offen = [s for s in eintrag.einrichtung if s.datei and not __import__("os").path.isfile(__import__("os").path.expanduser(s.datei))]
+        naechster = f"Nächster offener Schritt: {offen[0].titel}." if offen else "Alle prüfbaren Schritte sind erledigt."
+        return f"{text}\n{naechster} Führe den Nutzer Schritt für Schritt; frage nach jedem Schritt, ob er erledigt ist."
+
+    async def integration_konfigurieren(id: str, werte: dict[str, Any] | None = None, name: str | None = None) -> str:  # noqa: A002
+        from ..integrationen.manager import FehlendeWerte, IntegrationsFehler
+
+        anfrage: dict[str, Any] = {"werte": werte or {}}
+        if name:
+            anfrage["name"] = name
+        try:
+            d = await app.manager.aendern(id, anfrage)
+        except FehlendeWerte as e:
+            return "Es fehlen Angaben: " + "; ".join(f"{b.titel} ({b.name})" for b in e.fehlend)
+        except IntegrationsFehler as e:
+            raise WerkzeugFehler(str(e)) from e
+        return f"{d['name']}: Status {d['status']}, {d['werkzeuge']} Werkzeuge." + (f" Fehler: {d['fehler']}" if d.get("fehler") else "")
+
+    async def integration_schritt_ausfuehren(id: str, schritt: int) -> str:  # noqa: A002
+        from ..integrationen.einrichtung import Ausfuehrer, EinrichtungsFehler
+
+        eintrag = app.katalog.holen(id)
+        if eintrag is None:
+            raise WerkzeugFehler(f"Kein Katalogeintrag zu „{id}“.")
+        ausfuehrer: Ausfuehrer = getattr(app, "einrichtung_ausfuehrer", None) or Ausfuehrer()
+        app.einrichtung_ausfuehrer = ausfuehrer  # type: ignore[attr-defined]
+        try:
+            stand = await ausfuehrer.starten(eintrag, schritt - 1)
+        except EinrichtungsFehler as e:
+            raise WerkzeugFehler(str(e)) from e
+        return (
+            f"Schritt {schritt} („{eintrag.einrichtung[schritt - 1].titel}“) läuft im Hintergrund (Status {stand['status']}). "
+            "Sage dem Nutzer, dass sich ggf. der Browser zur Anmeldung öffnet; den Stand zeigt die Oberfläche unter "
+            "Integrationen → Eintrag → Einrichtung."
+        )
+
     async def katalog_durchsuchen(suchbegriff: str | None = None) -> str:
         eintraege = app.katalog.suchen(suchbegriff)
         if not eintraege:
@@ -142,6 +242,42 @@ def werkzeuge(app: Jarvis) -> list[Werkzeug]:
             grund=lambda a: f"Integration hinzufügen (kann Software installieren/ausführen): {a.get('quelle')}",
         ),
         wz(integrationen_auflisten, "integrationen_auflisten", "Listet installierte Integrationen und ihren Status.", schema(), "lesen"),
+        wz(
+            integration_details,
+            "integration_details",
+            "Details einer installierten Integration: Status, Fehlergrund, Konfiguration (ohne Geheimnisse), "
+            "Einrichtungsschritte mit Stand, letzte Protokollzeilen. Zuerst aufrufen, wenn eine Integration nicht geht.",
+            schema({"id": {"type": "string", "description": "Kennung, z. B. gmail"}}, ["id"]),
+            "lesen",
+        ),
+        wz(
+            integration_einrichtung,
+            "integration_einrichtung",
+            "Einrichtungsschritte eines Katalogeintrags (z. B. gmail, google-kalender) mit Stand und nächstem Schritt – "
+            "damit führst du den Nutzer Schritt für Schritt.",
+            schema({"id": {"type": "string"}}, ["id"]),
+            "lesen",
+        ),
+        wz(
+            integration_konfigurieren,
+            "integration_konfigurieren",
+            "Ändert Werte einer installierten Katalog-Integration (z. B. VERZEICHNIS=~/Documents) und verbindet neu. "
+            "Geheimnisse ohne neuen Wert bleiben erhalten.",
+            schema(
+                {"id": {"type": "string"}, "werte": {"type": "object", "description": "Feldname → neuer Wert"}, "name": {"type": "string"}},
+                ["id", "werte"],
+            ),
+            "aendern",
+        ),
+        wz(
+            integration_schritt_ausfuehren,
+            "integration_schritt_ausfuehren",
+            "Führt den Befehl eines Einrichtungsschritts aus dem Katalog aus (z. B. die einmalige Anmeldung bei Google). "
+            "Schrittnummer wie in integration_einrichtung (ab 1).",
+            schema({"id": {"type": "string"}, "schritt": {"type": "integer"}}, ["id", "schritt"]),
+            "kritisch",
+            grund=lambda a: f"Einrichtungsbefehl ausführen: {a.get('id')}, Schritt {a.get('schritt')}",
+        ),
         wz(
             katalog_durchsuchen,
             "katalog_durchsuchen",

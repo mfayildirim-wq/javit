@@ -1542,7 +1542,7 @@ html[data-ptt] .rund-knopf.mikro {
 /* Eigene */
 .segmente {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
   margin-bottom: 26px;
 }
@@ -2582,4 +2582,221 @@ input[type='range'] {
   .cursor {
     animation: none;
   }
+}
+
+/* Integrationen: Liste, Detailseite, Einrichtung, JSON-Import */
+.kopf-aktionen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.inst-knopf {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.inst-pfeil {
+  color: var(--text-3);
+}
+.inst:hover .inst-pfeil {
+  color: var(--cyan);
+}
+.inst-hinweis {
+  font-size: var(--t-xs);
+  color: var(--cyan);
+  margin-top: 4px;
+}
+.integration-detail {
+  display: grid;
+  gap: 22px;
+}
+.integration-detail .detail-kopf {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 16px;
+}
+.detail-abschnitt {
+  display: grid;
+  gap: 10px;
+}
+.detail-abschnitt h4,
+.einrichtung h4 {
+  margin: 0;
+  font-size: var(--t-s);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.fehler-kasten {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 110, 110, 0.5);
+  background: rgba(255, 110, 110, 0.08);
+  color: var(--text);
+  display: grid;
+  gap: 10px;
+  word-break: break-word;
+}
+.fehler-aktionen {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.einrichtung {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--linie-mittel);
+  background: rgba(8, 20, 33, 0.5);
+}
+.einrichtung-kopf {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.einrichtung-kopf .knopf {
+  margin-left: auto;
+}
+.schritte {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.schritt {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.schritt-status {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--linie-mittel);
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.schritt.erledigt .schritt-status {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.schritt.offen .schritt-status {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.schritt-text {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.schritt-text p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--t-s);
+}
+.schritt-titel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--eis);
+}
+.schritt-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.schritt-aktion {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.schritt-aktion.befehl {
+  width: 100%;
+}
+.schritt-befehl {
+  font-size: var(--t-xs);
+  color: var(--text-2);
+  word-break: break-all;
+}
+.protokoll {
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--text-2);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--linie);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.werte {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.werte > div {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 10px;
+  align-items: center;
+}
+.werte dt,
+.werte dd {
+  margin: 0;
+}
+.werkzeug-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.werkzeug-liste li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--t-s);
+}
+.marke-chip.risiko-lesen {
+  color: var(--ok);
+}
+.marke-chip.risiko-aendern {
+  color: var(--cyan);
+}
+.marke-chip.risiko-kritisch {
+  color: #ff6e6e;
+}
+.json-vorschau {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--linie-mittel);
+  display: grid;
+  gap: 4px;
+  font-size: var(--t-s);
+}
+.formular textarea {
+  width: 100%;
+  resize: vertical;
 }

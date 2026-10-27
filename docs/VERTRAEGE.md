@@ -18,6 +18,13 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | POST | `/api/integrationen` | Integration hinzufügen (s. u.) → Integration |
 | DELETE | `/api/integrationen/{id}` | entfernen |
 | POST | `/api/integrationen/{id}/neu-verbinden` | neu starten |
+| GET | `/api/integrationen/{id}` | Details ohne Geheimnisse: `{…wie Liste, katalog?: {id, name, hinweis, webseite, benoetigt, einrichtung:[{titel, text, link, datei, befehl, erfuellt: bool\|null}]}, werte?: {NAME: wert\|"gespeichert"}, konfig: {befehl, url, kopfzeilen, umgebung, auth, rest, geheimnisse, risiko_standard, werkzeug_risiko, aktiv, hinzugefuegt}, werkzeug_liste:[{name, beschreibung, risiko}], protokoll:[…]}` – Werte mit `${…}` erscheinen als „gespeichert“ |
+| PUT | `/api/integrationen/{id}` | Konfiguration ersetzen (Body wie POST; Katalog: `{werte, name?}`), Geheimnisse mit leerem Wert oder „gespeichert“ bleiben; stoppt, speichert, startet neu → Details; 400 bei ungültigen Werten |
+| GET | `/api/integrationen/{id}/protokoll?zeilen=50` | `{zeilen:[…]}` letzte Zeilen des Server-Protokolls (`mcp-<id>.log`) |
+| GET | `/api/integrationen/katalog/{id}` | Katalogeintrag + `einrichtung[].erfuellt` (Datei vorhanden) + `installiert` |
+| POST | `/api/integrationen/katalog/{id}/einrichtung/{n}/datei` | `{inhalt_base64}` – schreibt an das `datei`-Ziel des Schritts n (0-basiert; max. 1 MB; `.json` wird geprüft) → `{pfad, erfuellt, einrichtung}` |
+| POST | `/api/integrationen/katalog/{id}/einrichtung/{n}/ausfuehren` | startet den `befehl` des Schritts im Hintergrund (nur Befehle aus dem Katalog; Ausgabe in `logs/einrichtung-<id>.log`, 300 s) → `{status: laeuft}` |
+| GET | `/api/integrationen/katalog/{id}/einrichtung/{n}/stand` | `{status: nie\|laeuft\|fertig\|fehler, rueckgabe, ausgabe:[…], sekunden}` |
 | GET | `/api/verlauf?limit=` | letzte Unterhaltung |
 | GET/DELETE | `/api/gedaechtnis` | Erinnerungen lesen/löschen |
 
@@ -70,9 +77,19 @@ url: null                 # bei mcp_http / openapi
 benoetigt:
   - {name: SPOTIFY_CLIENT_ID, titel: Client ID, geheim: false}
   - {name: SPOTIFY_CLIENT_SECRET, titel: Client Secret, geheim: true}
+  # optional je Feld: typ: text | geheim | ordner | datei | url (ordner/datei: Tilde erlaubt, keine
+  # Platzhalter, Existenz wird beim Anlegen/Ändern geprüft), standard, beschreibung, optional
 hinweis: "Schlüssel unter developer.spotify.com anlegen …"
+webseite: https://…           # optional, Anleitung des Servers
+einrichtung:                   # optional: Schritte vor der ersten Verbindung (Oberfläche: Checkliste)
+  - {titel: OAuth-Client anlegen, text: "…", link: https://console…}
+  - {titel: OAuth-Datei ablegen, datei: ~/.gmail-mcp/gcp-oauth.keys.json}   # prüfbar + Upload-Ziel
+  - {titel: Anmelden, befehl: "npx -y paket auth"}                            # aus der Oberfläche ausführbar
 risiko_standard: aendern
 ```
+
+`GET /api/integrationen/katalog` liefert je Eintrag zusätzlich `webseite`, `einrichtung` und je Feld `typ`,
+`standard`, `beschreibung`.
 
 Installierte Integrationen: `~/.jarvis/integrationen.json`. Einstellungen: `~/.jarvis/einstellungen.json`.
 Daten (Verlauf, Gedächtnis): `~/.jarvis/jarvis.db`.

@@ -131,7 +131,25 @@ export interface Integration {
   fehler?: string | null;
 }
 
-export interface KatalogFeld { name: string; titel: string; geheim: boolean }
+export type FeldTyp = 'text' | 'geheim' | 'ordner' | 'datei' | 'url' | string;
+export interface KatalogFeld {
+  name: string;
+  titel: string;
+  geheim: boolean;
+  optional?: boolean;
+  typ?: FeldTyp;
+  standard?: string | null;
+  beschreibung?: string | null;
+}
+/** Einrichtungsschritt (Kern: katalog.Schritt); `erfuellt` nur bei prüfbaren Schritten (Datei vorhanden). */
+export interface Schritt {
+  titel: string;
+  text?: string;
+  link?: string | null;
+  datei?: string | null;
+  befehl?: string | null;
+  erfuellt?: boolean | null;
+}
 export interface KatalogEintrag {
   id: string;
   name: string;
@@ -141,6 +159,32 @@ export interface KatalogEintrag {
   art: string;
   benoetigt: KatalogFeld[];
   hinweis?: string | null;
+  webseite?: string | null;
+  einrichtung?: Schritt[];
+  installiert?: boolean;
+}
+/** Stand eines ausgeführten Einrichtungsbefehls. */
+export interface SchrittStand { status: 'nie' | 'laeuft' | 'fertig' | 'fehler' | string; rueckgabe: number | null; ausgabe: string[]; sekunden: number }
+export interface WerkzeugKurz { name: string; beschreibung: string; risiko: string }
+/** GET /api/integrationen/{id} – ohne Geheimnisse („gespeichert“). */
+export interface IntegrationDetails extends Integration {
+  katalog?: { id: string; name: string; hinweis?: string | null; webseite?: string | null; benoetigt: KatalogFeld[]; einrichtung: Schritt[] };
+  werte?: Record<string, string>;
+  konfig: {
+    befehl?: string[] | null;
+    url?: string | null;
+    kopfzeilen: Record<string, string>;
+    umgebung: Record<string, string>;
+    auth?: Record<string, string> | null;
+    rest?: RestEndpunkt[] | null;
+    geheimnisse: string[];
+    risiko_standard: string;
+    werkzeug_risiko: Record<string, string>;
+    aktiv: boolean;
+    hinzugefuegt: string;
+  };
+  werkzeug_liste: WerkzeugKurz[];
+  protokoll: string[];
 }
 
 export type RestParamTyp = 'text' | 'zahl' | 'bool' | string;

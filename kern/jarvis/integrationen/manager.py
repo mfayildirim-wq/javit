@@ -29,13 +29,17 @@ from ..konfig import jarvis_home
 from ..werkzeuge import Risiko, Werkzeug, WerkzeugRegister
 from ..werkzeuge.prozess import befehl_zerlegen
 from .eingebaut import eingebaute_werkzeuge
-from .katalog import Benoetigt, Katalog, platzhalter_ersetzen, platzhalter_finden
+from .einrichtung import EinrichtungsFehler, einrichtung_stand, pfad_aufloesen
+from .katalog import Benoetigt, Katalog, KatalogEintrag, platzhalter_ersetzen, platzhalter_finden
 from .mcp_hub import McpFehler, McpVerbindung, fehler_text, werkzeuge_aus_mcp
 from .openapi import basis_url_ermitteln, spec_parsen, werkzeuge_aus_openapi
 from .rest import werkzeuge_aus_rest
 
 Art = Literal["mcp_stdio", "mcp_http", "openapi", "rest", "eingebaut"]
 Ereignis = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+_NUR_PLATZHALTER = re.compile(r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")
 
 
 class IntegrationsFehler(ValueError):
@@ -67,6 +71,23 @@ class IntegrationsKonfig(BaseModel):
     werkzeug_risiko: dict[str, Risiko] = Field(default_factory=dict)
     aktiv: bool = True
     hinzugefuegt: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+
+
+def wert_pruefen(feld: Benoetigt, wert: str) -> str:
+    """Prüft einen Katalogwert nach Feldtyp; gibt den (getrimmten) Wert zurück oder wirft IntegrationsFehler."""
+    wert = str(wert).strip()
+    if feld.typ in ("ordner", "datei"):
+        try:
+            pfad = pfad_aufloesen(wert)
+        except EinrichtungsFehler as e:
+            raise IntegrationsFehler(f"{feld.titel}: {e}") from e
+        if feld.typ == "ordner" and not pfad.is_dir():
+            raise IntegrationsFehler(f"{feld.titel}: Ordner nicht gefunden: {pfad} (absoluter Pfad oder ~/… angeben)")
+        if feld.typ == "datei" and not pfad.is_file():
+            raise IntegrationsFehler(f"{feld.titel}: Datei nicht gefunden: {pfad}")
+    elif feld.typ == "url" and not wert.lower().startswith(("http://", "https://")):
+        raise IntegrationsFehler(f"{feld.titel}: Bitte eine http(s)-Adresse angeben.")
+    return wert
 
 
 def kennung_aus_name(name: str) -> str:
@@ -167,15 +188,133 @@ class IntegrationsManager:
         return [self.info(k) for k in self.konfigs]
 
     def verbundene_beschreibungen(self) -> list[str]:
+        """Für den Systemprompt: verbundene Integrationen mit Werkzeugen, fehlerhafte mit Grund."""
         zeilen = []
         for k in self.konfigs.values():
-            if self.status.get(k.id) == "verbunden":
-                eintrag = self.katalog.holen(k.katalog) if k.katalog else None
+            status = self.status.get(k.id)
+            eintrag = self.katalog.holen(k.katalog) if k.katalog else None
+            if status == "verbunden":
                 text = f"{k.name} ({len(self.register.von_integration(k.id))} Werkzeuge, Präfix {k.id}__)"
                 if eintrag:
                     text += f": {eintrag.beschreibung}"
                 zeilen.append(text)
+            elif status == "fehler":
+                grund = (self.fehler.get(k.id) or "unbekannter Fehler")[:300]
+                text = f"{k.name} ({k.id}): NICHT VERBUNDEN – {grund}"
+                if eintrag and eintrag.einrichtung:
+                    text += " | Einrichtungsschritte vorhanden (integration_einrichtung)"
+                zeilen.append(text)
         return zeilen
+
+    def protokoll_zeilen(self, kennung: str, anzahl: int = 50) -> list[str]:
+        pfad = jarvis_home() / "logs" / f"mcp-{kennung}.log"
+        try:
+            zeilen = pfad.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+        return zeilen[-max(1, min(anzahl, 500)):]
+
+    @staticmethod
+    def _maskiert(werte: dict[str, str]) -> dict[str, str]:
+        return {k: ("gespeichert" if platzhalter_finden(v) else v) for k, v in werte.items()}
+
+    def details(self, kennung: str) -> dict[str, Any]:
+        """Alles für die Detailseite – ohne Geheimnisse (``${NAME}`` → „gespeichert“)."""
+        if kennung not in self.konfigs:
+            raise IntegrationsFehler(f"Integration „{kennung}“ ist nicht installiert.")
+        k = self.konfigs[kennung]
+        info = self.info(kennung)
+        eintrag = self.katalog.holen(k.katalog) if k.katalog else None
+        if eintrag:
+            info["katalog"] = {
+                "id": eintrag.id, "name": eintrag.name, "hinweis": eintrag.hinweis, "webseite": eintrag.webseite,
+                "benoetigt": eintrag.als_info()["benoetigt"], "einrichtung": einrichtung_stand(eintrag),
+            }
+            info["werte"] = {
+                b.name: ("gespeichert" if b.geheim and self.geheimnisse.hat(b.name) else k.umgebung.get(b.name, ""))
+                for b in eintrag.benoetigt
+            }
+        auth = dict(k.auth) if k.auth else None
+        if auth:
+            auth = {f: ("gespeichert" if f in ("wert", "passwort") else v) for f, v in auth.items()}
+        info["konfig"] = {
+            "befehl": list(k.befehl) if k.befehl else None,
+            "url": k.url,
+            "kopfzeilen": self._maskiert(k.kopfzeilen),
+            "umgebung": self._maskiert(k.umgebung),
+            "auth": auth,
+            "rest": k.rest,
+            "geheimnisse": list(k.geheimnisse),
+            "risiko_standard": k.risiko_standard,
+            "werkzeug_risiko": dict(k.werkzeug_risiko),
+            "aktiv": k.aktiv,
+            "hinzugefuegt": k.hinzugefuegt,
+        }
+        info["werkzeug_liste"] = [
+            {"name": w.name, "beschreibung": w.beschreibung, "risiko": w.risiko} for w in self.register.von_integration(kennung)
+        ]
+        info["protokoll"] = self.protokoll_zeilen(kennung, 40) if k.art == "mcp_stdio" else []
+        return info
+
+    async def aendern(self, kennung: str, anfrage: dict[str, Any]) -> dict[str, Any]:
+        """Ersetzt die Konfiguration (gleiche Kennung), behält Geheimnisse ohne neuen Wert, startet neu."""
+        if kennung not in self.konfigs:
+            raise IntegrationsFehler(f"Integration „{kennung}“ ist nicht installiert.")
+        alt = self.konfigs[kennung]
+        anfrage = dict(anfrage)
+        if alt.katalog:
+            eintrag = self.katalog.holen(alt.katalog)
+            if eintrag is None:
+                raise IntegrationsFehler(f"Katalogeintrag „{alt.katalog}“ nicht gefunden.")
+            werte = {b.name: alt.umgebung[b.name] for b in eintrag.benoetigt if not b.geheim and b.name in alt.umgebung}
+            for name, wert in (anfrage.get("werte") or {}).items():
+                if wert in (None, "", "gespeichert"):
+                    continue
+                werte[name] = str(wert)
+            anfrage = {"katalog": alt.katalog, "werte": werte, "name": anfrage.get("name") or alt.name}
+        else:
+            # Leere oder „gespeichert“ gelassene geheime Kopfzeilen/Umgebungswerte bleiben erhalten
+            for feld, bisher in (("kopfzeilen", alt.kopfzeilen), ("umgebung", alt.umgebung)):
+                neu = anfrage.get(feld)
+                if isinstance(neu, dict):
+                    for name, wert in list(neu.items()):
+                        if wert in ("", "gespeichert", None):
+                            if name in bisher:
+                                neu[name] = bisher[name]  # Platzhalter ${…} oder Klartext von vorher
+                            elif name in alt.geheimnisse:
+                                neu[name] = "${" + name + "}"  # geheime Umgebungsvariable bleibt
+                            else:
+                                neu.pop(name)
+            auth = anfrage.get("auth")
+            if isinstance(auth, dict) and alt.auth:
+                for f in ("wert", "passwort"):
+                    if auth.get(f) in ("", "gespeichert", None) and alt.auth.get(f):
+                        auth[f] = alt.auth[f]
+            if not any(anfrage.get(k) for k in ("mcp_befehl", "mcp_url", "openapi_url", "rest")):
+                raise IntegrationsFehler("Zum Ändern die Quelle angeben (mcp_befehl, mcp_url, openapi_url oder rest).")
+            anfrage.setdefault("name", alt.name)
+        self.konfigs.pop(kennung)  # damit konfig_aus_anfrage dieselbe Kennung vergibt
+        try:
+            neu_konfig = self.konfig_aus_anfrage(anfrage)
+        except Exception:
+            self.konfigs[kennung] = alt
+            raise
+        finally:
+            self.konfigs.setdefault(kennung, alt)
+        # Platzhalter, die unverändert übernommen wurden, als Geheimnisse weiterführen
+        geheime = set(neu_konfig.geheimnisse) | (
+            platzhalter_finden([neu_konfig.kopfzeilen, neu_konfig.auth or {}, neu_konfig.umgebung]) & set(alt.geheimnisse)
+        )
+        konfig = neu_konfig.model_copy(update={
+            "id": kennung, "hinzugefuegt": alt.hinzugefuegt, "aktiv": alt.aktiv,
+            "geheimnisse": sorted(geheime),
+            "werkzeug_risiko": {**neu_konfig.werkzeug_risiko, **alt.werkzeug_risiko},
+        })
+        await self._stoppen(kennung)
+        self.konfigs[kennung] = konfig
+        self.speichern()
+        await self.starten(kennung)
+        return self.details(kennung)
 
     async def _melden(self, kennung: str) -> None:
         if self.ereignis and kennung in self.konfigs:
@@ -186,6 +325,8 @@ class IntegrationsManager:
 
     # ---------- Hinzufügen ----------
     def _geheim_ablegen(self, name: str, wert: str) -> str:
+        if _NUR_PLATZHALTER.match(wert):
+            return wert  # schon ein Verweis auf ein gespeichertes Geheimnis (z. B. beim Ändern)
         self.geheimnisse.setzen(name, wert)
         return "${" + name + "}"
 
@@ -222,6 +363,7 @@ class IntegrationsManager:
                     if not b.optional:
                         fehlend.append(b)
                     continue
+                wert = wert_pruefen(b, wert)
                 if b.geheim:
                     self.geheimnisse.setzen(b.name, wert)
                     geheime.append(b.name)
@@ -260,6 +402,10 @@ class IntegrationsManager:
             umgebung, geheime = {}, []
             for schluessel, wert in (anfrage.get("umgebung") or {}).items():
                 if ist_geheimer_name(schluessel):
+                    if _NUR_PLATZHALTER.match(str(wert)):
+                        umgebung[schluessel] = str(wert)
+                        geheime.append(str(wert)[2:-1])
+                        continue
                     self.geheimnisse.setzen(schluessel, str(wert))
                     geheime.append(schluessel)
                 else:

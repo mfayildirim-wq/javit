@@ -286,7 +286,13 @@ javit remove spotify
 **By voice or chat:** "Javit, integriere Notion." – Javit searches the catalog, asks for missing
 keys and creates the integration after your approval.
 
-**In the UI:** Integrationen → Katalog or → Eigene (custom).
+**In the UI:** Integrationen → **Hinzufügen** (plus button): catalog, MCP command, MCP URL, OpenAPI,
+REST or **JSON einfügen** (a configuration in the Claude Desktop / Claude Code format is recognized and
+imported). Under **Installiert**, clicking an entry opens its **detail page**: status with the reason for
+a failure and the server log, **Einrichtung** (setup) as a checklist (links, file upload, runnable steps such
+as the Google sign-in), **Konfiguration** with **Bearbeiten** (edit), and the tool list. If something is
+wrong, "Javit um Hilfe bitten" asks the assistant: it knows the status and the setup steps and guides you
+step by step.
 
 **Custom integrations:**
 

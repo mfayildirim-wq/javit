@@ -289,7 +289,12 @@ javit remove spotify
 **Per Sprache oder Chat:** „Javit, integriere Notion.“ – Javit sucht im Katalog, fragt nach
 fehlenden Schlüsseln und legt die Integration nach Ihrer Freigabe an.
 
-**In der Oberfläche:** Integrationen → Katalog oder → Eigene.
+**In der Oberfläche:** Integrationen → **Hinzufügen** (Plus-Knopf): Katalog, MCP-Befehl, MCP-URL,
+OpenAPI, REST oder **JSON einfügen** (eine Konfiguration im Format von Claude Desktop/Claude Code wird
+erkannt und übernommen). Unter **Installiert** öffnet ein Klick die **Detailseite**: Status mit
+Fehlergrund und Protokoll, **Einrichtung** als Checkliste (Links, Datei-Upload, ausführbare Schritte wie
+die Google-Anmeldung), **Konfiguration** mit **Bearbeiten**, Werkzeugliste. Bei Problemen hilft der Knopf
+„Javit um Hilfe bitten“: Der Assistent kennt Status und Einrichtungsschritte und führt Schritt für Schritt.
 
 **Eigene Integrationen:**
 

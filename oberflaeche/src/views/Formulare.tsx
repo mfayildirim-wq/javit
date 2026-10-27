@@ -1,10 +1,11 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import type { IntegrationAnlegen, KatalogEintrag } from '../api/types';
+import type { IntegrationAnlegen, IntegrationDetails, KatalogEintrag } from '../api/types';
 import {
   REST_METHODEN,
   katalogBody,
   mcpBefehlBody,
+  mcpJsonParsen,
   mcpUrlBody,
   nameAusBefehl,
   nameAusUrl,
@@ -134,49 +135,185 @@ export function PaarEditor({
 
 // ---------------- Katalog ----------------
 
-export function KatalogFormular({ eintrag, onAnlegen }: { eintrag: KatalogEintrag; onAnlegen: Anlegen }) {
-  const [werte, setWerte] = useState<Record<string, string>>({});
+const TYP_HILFE: Record<string, string> = {
+  ordner: 'Absoluter Pfad oder ~/… – keine Platzhalter wie *.',
+  datei: 'Pfad zu einer vorhandenen Datei (absolut oder ~/…).',
+  url: 'Adresse mit http:// oder https://.',
+};
+
+/** Startwerte für das Katalogformular: beim Anlegen die Standardwerte, beim Bearbeiten die gespeicherten. */
+function katalogStart(eintrag: KatalogEintrag, start?: Record<string, string>): Record<string, string> {
+  const w: Record<string, string> = {};
+  for (const f of eintrag.benoetigt) {
+    const s = start?.[f.name];
+    w[f.name] = s !== undefined && s !== 'gespeichert' ? s : (f.standard ?? '');
+  }
+  return w;
+}
+
+export function KatalogFormular({
+  eintrag,
+  onAnlegen,
+  start,
+  text,
+  onAbbrechen,
+}: {
+  eintrag: KatalogEintrag;
+  onAnlegen: Anlegen;
+  /** Vorhandene Werte (Bearbeiten); Geheimnisse kommen als „gespeichert“ und bleiben leer. */
+  start?: Record<string, string>;
+  text?: string;
+  onAbbrechen?: () => void;
+}) {
+  const [werte, setWerte] = useState<Record<string, string>>(() => katalogStart(eintrag, start));
   const { fehler, laeuft, absenden } = useAbsenden(onAnlegen);
+  const bearbeiten = start !== undefined;
   return (
-    <form className="formular" onSubmit={(e) => absenden(e, () => katalogBody(eintrag, werte))}>
-      {eintrag.benoetigt.length === 0 && <p className="gedaempft">Keine Angaben nötig – einfach hinzufügen.</p>}
-      {eintrag.benoetigt.map((f, i) => (
-        <Feld key={f.name} label={f.titel} hilfe={<code>{f.name}</code>}>
-          {(id) => (
-            <input
-              id={id}
-              type={f.geheim ? 'password' : 'text'}
-              autoComplete={f.geheim ? 'new-password' : 'off'}
-              autoFocus={i === 0}
-              value={werte[f.name] ?? ''}
-              onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
-              className={f.geheim ? '' : 'mono'}
-            />
-          )}
-        </Feld>
-      ))}
-      {eintrag.hinweis && <p className="formular-hinweis">{eintrag.hinweis}</p>}
+    <form className="formular" onSubmit={(e) => absenden(e, () => katalogBody(eintrag, bearbeiten ? { ...werte } : werte))}>
+      {eintrag.benoetigt.length === 0 && <p className="gedaempft">{bearbeiten ? 'Dieser Eintrag hat keine einstellbaren Werte.' : 'Keine Angaben nötig – einfach hinzufügen.'}</p>}
+      {eintrag.benoetigt.map((f, i) => {
+        const gespeichert = bearbeiten && f.geheim && start?.[f.name] === 'gespeichert';
+        const typ = f.typ ?? (f.geheim ? 'geheim' : 'text');
+        return (
+          <Feld
+            key={f.name}
+            label={f.titel + (f.optional ? ' (optional)' : '')}
+            hilfe={
+              <>
+                <code>{f.name}</code>
+                {f.beschreibung ? ` – ${f.beschreibung}` : TYP_HILFE[typ] ? ` – ${TYP_HILFE[typ]}` : ''}
+                {gespeichert ? ' – gespeichert; leer lassen, um den Wert zu behalten.' : ''}
+              </>
+            }
+          >
+            {(id) => (
+              <input
+                id={id}
+                type={f.geheim ? 'password' : typ === 'url' ? 'url' : 'text'}
+                autoComplete={f.geheim ? 'new-password' : 'off'}
+                autoFocus={i === 0}
+                placeholder={gespeichert ? 'Gespeichert im Schlüsselbund' : (f.standard ?? (typ === 'ordner' ? '~/Documents' : ''))}
+                value={werte[f.name] ?? ''}
+                onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
+                className={f.geheim ? '' : 'mono'}
+              />
+            )}
+          </Feld>
+        );
+      })}
+      {eintrag.hinweis && !bearbeiten && <p className="formular-hinweis">{eintrag.hinweis}</p>}
       <Fehler text={fehler} />
-      <Absenden laeuft={laeuft} text={`${eintrag.name} hinzufügen`} />
+      <div className="feld-reihe">
+        <Absenden laeuft={laeuft} text={text ?? `${eintrag.name} hinzufügen`} />
+        {onAbbrechen && (
+          <button type="button" className="knopf klein" onClick={onAbbrechen}>
+            Abbrechen
+          </button>
+        )}
+      </div>
     </form>
   );
 }
 
 // ---------------- Eigene ----------------
 
-export type EigeneArt = 'mcp_befehl' | 'mcp_url' | 'openapi_url' | 'rest';
+export type EigeneArt = 'mcp_befehl' | 'mcp_url' | 'openapi_url' | 'rest' | 'json';
 
 export const EIGENE_ARTEN: { id: EigeneArt; titel: string; text: string }[] = [
   { id: 'mcp_befehl', titel: 'MCP-Befehl', text: 'Lokaler MCP-Server per npx, uvx oder Programm' },
   { id: 'mcp_url', titel: 'MCP-URL', text: 'Entfernter MCP-Server über HTTP' },
+  { id: 'json', titel: 'JSON einfügen', text: 'Konfiguration aus Claude Desktop / Claude Code' },
   { id: 'openapi_url', titel: 'OpenAPI', text: 'Jede API mit OpenAPI-Beschreibung' },
   { id: 'rest', titel: 'REST-Endpunkt', text: 'Einzelne HTTP-Aufrufe von Hand' },
 ];
 
-export function McpBefehlFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
-  const [name, setName] = useState('');
-  const [befehl, setBefehl] = useState('');
-  const [umgebung, setUmgebung] = useState<Paar[]>([]);
+/** Startwerte zum Bearbeiten eigener Integrationen (Geheimnisse als „gespeichert“). */
+export interface EigeneStart {
+  name?: string;
+  befehl?: string;
+  url?: string;
+  paare?: Paar[];
+  authArt?: AuthArt;
+}
+
+function paareAus(werte: Record<string, string> | undefined): Paar[] {
+  return Object.entries(werte ?? {}).map(([schluessel, wert]) => ({ schluessel, wert }));
+}
+
+export function JsonFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
+  const [text, setText] = useState('');
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+  const [ergebnis, setErgebnis] = useState<string[]>([]);
+  const vorschau = text.trim() ? mcpJsonParsen(text) : null;
+  const anlegen = async (e: FormEvent) => {
+    e.preventDefault();
+    const r = mcpJsonParsen(text);
+    if (!r.ok) {
+      setFehler(r.fehler);
+      return;
+    }
+    setFehler(null);
+    setLaeuft(true);
+    const fertig: string[] = [];
+    try {
+      for (const eintrag of r.eintraege) {
+        await onAnlegen(eintrag);
+        fertig.push('name' in eintrag ? eintrag.name : eintrag.katalog);
+      }
+      setText('');
+    } catch (err) {
+      setFehler(`${fertig.length ? `${fertig.join(', ')} angelegt. ` : ''}${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setErgebnis(fertig);
+      setLaeuft(false);
+    }
+  };
+  return (
+    <form className="formular" onSubmit={anlegen}>
+      <Feld
+        label="JSON-Konfiguration"
+        hilfe={
+          <>
+            Format von Claude Desktop / Claude Code: <code>{'{"mcpServers": {"name": {"command": "npx", "args": ["-y", "paket"], "env": {}}}}'}</code> oder{' '}
+            <code>{'{"type": "http", "url": "https://…/mcp", "headers": {"Authorization": "Bearer …"}}'}</code>. Geheimnisse landen im Schlüsselbund.
+          </>
+        }
+      >
+        {(id) => (
+          <textarea
+            id={id}
+            className="mono"
+            rows={8}
+            autoFocus
+            placeholder={'{\n  "mcpServers": {\n    "notion": {"command": "npx", "args": ["-y", "@notionhq/notion-mcp-server"], "env": {"NOTION_TOKEN": "…"}}\n  }\n}'}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+        )}
+      </Feld>
+      {vorschau && vorschau.ok && (
+        <ul className="json-vorschau" aria-label="Erkannte Server">
+          {vorschau.eintraege.map((e, i) => (
+            <li key={i}>
+              <strong>{'name' in e ? e.name : e.katalog}</strong>{' '}
+              <code>{'mcp_befehl' in e ? e.mcp_befehl : 'mcp_url' in e ? e.mcp_url : ''}</code>
+            </li>
+          ))}
+        </ul>
+      )}
+      {vorschau && !vorschau.ok && text.trim().length > 20 && <p className="feld-hilfe">{vorschau.fehler}</p>}
+      {ergebnis.length > 0 && !fehler && <p className="ok-text">Angelegt: {ergebnis.join(', ')}</p>}
+      <Fehler text={fehler} />
+      <Absenden laeuft={laeuft} text={vorschau && vorschau.ok && vorschau.eintraege.length > 1 ? `${vorschau.eintraege.length} Integrationen hinzufügen` : 'Integration hinzufügen'} />
+    </form>
+  );
+}
+
+export function McpBefehlFormular({ onAnlegen, start, text, onAbbrechen }: { onAnlegen: Anlegen; start?: EigeneStart; text?: string; onAbbrechen?: () => void }) {
+  const [name, setName] = useState(start?.name ?? '');
+  const [befehl, setBefehl] = useState(start?.befehl ?? '');
+  const [umgebung, setUmgebung] = useState<Paar[]>(start?.paare ?? []);
   const { fehler, laeuft, absenden } = useAbsenden(onAnlegen);
   const vorschlag = nameAusBefehl(befehl);
   return (
@@ -194,19 +331,26 @@ export function McpBefehlFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
         )}
       </Feld>
       <Feld label="Name">{(id) => <input id={id} placeholder={vorschlag || 'Mein Werkzeug'} value={name} onChange={(e) => setName(e.target.value)} />}</Feld>
-      <Feld label="Umgebungsvariablen (optional)" gruppe>
+      <Feld label="Umgebungsvariablen (optional)" gruppe hilfe={start ? 'Geheime Werte stehen als „gespeichert“ – so lassen, um sie zu behalten.' : undefined}>
         {() => <PaarEditor paare={umgebung} onChange={setUmgebung} schluesselLabel="Variable" wertLabel="Wert" geheim beispiel={['API_KEY', 'Wert']} />}
       </Feld>
       <Fehler text={fehler} />
-      <Absenden laeuft={laeuft} />
+      <div className="feld-reihe">
+        <Absenden laeuft={laeuft} text={text} />
+        {onAbbrechen && (
+          <button type="button" className="knopf klein" onClick={onAbbrechen}>
+            Abbrechen
+          </button>
+        )}
+      </div>
     </form>
   );
 }
 
-export function McpUrlFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [kopfzeilen, setKopfzeilen] = useState<Paar[]>([]);
+export function McpUrlFormular({ onAnlegen, start, text, onAbbrechen }: { onAnlegen: Anlegen; start?: EigeneStart; text?: string; onAbbrechen?: () => void }) {
+  const [name, setName] = useState(start?.name ?? '');
+  const [url, setUrl] = useState(start?.url ?? '');
+  const [kopfzeilen, setKopfzeilen] = useState<Paar[]>(start?.paare ?? []);
   const { fehler, laeuft, absenden } = useAbsenden(onAnlegen);
   return (
     <form className="formular" onSubmit={(e) => absenden(e, () => mcpUrlBody(name, url, kopfzeilen))}>
@@ -216,20 +360,27 @@ export function McpUrlFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
         )}
       </Feld>
       <Feld label="Name">{(id) => <input id={id} placeholder={nameAusUrl(url) || 'Home Assistant'} value={name} onChange={(e) => setName(e.target.value)} />}</Feld>
-      <Feld label="Kopfzeilen (optional)" gruppe>
+      <Feld label="Kopfzeilen (optional)" gruppe hilfe={start ? 'Geheime Werte stehen als „gespeichert“ – so lassen, um sie zu behalten.' : undefined}>
         {() => <PaarEditor paare={kopfzeilen} onChange={setKopfzeilen} schluesselLabel="Kopfzeile" wertLabel="Wert" geheim beispiel={['Authorization', 'Bearer …']} />}
       </Feld>
       <Fehler text={fehler} />
-      <Absenden laeuft={laeuft} />
+      <div className="feld-reihe">
+        <Absenden laeuft={laeuft} text={text} />
+        {onAbbrechen && (
+          <button type="button" className="knopf klein" onClick={onAbbrechen}>
+            Abbrechen
+          </button>
+        )}
+      </div>
     </form>
   );
 }
 
-export function OpenApiFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [art, setArt] = useState<AuthArt>('keine');
-  const [wert, setWert] = useState('');
+export function OpenApiFormular({ onAnlegen, start, text, onAbbrechen }: { onAnlegen: Anlegen; start?: EigeneStart; text?: string; onAbbrechen?: () => void }) {
+  const [name, setName] = useState(start?.name ?? '');
+  const [url, setUrl] = useState(start?.url ?? '');
+  const [art, setArt] = useState<AuthArt>(start?.authArt ?? 'keine');
+  const [wert, setWert] = useState(start?.authArt && start.authArt !== 'keine' ? 'gespeichert' : '');
   const { fehler, laeuft, absenden } = useAbsenden(onAnlegen);
   return (
     <form className="formular" onSubmit={(e) => absenden(e, () => openapiBody(name, url, art, wert))}>
@@ -257,7 +408,14 @@ export function OpenApiFormular({ onAnlegen }: { onAnlegen: Anlegen }) {
         )}
       </div>
       <Fehler text={fehler} />
-      <Absenden laeuft={laeuft} />
+      <div className="feld-reihe">
+        <Absenden laeuft={laeuft} text={text} />
+        {onAbbrechen && (
+          <button type="button" className="knopf klein" onClick={onAbbrechen}>
+            Abbrechen
+          </button>
+        )}
+      </div>
     </form>
   );
 }
@@ -351,9 +509,49 @@ export function EigeneFormular({ art, onAnlegen }: { art: EigeneArt; onAnlegen: 
       return <McpBefehlFormular onAnlegen={onAnlegen} />;
     case 'mcp_url':
       return <McpUrlFormular onAnlegen={onAnlegen} />;
+    case 'json':
+      return <JsonFormular onAnlegen={onAnlegen} />;
     case 'openapi_url':
       return <OpenApiFormular onAnlegen={onAnlegen} />;
     case 'rest':
       return <RestFormular onAnlegen={onAnlegen} />;
   }
+}
+
+/** Bearbeiten einer installierten Integration: passendes Formular, vorbelegt aus den Details. */
+export function BearbeitenFormular({
+  details,
+  onSpeichern,
+  onAbbrechen,
+}: {
+  details: IntegrationDetails;
+  onSpeichern: Anlegen;
+  onAbbrechen: () => void;
+}) {
+  const k = details.konfig;
+  if (details.katalog) {
+    const eintrag: KatalogEintrag = {
+      id: details.katalog.id,
+      name: details.katalog.name,
+      beschreibung: '',
+      kategorie: '',
+      icon: '',
+      art: details.art,
+      benoetigt: details.katalog.benoetigt,
+      hinweis: details.katalog.hinweis,
+    };
+    return <KatalogFormular eintrag={eintrag} start={details.werte ?? {}} onAnlegen={onSpeichern} text="Speichern und neu verbinden" onAbbrechen={onAbbrechen} />;
+  }
+  if (details.art === 'mcp_stdio') {
+    const paare = paareAus(k.umgebung);
+    for (const g of k.geheimnisse) if (!paare.some((p) => p.schluessel === g)) paare.push({ schluessel: g, wert: 'gespeichert' });
+    return <McpBefehlFormular onAnlegen={onSpeichern} start={{ name: details.name, befehl: (k.befehl ?? []).join(' '), paare }} text="Speichern und neu verbinden" onAbbrechen={onAbbrechen} />;
+  }
+  if (details.art === 'mcp_http') {
+    return <McpUrlFormular onAnlegen={onSpeichern} start={{ name: details.name, url: k.url ?? '', paare: paareAus(k.kopfzeilen) }} text="Speichern und neu verbinden" onAbbrechen={onAbbrechen} />;
+  }
+  if (details.art === 'openapi') {
+    return <OpenApiFormular onAnlegen={onSpeichern} start={{ name: details.name, url: k.url ?? '', authArt: (k.auth?.art as AuthArt | undefined) ?? 'keine' }} text="Speichern und neu verbinden" onAbbrechen={onAbbrechen} />;
+  }
+  return <p className="gedaempft">Diese Integration lässt sich hier nicht bearbeiten. Entfernen und neu anlegen.</p>;
 }

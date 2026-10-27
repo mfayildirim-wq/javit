@@ -8,7 +8,7 @@ import {
   OpenApiFormular,
   RestFormular,
 } from '../views/Formulare';
-import { katalogBody, mcpBefehlBody, mcpUrlBody, nameAusBefehl, openapiBody, restBody } from '../lib/integration';
+import { katalogBody, mcpBefehlBody, mcpJsonParsen, mcpUrlBody, nameAusBefehl, openapiBody, restBody } from '../lib/integration';
 import type { KatalogEintrag } from '../api/types';
 
 const spotify: KatalogEintrag = {
@@ -25,6 +25,20 @@ const spotify: KatalogEintrag = {
 };
 
 describe('POST-Bodies (reine Funktionen)', () => {
+  it('katalog mit Standardwert, optionalen Feldern und Pfadprüfung', () => {
+    const fs: KatalogEintrag = { ...spotify, id: 'dateisystem', name: 'Dateisystem', benoetigt: [{ name: 'VERZEICHNIS', titel: 'Ordner', geheim: false, typ: 'ordner', standard: '~/Documents' }, { name: 'OPT', titel: 'Opt', geheim: false, optional: true }] };
+    expect(katalogBody(fs, {})).toEqual({ ok: true, body: { katalog: 'dateisystem', werte: { VERZEICHNIS: '~/Documents' } } });
+    expect(katalogBody(fs, { VERZEICHNIS: 'Documents/*' })).toMatchObject({ ok: false });
+  });
+  it('mcpJsonParsen: Claude-Format mit Befehl und URL, einzelner Server, Fehler', () => {
+    const r = mcpJsonParsen('{"mcpServers": {"a": {"command": "npx", "args": ["-y", "p q"], "env": {"K": 1}}, "b": {"type": "http", "url": "https://x.org/mcp", "headers": {"Authorization": "Bearer t"}}}}');
+    expect(r).toEqual({ ok: true, eintraege: [{ name: 'a', mcp_befehl: 'npx -y "p q"', umgebung: { K: '1' } }, { name: 'b', mcp_url: 'https://x.org/mcp', kopfzeilen: { Authorization: 'Bearer t' } }] });
+    expect(mcpJsonParsen('{"command": "uvx", "args": ["mcp-server-fetch"]}')).toEqual({ ok: true, eintraege: [{ name: 'Server', mcp_befehl: 'uvx mcp-server-fetch', umgebung: {} }] });
+    expect(mcpJsonParsen('kein json')).toMatchObject({ ok: false });
+    expect(mcpJsonParsen('{"mcpServers": {"x": {"foo": 1}}}')).toMatchObject({ ok: false, fehler: expect.stringContaining('weder command noch url') });
+    expect(mcpJsonParsen('{"mcpServers": {}}')).toMatchObject({ ok: false });
+    expect(mcpJsonParsen('{"mcpServers": {"x": {"url": "nix"}}}')).toMatchObject({ ok: false });
+  });
   it('katalog', () => {
     expect(katalogBody(spotify, { SPOTIFY_CLIENT_ID: ' abc ', SPOTIFY_CLIENT_SECRET: 'geheim', FREMD: 'x' })).toEqual({
       ok: true,

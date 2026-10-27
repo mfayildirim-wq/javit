@@ -176,3 +176,31 @@ mit pwsh geparst (nicht ausgeführt).
 - Tests: `tests/test_anbieter.py` (Register, Übersetzung, Parser, Cache, Fassade, Server),
   Oberfläche `einstellungen.test.tsx` (Anbieterwahl, Schlüssel, Gratis-Chip, eigener Anbieter).
   Kern 478 grün (Mac: `test_kritische_pfade_linux` schlägt vorbestehend fehl), Oberfläche 56 grün.
+
+---
+
+## 27.10.2026 – Integrationen sichtbar, bearbeitbar, geführt (Phase 1)
+
+- Auslöser: Dateisystem war mit `Documents/*` angelegt (relativ + Platzhalter → „None of the specified
+  directories are accessible“), Gmail scheiterte an der fehlenden OAuth-Datei; beides war in der
+  Oberfläche weder sichtbar noch änderbar. Spezifikation: `docs/superpowers/specs/2026-10-27-integrationen-einrichten-design.md`.
+- Sofort behoben: Dateisystem auf `~/Documents` (14 Werkzeuge).
+- Kern: Katalogfelder mit `typ` (ordner/datei/url, geprüft beim Anlegen und Ändern), `einrichtung:`-Schritte
+  (Link, Datei-Ziel mit Prüfung/Upload, ausführbarer Befehl) in `jarvis/integrationen/einrichtung.py`;
+  Manager `details()`/`aendern()`/`protokoll_zeilen()`; MCP-Hub hängt die letzten Fehlerzeilen des
+  Server-Protokolls an den Fehlertext (dedupliziert); neue Endpunkte (siehe VERTRAEGE); Agent-Werkzeuge
+  `integration_details`, `integration_einrichtung`, `integration_konfigurieren` (ändern),
+  `integration_schritt_ausfuehren` (kritisch); Systemprompt nennt nicht verbundene Integrationen mit Grund
+  und die Regel, Schritt für Schritt zu führen.
+- Oberfläche: Reiter „Installiert | Hinzufügen“ + Plus-Knopf; Detailseite (`IntegrationDetail.tsx`) mit
+  Fehlerkasten, „Javit um Hilfe bitten“ (sendet die Bitte in die Konsole), Einrichtungs-Checkliste
+  (`Einrichtung.tsx`: Upload per Base64, Ausführen mit Stand-Abfrage), Konfiguration + Bearbeiten
+  (vorbelegte Formulare, Geheimnisse als „gespeichert“), Werkzeugliste, Protokoll; „JSON einfügen“
+  importiert `mcpServers`-Konfigurationen (Vorschau, mehrere auf einmal); Katalogformular belegt
+  Standardwerte vor und erklärt Feldtypen.
+- Katalog: `dateisystem` (typ ordner), `gmail` und `google-kalender` mit Einrichtungsschritten; Google
+  Kalender erwartet die OAuth-Datei standardmäßig unter `~/.jarvis/dateien/google-kalender-oauth.json`.
+- Live geprüft (zweite Instanz, Port 8766): Gmail-Detailseite zeigt Grund, Checkliste (Schritt 3 offen),
+  Upload- und Ausführen-Knöpfe. Nicht real durchgespielt: der Google-Anmeldelauf selbst.
+- Tests: `tests/test_einrichtung.py` (9), Oberfläche `integrationen-ansicht.test.tsx` (3) +
+  `integration.test.tsx`; Kern 487 grün (ohne vorbestehenden Linux-Pfad-Test), Oberfläche 61 grün.

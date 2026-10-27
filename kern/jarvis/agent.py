@@ -154,7 +154,7 @@ class Agent:
         teile.append("## Kontext\n" + "\n".join(kontext))
         integrationen = self.integrationen_info()
         if integrationen:
-            teile.append("## Verbundene Integrationen\n" + "\n".join(f"- {i}" for i in integrationen))
+            teile.append("## Integrationen\n" + "\n".join(f"- {i}" for i in integrationen))
         try:
             erinnerungen = await self.gedaechtnis.suchen(anfrage, anzahl=5)
         except Exception:  # noqa: BLE001
@@ -174,6 +174,9 @@ class Agent:
             "- Wenn der Nutzer sagt, du sollst dir etwas merken, nutze „erinnern“.\n"
             "- Fehlt eine App oder ein Dienst, durchsuche den Katalog (katalog_durchsuchen) und biete an, "
             "ihn mit integration_hinzufuegen zu integrieren.\n"
+            "- Ist eine Integration NICHT VERBUNDEN oder schlägt ihr Werkzeug fehl, erkläre den Grund kurz, "
+            "hole mit integration_details/integration_einrichtung die Schritte und führe den Nutzer Schritt für "
+            "Schritt (einen Schritt je Antwort, mit Link oder Befehl); Werte setzt du mit integration_konfigurieren.\n"
             "- Zeitangaben für Werkzeuge im ISO-Format in lokaler Zeit (z. B. 2025-03-01T14:30)."
             + (HINWEIS_OHNE_MAC_APPS if plattform != "mac" else "")
         )

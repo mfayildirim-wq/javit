@@ -6,7 +6,17 @@ icon: calendar
 art: mcp_stdio
 befehl: npx -y @cocal/google-calendar-mcp
 benoetigt:
-  - {name: GOOGLE_OAUTH_CREDENTIALS, titel: Pfad zur OAuth-Datei (gcp-oauth.keys.json), geheim: false}
-hinweis: "In der Google Cloud Console die Calendar API aktivieren, OAuth-Client vom Typ „Desktop-App“ anlegen und die JSON-Datei herunterladen. Beim ersten Start öffnet sich der Browser zur Anmeldung. Die Kalender-App des Macs ist zusätzlich über die eingebauten Werkzeuge nutzbar."
+  - {name: GOOGLE_OAUTH_CREDENTIALS, titel: Pfad zur OAuth-Datei (gcp-oauth.keys.json), typ: datei, standard: "~/.jarvis/dateien/google-kalender-oauth.json", beschreibung: "Wird durch den Upload unter „Einrichtung“ angelegt; alternativ Pfad zu einer vorhandenen Datei."}
+hinweis: "In der Google Cloud Console die Calendar API aktivieren, OAuth-Client vom Typ „Desktop-App“ anlegen, die JSON-Datei unter „Einrichtung“ hochladen. Beim ersten Start öffnet sich der Browser zur Anmeldung. Die Kalender-App des Macs ist zusätzlich über die eingebauten Werkzeuge nutzbar."
 webseite: https://github.com/nspady/google-calendar-mcp
+einrichtung:
+  - titel: Calendar API aktivieren
+    text: In der Google Cloud Console ein Projekt wählen oder anlegen und die Google Calendar API aktivieren.
+    link: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com
+  - titel: OAuth-Client anlegen und JSON herunterladen
+    text: Unter „Anmeldedaten“ einen OAuth-Client vom Typ „Desktop-App“ erstellen und die JSON-Datei herunterladen (vorher ggf. den Zustimmungsbildschirm mit der eigenen Adresse als Testnutzer anlegen).
+    link: https://console.cloud.google.com/apis/credentials
+  - titel: OAuth-Datei ablegen
+    text: Die heruntergeladene JSON-Datei hier hochladen. Beim ersten Start öffnet sich der Browser zur Anmeldung.
+    datei: ~/.jarvis/dateien/google-kalender-oauth.json
 risiko_standard: aendern

@@ -3,7 +3,10 @@ import type {
   Erinnerung,
   Integration,
   IntegrationAnlegen,
+  IntegrationDetails,
   KatalogEintrag,
+  Schritt,
+  SchrittStand,
   Modelle,
   Status,
   VerlaufEintrag,
@@ -83,6 +86,22 @@ export const api = {
   katalog: async () => liste<KatalogEintrag>(await anfrage<unknown>('GET', '/integrationen/katalog'), 'katalog'),
   integrationAnlegen: (body: IntegrationAnlegen) => anfrage<Integration>('POST', '/integrationen', body),
   integrationEntfernen: (id: string) => anfrage<unknown>('DELETE', `/integrationen/${encodeURIComponent(id)}`),
+  integrationDetails: (id: string) => anfrage<IntegrationDetails>('GET', `/integrationen/${encodeURIComponent(id)}`),
+  integrationAendern: (id: string, body: IntegrationAnlegen) =>
+    anfrage<IntegrationDetails>('PUT', `/integrationen/${encodeURIComponent(id)}`, body),
+  integrationProtokoll: async (id: string, zeilen = 80) =>
+    liste<string>(await anfrage<unknown>('GET', `/integrationen/${encodeURIComponent(id)}/protokoll?zeilen=${zeilen}`), 'zeilen'),
+  katalogDetail: (id: string) => anfrage<KatalogEintrag>('GET', `/integrationen/katalog/${encodeURIComponent(id)}`),
+  einrichtungDatei: (id: string, schritt: number, inhaltBase64: string) =>
+    anfrage<{ pfad: string; erfuellt: boolean; einrichtung: Schritt[] }>(
+      'POST',
+      `/integrationen/katalog/${encodeURIComponent(id)}/einrichtung/${schritt}/datei`,
+      { inhalt_base64: inhaltBase64 },
+    ),
+  einrichtungAusfuehren: (id: string, schritt: number) =>
+    anfrage<SchrittStand>('POST', `/integrationen/katalog/${encodeURIComponent(id)}/einrichtung/${schritt}/ausfuehren`),
+  einrichtungStand: (id: string, schritt: number) =>
+    anfrage<SchrittStand>('GET', `/integrationen/katalog/${encodeURIComponent(id)}/einrichtung/${schritt}/stand`),
   integrationNeuVerbinden: (id: string) =>
     anfrage<unknown>('POST', `/integrationen/${encodeURIComponent(id)}/neu-verbinden`),
   verlauf: async (limit = 20) =>

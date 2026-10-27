@@ -6,7 +6,7 @@ icon: folder-open
 art: mcp_stdio
 befehl: npx -y @modelcontextprotocol/server-filesystem ${VERZEICHNIS}
 benoetigt:
-  - {name: VERZEICHNIS, titel: Freigegebener Ordner, geheim: false, standard: "~/Documents"}
+  - {name: VERZEICHNIS, titel: Freigegebener Ordner, typ: ordner, standard: "~/Documents", beschreibung: "Absoluter Pfad oder ~/…, keine Platzhalter. Nur dieser Ordner (mit Unterordnern) ist für den Assistenten zugänglich."}
 hinweis: "Nur der angegebene Ordner (absoluter Pfad oder ~/…) ist für den Assistenten zugänglich. Benötigt Node.js."
 webseite: https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem
 risiko_standard: aendern

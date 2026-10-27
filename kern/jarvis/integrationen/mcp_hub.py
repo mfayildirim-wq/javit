@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any, TextIO
@@ -165,12 +166,25 @@ class McpVerbindung:
                 self.status = "fehler"
                 self.fehler = fehler_text(e)
                 if self.befehl:
-                    self.fehler += f" (Protokoll: {jarvis_home() / 'logs' / f'mcp-{self.integration_id}.log'})"
+                    self.fehler += self._protokoll_hinweis()
         finally:
             self.session = None
             if self._stop.is_set():
                 self.status = "aus"
             self._bereit.set()
+
+    def _protokoll_hinweis(self) -> str:
+        """Letzte Fehlerzeilen des Server-Protokolls, damit der Grund sichtbar ist (nicht nur ein Pfad)."""
+        pfad = jarvis_home() / "logs" / f"mcp-{self.integration_id}.log"
+        try:
+            zeilen = [z.strip() for z in pfad.read_text(encoding="utf-8", errors="replace").splitlines() if z.strip()]
+        except OSError:
+            return f" (Protokoll: {pfad})"
+        wichtig = [z for z in zeilen if re.search(r"error|fehler|exception|cannot|not found|denied|refused", z, re.I)]
+        auswahl = list(dict.fromkeys((wichtig or zeilen)[-6:]))[-3:]  # Wiederholungen (Neustarts) nur einmal
+        if not auswahl:
+            return f" (Protokoll: {pfad})"
+        return " – Server meldet: " + " | ".join(z[:200] for z in auswahl)
 
     @staticmethod
     async def _alle_tools(session: ClientSession) -> list[mcp_types.Tool]:

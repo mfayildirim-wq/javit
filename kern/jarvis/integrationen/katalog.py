@@ -20,6 +20,9 @@ Art = Literal["mcp_stdio", "mcp_http", "openapi", "rest", "eingebaut"]
 RisikoStufe = Literal["lesen", "aendern", "kritisch"]
 
 
+FeldTyp = Literal["text", "geheim", "ordner", "datei", "url"]
+
+
 class Benoetigt(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -29,6 +32,31 @@ class Benoetigt(BaseModel):
     optional: bool = False
     standard: str | None = None
     beschreibung: str | None = None
+    #: Eingabetyp für Oberfläche und Prüfung; „geheim“ folgt aus ``geheim: true``
+    typ: FeldTyp | None = None
+
+    @model_validator(mode="after")
+    def _typ_ableiten(self) -> "Benoetigt":
+        if self.typ is None:
+            object.__setattr__(self, "typ", "geheim" if self.geheim else "text")
+        elif self.typ == "geheim":
+            object.__setattr__(self, "geheim", True)
+        return self
+
+
+class Schritt(BaseModel):
+    """Ein Einrichtungsschritt: Erklärung, Link, Datei-Ziel (prüfbar/hochladbar) oder Befehl (ausführbar)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    titel: str
+    text: str = ""
+    link: str | None = None
+    datei: str | None = None
+    befehl: str | None = None
+
+    def als_info(self) -> dict[str, Any]:
+        return {"titel": self.titel, "text": self.text, "link": self.link, "datei": self.datei, "befehl": self.befehl}
 
 
 class KatalogEintrag(BaseModel):
@@ -52,6 +80,7 @@ class KatalogEintrag(BaseModel):
     risiko_standard: RisikoStufe = "aendern"
     werkzeug_risiko: dict[str, RisikoStufe] = Field(default_factory=dict)
     voraussetzungen: list[str] = Field(default_factory=list)
+    einrichtung: list[Schritt] = Field(default_factory=list)
 
     @field_validator("id")
     @classmethod
@@ -82,10 +111,15 @@ class KatalogEintrag(BaseModel):
             "icon": self.icon,
             "art": self.art,
             "benoetigt": [
-                {"name": b.name, "titel": b.titel, "geheim": b.geheim, "optional": b.optional}
+                {
+                    "name": b.name, "titel": b.titel, "geheim": b.geheim, "optional": b.optional,
+                    "typ": b.typ, "standard": b.standard, "beschreibung": b.beschreibung,
+                }
                 for b in self.benoetigt
             ],
             "hinweis": self.hinweis,
+            "webseite": self.webseite,
+            "einrichtung": [s.als_info() for s in self.einrichtung],
         }
 
 
