@@ -1,399 +1,399 @@
-🇩🇪 **Deutsch** · 🇬🇧 [English](README.en.md)
+🇬🇧 **English** · 🇩🇪 [Deutsch](README.de.md)
 
-# Javit – Ihr persönlicher KI-Assistent für Mac, Windows und Linux
+# Javit – your personal AI assistant for Mac, Windows and Linux
 
-Javit hört auf **„Javit“** (Name und Weckwort sind frei einstellbar), versteht Deutsch, erledigt Aufgaben auf Ihrem Rechner (Apps,
-Musik, Lautstärke, Zwischenablage, Dateien, Web – auf dem Mac zusätzlich Kalender, Erinnerungen,
-Notizen und Kurzbefehle) und lässt sich in Sekunden
-um weitere Apps erweitern – per Katalog („Javit, integriere Spotify“), MCP-Server, OpenAPI oder
-einfache REST-Endpunkte. Als Gehirn dient ein **beliebiges Sprachmodell**: lokal und offline über
-Ollama oder in der Cloud (Claude, GPT, Gemini …). Kritische Aktionen führt Javit nur nach Ihrer
-**Freigabe** aus.
+Javit answers to **"Javit"** (name and wake word are freely configurable), understands German, gets things done on your
+computer (apps, music, volume, clipboard, files, web – and on the Mac also Calendar, Reminders,
+Notes and Shortcuts) and can be extended with more apps in seconds – via the catalog
+("Javit, integrate Spotify"), MCP servers, OpenAPI or simple REST endpoints. Its brain is **any
+language model**: local and offline via Ollama, or in the cloud (Claude, GPT, Gemini …). Critical
+actions are only executed after your **approval**.
 
-![Javit-Konsole: Orb, Systeme-Leiste mit Modell, Stimme, Integrationen und Werkzeugen, Aktivitätsbereich](docs/bilder/konsole.png)
+> The assistant speaks and understands **German**; the user interface, the voice pipeline and
+> all built-in texts are in German. This page is the English overview.
+
+![Javit console: orb, system bar with model, voice, integrations and tools, activity area](docs/bilder/konsole.png)
 
 ```
-„Javit“ → Weckwort → Spracherkennung → Agent (Modell + Werkzeuge) → Antwort (Text + Sprache)
+"Javit" → wake word → speech recognition → agent (model + tools) → answer (text + speech)
                                                │
-          System-Werkzeuge (Mac/Windows/Linux) · Integrationen (MCP/REST/OpenAPI) · Gedächtnis · Freigaben
+          system tools (Mac/Windows/Linux) · integrations (MCP/REST/OpenAPI) · memory · approvals
 ```
 
 ---
 
-## Inhalt
+## Contents
 
-1. [Installation in einem Schritt](#installation-in-einem-schritt) (macOS)
-   · [Installation unter Linux](#installation-unter-linux)
-   · [Installation unter Windows](#installation-unter-windows)
-   · [Plattform-Unterschiede](#plattform-unterschiede)
-2. [Erster Start](#erster-start)
-3. [„Javit“ – Sprache, Name und Weckwort](#javit--sprache-name-und-weckwort)
-4. [Modelle](#modelle)
-5. [Integrationen](#integrationen)
-6. [Beispielsätze](#beispielsätze)
-7. [Sicherheit und Freigaben](#sicherheit-und-freigaben)
-8. [Datenablage](#datenablage)
-9. [Fehlerbehebung](#fehlerbehebung)
-10. [Entwicklung und Tests](#entwicklung-und-tests)
-11. [Aufbau](#aufbau)
+1. [One-step installation](#one-step-installation) (macOS)
+   · [Installation on Linux](#installation-on-linux)
+   · [Installation on Windows](#installation-on-windows)
+   · [Platform differences](#platform-differences)
+2. [First start](#first-start)
+3. ["Javit" – voice, name and wake word](#javit--voice-name-and-wake-word)
+4. [Models](#models)
+5. [Integrations](#integrations)
+6. [Example phrases](#example-phrases)
+7. [Security and approvals](#security-and-approvals)
+8. [Data storage](#data-storage)
+9. [Troubleshooting](#troubleshooting)
+10. [Development and tests](#development-and-tests)
+11. [Layout](#layout)
 
 ---
 
-## Installation in einem Schritt
+## One-step installation
 
-**macOS** (für Linux und Windows siehe die folgenden Abschnitte). Voraussetzungen: macOS (Apple Silicon empfohlen), [Homebrew](https://brew.sh), ca. 8 GB freier
-Speicher für das lokale Modell.
+**macOS** (see the following sections for Linux and Windows). Requirements: macOS (Apple Silicon
+recommended), [Homebrew](https://brew.sh), about 8 GB of free disk space for the local model.
 
 ```bash
 cd ~/Documents/jarvis && ./scripts/install.sh
 ```
 
-Das Skript
+The script
 
-* prüft Homebrew (fehlt es, zeigt es den offiziellen Installationsbefehl und bricht ab),
-* installiert bei Bedarf `python@3.12`, `node` und `ollama`,
-* lädt das lokale Sprachmodell `qwen2.5:7b` (ca. 4,7 GB) und `nomic-embed-text` fürs Gedächtnis –
-  **der erste Download dauert je nach Leitung einige Minuten**,
-* legt die Python-Umgebung `~/.jarvis/venv` an und installiert den Kern mit Sprachmodul,
-* baut die Oberfläche (`npm ci && npm run build`),
-* legt die gleichwertigen Befehle `javit` und `jarvis` in `~/.local/bin` ab (und ergänzt bei Bedarf
-  den `PATH` in `~/.zshrc`),
-* lädt die Weckwort-Modelle vorab: das Vosk-Modell `vosk-model-small-de-0.15` (ca. 45 MB) für
-  „Javit“ und zusätzlich openWakeWord „Hey Jarvis“.
+* checks for Homebrew (if missing, it shows the official install command and stops),
+* installs `python@3.12`, `node` and `ollama` if needed,
+* pulls the local language model `qwen2.5:7b` (about 4.7 GB) and `nomic-embed-text` for the memory –
+  **the first download takes a few minutes depending on your connection**,
+* creates the Python environment `~/.jarvis/venv` and installs the core with the voice module,
+* builds the user interface (`npm ci && npm run build`),
+* places the equivalent commands `javit` and `jarvis` in `~/.local/bin` (and adds them to `PATH`
+  in `~/.zshrc` if needed),
+* pre-downloads the wake-word models: the Vosk model `vosk-model-small-de-0.15` (about 45 MB) for
+  "Javit" plus openWakeWord "Hey Jarvis".
 
-Mehrfaches Ausführen ist unbedenklich (z. B. nach einem Update). Optionen:
-`JARVIS_OHNE_MODELLE=1` (keine Ollama-Modelle laden), `JARVIS_MODELL=llama3.1:8b` (anderes lokales
-Modell), `JARVIS_KEIN_PATH=1` (`~/.zshrc` nicht anfassen).
+Running it several times is safe (e.g. after an update). Options:
+`JARVIS_OHNE_MODELLE=1` (skip the Ollama models), `JARVIS_MODELL=llama3.1:8b` (another local
+model), `JARVIS_KEIN_PATH=1` (leave `~/.zshrc` untouched).
 
-## Installation unter Linux
+## Installation on Linux
 
-Unterstützt: Ubuntu/Debian, Fedora, Arch (auch Manjaro/EndeavourOS) und openSUSE; GNOME, KDE und
-andere Desktops; X11 und Wayland.
+Supported: Ubuntu/Debian, Fedora, Arch (including Manjaro/EndeavourOS) and openSUSE; GNOME, KDE and
+other desktops; X11 and Wayland.
 
 ```bash
-cd ~/jarvis && ./scripts/install-linux.sh               # mit lokalem Modell: JARVIS_OLLAMA=1 ./scripts/install-linux.sh
+cd ~/jarvis && ./scripts/install-linux.sh               # with local model: JARVIS_OLLAMA=1 ./scripts/install-linux.sh
 ```
 
-Das Skript
+The script
 
-* erkennt die Paketverwaltung (apt, dnf, pacman, zypper) und installiert per `sudo` (nur dafür):
-  Python 3 mit venv, Node.js/npm, PortAudio, `playerctl`, libnotify (`notify-send`),
-  `wl-clipboard`/`xclip`, `pulseaudio-utils` (`pactl`) und `espeak-ng`,
-* prüft Node.js (benötigt 20.19+ bzw. 22.12+); ist es zu alt, zeigt es den Weg über
-  [nvm](https://github.com/nvm-sh/nvm) bzw. [NodeSource](https://github.com/nodesource/distributions) – es installiert
-  nichts an der Paketverwaltung vorbei,
-* installiert **Ollama nur mit `JARVIS_OLLAMA=1`** über das offizielle Skript (`ollama.com/install.sh`),
-  sonst gibt es einen Hinweis; mit Ollama werden `qwen2.5:7b` und `nomic-embed-text` geladen,
-* legt `~/.jarvis/venv` an (bei Problemen oder zu altem Python über `uv` mit eigenem Python 3.12),
-  installiert den Kern mit Sprachmodul (inkl. Piper) und baut die Oberfläche,
-* legt `~/.local/bin/javit` und `~/.local/bin/jarvis` sowie den Startmenü-Eintrag „Javit“
-  (`~/.local/share/applications/jarvis.desktop`) an und lädt die Weckwort-Modelle (Vosk für „Javit“).
+* detects the package manager (apt, dnf, pacman, zypper) and installs via `sudo` (only for this):
+  Python 3 with venv, Node.js/npm, PortAudio, `playerctl`, libnotify (`notify-send`),
+  `wl-clipboard`/`xclip`, `pulseaudio-utils` (`pactl`) and `espeak-ng`,
+* checks Node.js (requires 20.19+ or 22.12+); if it is too old, it points to
+  [nvm](https://github.com/nvm-sh/nvm) or [NodeSource](https://github.com/nodesource/distributions) – it never
+  installs anything behind the package manager's back,
+* installs **Ollama only with `JARVIS_OLLAMA=1`** via the official script (`ollama.com/install.sh`),
+  otherwise it prints a hint; with Ollama, `qwen2.5:7b` and `nomic-embed-text` are pulled,
+* creates `~/.jarvis/venv` (on problems or with an old Python via `uv` with its own Python 3.12),
+  installs the core with the voice module (including Piper) and builds the user interface,
+* creates `~/.local/bin/javit` and `~/.local/bin/jarvis` as well as the start-menu entry "Javit"
+  (`~/.local/share/applications/jarvis.desktop`) and downloads the wake-word models (Vosk for "Javit").
 
-Optionen wie beim Mac: `JARVIS_OHNE_MODELLE=1`, `JARVIS_MODELL=…`, `JARVIS_KEIN_PATH=1`, außerdem
-`JARVIS_OHNE_PAKETE=1` (keine Systempakete, kein sudo). Autostart als systemd-Benutzerdienst:
+Options as on the Mac: `JARVIS_OHNE_MODELLE=1`, `JARVIS_MODELL=…`, `JARVIS_KEIN_PATH=1`, plus
+`JARVIS_OHNE_PAKETE=1` (no system packages, no sudo). Autostart as a systemd user service:
 
 ```bash
 ./scripts/autostart-linux.sh an | aus | status      # ~/.config/systemd/user/jarvis.service
 ```
 
-Hinweise: Die Sprachausgabe nutzt **Piper** mit der Stimme `de_DE-thorsten-medium` (wird beim ersten
-Sprechen nach `~/.jarvis/modelle/piper` geladen, ca. 60 MB), sonst `espeak-ng`. Das Mikrofon läuft über
-PipeWire/PulseAudio (Eingabegerät in den Toneinstellungen bzw. mit `pavucontrol` wählen). Unter
-Wayland gibt es keine allgemeine Fensterliste – `laufende_apps` gleicht dann laufende Prozesse mit
-den installierten Apps ab. API-Schlüssel landen im Secret Service (GNOME-Schlüsselbund/KWallet),
-ohne laufenden Dienst in der verschlüsselten Datei.
+Notes: speech output uses **Piper** with the voice `de_DE-thorsten-medium` (downloaded to
+`~/.jarvis/modelle/piper` on first use, about 60 MB), otherwise `espeak-ng`. The microphone runs via
+PipeWire/PulseAudio (choose the input device in the sound settings or with `pavucontrol`). On
+Wayland there is no general window list – `laufende_apps` then matches running processes against
+installed apps. API keys go into the Secret Service (GNOME Keyring/KWallet), or into the encrypted
+file when no such service is running.
 
-## Installation unter Windows
+## Installation on Windows
 
-Windows 10 (ab 1809) oder 11 mit `winget` (App-Installer). In PowerShell im Projektordner:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1          # ohne Ollama: … -OhneOllama
-```
-
-`-ExecutionPolicy Bypass` gilt nur für diesen einen Aufruf – die Systemeinstellung bleibt unverändert.
-Das Skript
-
-* installiert per winget bei Bedarf **Python 3.12** (`Python.Python.3.12`), **Node.js LTS**
-  (`OpenJS.NodeJS.LTS`) und **Ollama** (`Ollama.Ollama`, abschaltbar mit `-OhneOllama`) und lädt die
-  lokalen Modelle (`-OhneModelle` überspringt das, `-Modell llama3.1:8b` wählt ein anderes),
-* legt `%USERPROFILE%\.jarvis\venv` an (Fallback: `uv`), installiert den Kern mit Sprachmodul und baut
-  die Oberfläche,
-* legt `javit.cmd` und `jarvis.cmd` in `%USERPROFILE%\.jarvis\bin` ab, ergänzt den **Benutzer-PATH**
-  (`-KeinPath` verhindert das), erstellt eine **Startmenü-Verknüpfung** „Javit“ und lädt die
-  Weckwort-Modelle (Vosk für „Javit“).
-
-Starten: `javit start` in einem neuen Terminal, über das Startmenü oder per Doppelklick auf
-`scripts\start-windows.cmd`. Autostart bei der Anmeldung (Aufgabenplanung, ohne Konsolenfenster):
+Windows 10 (1809 or later) or 11 with `winget` (App Installer). In PowerShell inside the project folder:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\autostart-windows.ps1 -An    # bzw. -Aus / -Status
+powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1          # without Ollama: … -OhneOllama
 ```
 
-Hinweise: Mikrofonzugriff unter Einstellungen → Datenschutz und Sicherheit → Mikrofon erlauben
-(auch „Desktop-Apps den Zugriff erlauben“). Die Sprachausgabe nutzt die Windows-Stimmen (SAPI);
-fehlt eine deutsche Stimme: Einstellungen → Zeit und Sprache → Sprache → Deutsch → Sprachausgabe.
-API-Schlüssel landen in der Windows-Anmeldeinformationsverwaltung. Mitteilungen erscheinen als
-Toast (mit dem PowerShell-Modul BurntToast, falls installiert).
+`-ExecutionPolicy Bypass` only applies to this single call – the system setting stays unchanged.
+The script
 
-## Plattform-Unterschiede
+* installs via winget if needed: **Python 3.12** (`Python.Python.3.12`), **Node.js LTS**
+  (`OpenJS.NodeJS.LTS`) and **Ollama** (`Ollama.Ollama`, disable with `-OhneOllama`) and pulls the
+  local models (`-OhneModelle` skips this, `-Modell llama3.1:8b` picks another one),
+* creates `%USERPROFILE%\.jarvis\venv` (fallback: `uv`), installs the core with the voice module and
+  builds the user interface,
+* places `javit.cmd` and `jarvis.cmd` in `%USERPROFILE%\.jarvis\bin`, extends the **user PATH**
+  (`-KeinPath` prevents this), creates a **start-menu shortcut** "Javit" and downloads the
+  wake-word models (Vosk for "Javit").
 
-| Funktion | macOS | Windows | Linux |
+Start: `javit start` in a new terminal, via the start menu or by double-clicking
+`scripts\start-windows.cmd`. Autostart at login (Task Scheduler, no console window):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\autostart-windows.ps1 -An    # or -Aus / -Status
+```
+
+Notes: allow microphone access under Settings → Privacy & security → Microphone (including
+"Let desktop apps access your microphone"). Speech output uses the Windows voices (SAPI); if no
+German voice is installed: Settings → Time & language → Language → German → Speech.
+API keys go into the Windows Credential Manager. Notifications appear as toasts (via the
+PowerShell module BurntToast if installed).
+
+## Platform differences
+
+| Feature | macOS | Windows | Linux |
 |---|---|---|---|
-| Apps öffnen/beenden, laufende Apps | AppleScript, `open` | Startmenü/Store-Apps, `CloseMainWindow` | Desktop-Dateien (`gtk-launch`), `pkill`; Fensterliste über `wmctrl` (X11) |
-| Lautstärke | AppleScript | Core-Audio (COM), Fallback Medientasten | `wpctl` / `pactl` / `amixer` |
-| Musik | Apple Music und Spotify (inkl. Suche in der Mediathek) | Medientasten, Titel aus dem Spotify-Fenster | `playerctl` (Spotify und alle MPRIS-Player) |
-| Mitteilungen | Mitteilungszentrale | Toast (BurntToast bzw. WinRT) | `notify-send` |
-| Zwischenablage, Bildschirmfoto | `pbcopy`, `screencapture` | `Get/Set-Clipboard`, System.Drawing | `wl-copy`/`xclip`/`xsel`; `gnome-screenshot`/`spectacle`/`grim`/`scrot` |
-| Dateisuche | Spotlight (auch Inhalte) | Windows-Suchindex (auch Inhalte), sonst Namenssuche | `plocate`/`locate`, sonst Namenssuche |
-| Papierkorb | Finder | Papierkorb (send2trash) | Freedesktop-Papierkorb (send2trash) |
-| Shell-Werkzeug | zsh | Windows PowerShell | bash |
-| **Erinnerungen, Kalender, Notizen** | ✓ (Apple-Apps) | – → Integrationen `google-kalender`, `todoist`, `notion`, `obsidian` | – → dieselben Integrationen |
-| **Apple-Kurzbefehle** | ✓ | – (Home Assistant o. Ä. als Integration) | – |
-| Sprachausgabe (lokal) | `say` | SAPI (z. B. Microsoft Hedda) | Piper, Fallback espeak-ng |
-| API-Schlüssel | Schlüsselbund | Anmeldeinformationsverwaltung | Secret Service (keyring) |
-| Autostart | `scripts/autostart.sh` (launchd) | `scripts/autostart-windows.ps1` (Aufgabenplanung) | `scripts/autostart-linux.sh` (systemd --user) |
+| Open/quit apps, running apps | AppleScript, `open` | start-menu/Store apps, `CloseMainWindow` | desktop files (`gtk-launch`), `pkill`; window list via `wmctrl` (X11) |
+| Volume | AppleScript | Core Audio (COM), fallback media keys | `wpctl` / `pactl` / `amixer` |
+| Music | Apple Music and Spotify (including library search) | media keys, title from the Spotify window | `playerctl` (Spotify and all MPRIS players) |
+| Notifications | Notification Center | toast (BurntToast or WinRT) | `notify-send` |
+| Clipboard, screenshot | `pbcopy`, `screencapture` | `Get/Set-Clipboard`, System.Drawing | `wl-copy`/`xclip`/`xsel`; `gnome-screenshot`/`spectacle`/`grim`/`scrot` |
+| File search | Spotlight (including contents) | Windows Search index (including contents), otherwise by name | `plocate`/`locate`, otherwise by name |
+| Trash | Finder | Recycle Bin (send2trash) | freedesktop trash (send2trash) |
+| Shell tool | zsh | Windows PowerShell | bash |
+| **Reminders, Calendar, Notes** | ✓ (Apple apps) | – → integrations `google-kalender`, `todoist`, `notion`, `obsidian` | – → the same integrations |
+| **Apple Shortcuts** | ✓ | – (Home Assistant or similar as an integration) | – |
+| Speech output (local) | `say` | SAPI (e.g. Microsoft Hedda) | Piper, fallback espeak-ng |
+| API keys | Keychain | Credential Manager | Secret Service (keyring) |
+| Autostart | `scripts/autostart.sh` (launchd) | `scripts/autostart-windows.ps1` (Task Scheduler) | `scripts/autostart-linux.sh` (systemd --user) |
 
-Die Werkzeugnamen und Risikostufen sind überall gleich; Mac-exklusive Werkzeuge werden unter
-Windows/Linux gar nicht erst angeboten – stattdessen schlägt Javit passende Katalog-Integrationen vor.
+Tool names and risk levels are the same everywhere; Mac-only tools are not offered on
+Windows/Linux at all – instead Javit suggests matching catalog integrations.
 
-## Erster Start
+## First start
 
 ```bash
-javit start             # startet den Server auf http://127.0.0.1:8765 und öffnet den Browser
-                        # („jarvis start“ funktioniert genauso)
+javit start             # starts the server on http://127.0.0.1:8765 and opens the browser
+                        # ("jarvis start" works the same way)
 ```
 
-Alternativ: Doppelklick auf `scripts/start.command` im Finder. Automatisch bei jeder Anmeldung
-starten:
+Alternatively: double-click `scripts/start.command` in Finder. Start automatically at every login:
 
 ```bash
-./scripts/autostart.sh an      # launchd-Dienst de.jarvis.agent (Kennung bleibt für bestehende Autostarts)
+./scripts/autostart.sh an      # launchd service de.jarvis.agent (identifier kept for existing autostarts)
 ./scripts/autostart.sh aus
 ./scripts/autostart.sh status
 ```
 
-macOS fragt beim ersten Zugriff nach Rechten – bitte erlauben:
+macOS asks for permissions on first access – please allow:
 
-* **Mikrofon** (für das Weckwort „Javit“): Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon →
-  Terminal (bzw. Ihr Terminalprogramm; beim Autostart „python3.12“).
-* **Automation** (Musik, Kalender, Erinnerungen, Notizen, Finder): Datenschutz & Sicherheit →
-  Automation.
+* **Microphone** (for the wake word "Javit"): System Settings → Privacy & Security → Microphone →
+  Terminal (or your terminal app; with autostart "python3.12").
+* **Automation** (Music, Calendar, Reminders, Notes, Finder): Privacy & Security → Automation.
 
-## „Javit“ – Sprache, Name und Weckwort
+## "Javit" – voice, name and wake word
 
-* Mikrofon-Knopf in der Oberfläche (oder `Strg/⌘ + K` → „Mikrofon“) schaltet das Weckwort an/aus.
-* Danach genügt **„Javit, …“** – Javit hört bis zur Sprechpause zu und antwortet per Sprache.
-* **Leertaste** (außerhalb von Eingabefeldern) = Push-to-talk: einmal zuhören ohne Weckwort.
-* Spracherkennung lokal mit faster-whisper (Modell wird beim ersten Mal geladen) oder per Cloud;
-  Sprachausgabe „Automatisch“ (macOS `say`, Windows SAPI, Linux Piper/espeak-ng) oder Cloud-Stimmen –
-  alles unter **Einstellungen → Stimme**.
-* Freigaben lassen sich per Sprache beantworten („Ja“, „Mach das“ / „Nein“, „Abbrechen“).
+* The microphone button in the UI (or `Ctrl/⌘ + K` → "Mikrofon") toggles the wake word on/off.
+* Then **"Javit, …"** is enough – Javit listens until you pause and answers by voice.
+* **Space bar** (outside input fields) = push-to-talk: listen once without the wake word.
+* Speech recognition runs locally with faster-whisper (model downloaded on first use) or in the
+  cloud; speech output "Automatisch" (macOS `say`, Windows SAPI, Linux Piper/espeak-ng) or cloud
+  voices – all under **Einstellungen → Stimme** (Settings → Voice).
+* Approvals can be answered by voice ("Ja", "Mach das" / "Nein", "Abbrechen").
 
-### Name ändern
+### Changing the name
 
-**Einstellungen → Persona → Name des Assistenten** (oder `"name": "…"` in
-`~/.jarvis/einstellungen.json`). Der Name erscheint in Kopfzeile, Fenstertitel, Boot-Animation,
-Freigabe-Dialog, Ansagen und Fehlermeldungen und wird über den Platzhalter `{name}` in die Persona
-(Systemprompt) eingesetzt. Ältere Einstellungsdateien mit der früheren Standard-Persona („Du bist
-Jarvis …“) erhalten automatisch die neue Standard-Persona; eine selbst geschriebene Persona bleibt
-unverändert (dort wirkt nur `{name}`). Das Weckwort wird **getrennt** eingestellt (siehe unten).
-Interne Bezeichner bleiben gleich: Python-Paket `jarvis`, Ordner `~/.jarvis`, Umgebungsvariablen
-`JARVIS_*`, Befehl `jarvis` (zusätzlich `javit`).
+**Einstellungen → Persona → Name des Assistenten** (or `"name": "…"` in
+`~/.jarvis/einstellungen.json`). The name appears in the header, window title, boot animation,
+approval dialog, announcements and error messages and is inserted into the persona (system
+prompt) via the placeholder `{name}`. Older settings files with the former default persona
+("Du bist Jarvis …") automatically receive the new default persona; a hand-written persona stays
+unchanged (only `{name}` is applied there). The wake word is configured **separately** (see below).
+Internal identifiers stay the same: Python package `jarvis`, folder `~/.jarvis`, environment
+variables `JARVIS_*`, command `jarvis` (plus `javit`).
 
-### Weckwort und Engines
+### Wake word and engines
 
-**Einstellungen → Stimme → Weckwort** (Text, mehrere durch Komma, z. B. `javit, hey javit`) und
-**Weckwort-Erkennung**:
+**Einstellungen → Stimme → Weckwort** (text, several separated by commas, e.g. `javit, hey javit`) and
+**Weckwort-Erkennung** (wake-word engine):
 
-| Engine | Wann | Eigenschaften |
+| Engine | When | Properties |
 |---|---|---|
-| **Vosk** (Standard für „Javit“) | jedes freie Wort | offline, kein Training; deutsches Kleinmodell `vosk-model-small-de-0.15` (~45 MB, wird beim ersten Einschalten nach `~/.jarvis/modelle/vosk` geladen) |
-| **openWakeWord** | `hey_jarvis` oder eigenes `.onnx`-Modell | sehr sparsam; fertige Modelle nur für englische Phrasen |
-| **Automatisch** (`auto`) | – | `hey_jarvis`/„hey jarvis“ (und andere fertige openWakeWord-Wörter) oder ein eigenes Modell → openWakeWord, alles andere → Vosk |
+| **Vosk** (default for "Javit") | any free word | offline, no training; small German model `vosk-model-small-de-0.15` (~45 MB, downloaded to `~/.jarvis/modelle/vosk` when first enabled) |
+| **openWakeWord** | `hey_jarvis` or your own `.onnx` model | very lightweight; ready-made models only for English phrases |
+| **Automatic** (`auto`) | – | `hey_jarvis`/"hey jarvis" (and other ready-made openWakeWord words) or a custom model → openWakeWord, everything else → Vosk |
 
-So erkennt Vosk „Javit“, obwohl das Wort nicht im Vokabular des Modells steht: Vosk ignoriert
-unbekannte Wörter einer Grammatik. Javit baut deshalb eine kleine Grammatik aus **bekannten
-Silben/Wörtern** („ja witt“, „ja vit“, „jawit“, „javid“, „dschawit“ … – nur was laut
-`Model.find_word()` im Vokabular steht) plus ähnlich klingender Alltagswörter („ja“, „bitte“, „mit“,
-„david“ …) und `[unk]`. Das (Teil-)Ergebnis wird dann **phonetisch** verglichen: zusammengezogene
-Wörter („ja witt“ → „jawitt“) mit gleichem Code nach **Kölner Phonetik** (032) und ähnlicher
-Schreibweise (Levenshtein) zählen als Treffer, exakte Varianten sofort, phonetische erst, wenn sie
-in zwei aufeinanderfolgenden Teilergebnissen stehen. Eigene Schreibvarianten:
-`"weckwort_varianten": ["ja witt", "dschawit"]` unter `stimme` (ersetzt die Standardliste).
-Die **Weckwort-Empfindlichkeit** (`schwelle`) gilt für beide Engines: bei Vosk 0,5 = exakte oder
-phonetisch gleiche Treffer, 0,9 = nur sehr ähnliche Schreibweisen, kleiner = auch unscharfe Treffer.
+How Vosk recognizes "Javit" although the word is not in the model's vocabulary: Vosk ignores
+unknown words of a grammar. Javit therefore builds a small grammar from **known
+syllables/words** ("ja witt", "ja vit", "jawit", "javid", "dschawit" … – only what
+`Model.find_word()` finds in the vocabulary) plus similar-sounding everyday words ("ja", "bitte",
+"mit", "david" …) and `[unk]`. The (partial) result is then compared **phonetically**: merged words
+("ja witt" → "jawitt") with the same **Cologne phonetics** code (032) and a similar spelling
+(Levenshtein) count as hits – exact variants immediately, phonetic ones only when they appear in
+two consecutive partial results. Custom spellings: `"weckwort_varianten": ["ja witt", "dschawit"]`
+under `stimme` (replaces the default list). The **wake-word sensitivity** (`schwelle`) applies to
+both engines: with Vosk 0.5 = exact or phonetically identical hits, 0.9 = only very similar
+spellings, lower = fuzzy hits too.
 
-Vorab laden bzw. testen: `~/.jarvis/venv/bin/python -m jarvis.stimme --modelle-laden --alle` bzw.
-`python -m jarvis.stimme --weckwort javit` (Echo-Test). Ohne Internet beim ersten Start: Modell von
-alphacephei.com/vosk/models laden und nach `~/.jarvis/modelle/vosk/vosk-model-small-de-0.15/`
-entpacken (oder `"vosk_modell": "/pfad/zum/modell"`).
+Pre-download or test: `~/.jarvis/venv/bin/python -m jarvis.stimme --modelle-laden --alle` or
+`python -m jarvis.stimme --weckwort javit` (echo test). Without internet on first start: download
+the model from alphacephei.com/vosk/models and unpack it to
+`~/.jarvis/modelle/vosk/vosk-model-small-de-0.15/` (or set `"vosk_modell": "/path/to/model"`).
 
-### Eigenes Weckwort-Modell trainieren (optional)
+### Training your own wake-word model (optional)
 
-Für ein besonders sparsames, robustes Weckwort lässt sich ein openWakeWord-Modell „javit“ mit dem
-offiziellen Trainings-Notebook (synthetische Daten, Google Colab) trainieren:
-[scripts/weckwort-trainieren.md](scripts/weckwort-trainieren.md). Die `.onnx`-Datei kommt nach
-`~/.jarvis/modelle/openwakeword/` und wird über `"weckwort_modell_pfad"` geladen
-(`python3 scripts/weckwort_trainieren.py installieren javit.onnx` erledigt beides).
+For an especially lightweight, robust wake word you can train an openWakeWord model "javit" with the
+official training notebook (synthetic data, Google Colab):
+[scripts/weckwort-trainieren.md](scripts/weckwort-trainieren.md). The `.onnx` file goes to
+`~/.jarvis/modelle/openwakeword/` and is loaded via `"weckwort_modell_pfad"`
+(`python3 scripts/weckwort_trainieren.py installieren javit.onnx` does both).
 
-## Modelle
+## Models
 
-Standard ist das lokale Modell `ollama/qwen2.5:7b` – läuft komplett offline. Weitere lokale Modelle
-mit zuverlässigem Werkzeug-Aufruf: `qwen3:8b`, `llama3.1:8b`, `llama3.2:3b`
-(`ollama pull <name>`).
+The default is the local model `ollama/qwen2.5:7b` – runs completely offline. Other local models
+with reliable tool calling: `qwen3:8b`, `llama3.1:8b`, `llama3.2:3b` (`ollama pull <name>`).
 
 ```bash
-javit modell                               # alle Modelle anzeigen (Ollama live + Cloud-Vorschläge)
-javit modell ollama/qwen3:8b               # wechseln (gilt ab der nächsten Anfrage)
+javit modell                               # list all models (Ollama live + cloud suggestions)
+javit modell ollama/qwen3:8b               # switch (applies from the next request)
 ```
 
-Cloud-Modelle (Schreibweise von LiteLLM) brauchen einen API-Schlüssel, der im
-**macOS-Schlüsselbund** (Windows: Anmeldeinformationsverwaltung, Linux: Secret Service) gespeichert wird:
+Cloud models (LiteLLM notation) need an API key, which is stored in the **macOS Keychain**
+(Windows: Credential Manager, Linux: Secret Service):
 
-| Anbieter | Schlüssel speichern | Beispiel-Modelle |
+| Provider | Store key | Example models |
 |---|---|---|
 | Anthropic | `javit schluessel ANTHROPIC_API_KEY` | `anthropic/claude-sonnet-5-5`, `anthropic/claude-opus-5-5`, `anthropic/claude-haiku-5-5` |
 | OpenAI | `javit schluessel OPENAI_API_KEY` | `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, `openai/gpt-5.4-mini` |
 | Google | `javit schluessel GEMINI_API_KEY` | `gemini/gemini-4-argon`, `gemini/gemini-3.8-flash`, `gemini/gemini-3.5-flash-lite` |
 
-Der Schlüssel wird verdeckt abgefragt. Modelle lassen sich auch in der Oberfläche unter
-**Einstellungen → Modell** oder per Sprache („Wechsle auf Claude Sonnet“) umschalten. Eigene
-OpenAI-kompatible Server (LM Studio, vLLM) trägt man in `~/.jarvis/einstellungen.json` unter
-`api_basen` ein, z. B. `{"openai/mein-modell": "http://127.0.0.1:1234/v1"}`.
+The key is entered hidden. Models can also be switched in the UI under **Einstellungen → Modell**
+or by voice ("Wechsle auf Claude Sonnet"). Your own OpenAI-compatible servers (LM Studio, vLLM) go
+into `~/.jarvis/einstellungen.json` under `api_basen`, e.g.
+`{"openai/mein-modell": "http://127.0.0.1:1234/v1"}`.
 
-## Integrationen
+## Integrations
 
-**Aus dem Katalog** (`integrationen/katalog/*.yaml`, 22 Einträge: Spotify, GitHub, Notion, Slack,
-Gmail, Google Kalender, Todoist, Obsidian, Home Assistant, Philips Hue, Wetter, Browser, …):
+**From the catalog** (`integrationen/katalog/*.yaml`, 22 entries: Spotify, GitHub, Notion, Slack,
+Gmail, Google Calendar, Todoist, Obsidian, Home Assistant, Philips Hue, weather, browser, …):
 
 ```bash
-javit katalog              # alle Einträge
-javit katalog musik        # suchen
-javit add spotify          # fragt fehlende Werte (Client ID/Secret) ab
-javit list                 # installierte Integrationen und Status
+javit katalog              # all entries
+javit katalog musik        # search
+javit add spotify          # asks for missing values (client ID/secret)
+javit list                 # installed integrations and status
 javit remove spotify
 ```
 
-**Per Sprache oder Chat:** „Javit, integriere Notion.“ – Javit sucht im Katalog, fragt nach
-fehlenden Schlüsseln und legt die Integration nach Ihrer Freigabe an.
+**By voice or chat:** "Javit, integriere Notion." – Javit searches the catalog, asks for missing
+keys and creates the integration after your approval.
 
-**In der Oberfläche:** Integrationen → Katalog oder → Eigene.
+**In the UI:** Integrationen → Katalog or → Eigene (custom).
 
-**Eigene Integrationen:**
+**Custom integrations:**
 
 ```bash
-javit add "npx -y @modelcontextprotocol/server-everything"        # MCP-Server (stdio)
-javit add https://homeassistant.local:8123/api/mcp                # MCP über HTTP
-javit add https://petstore3.swagger.io/api/v3/openapi.json        # OpenAPI → Werkzeuge
+javit add "npx -y @modelcontextprotocol/server-everything"        # MCP server (stdio)
+javit add https://homeassistant.local:8123/api/mcp                # MCP over HTTP
+javit add https://petstore3.swagger.io/api/v3/openapi.json        # OpenAPI → tools
 ```
 
-Einfache REST-Endpunkte und Kopfzeilen/Authentifizierung lassen sich in der Oberfläche
-(„Eigene“ → REST) anlegen. Eigene Katalogeinträge: YAML-Datei in `~/.jarvis/katalog/`
-(Format: [docs/VERTRAEGE.md](docs/VERTRAEGE.md)).
+Simple REST endpoints and headers/authentication can be set up in the UI ("Eigene" → REST).
+Custom catalog entries: YAML file in `~/.jarvis/katalog/` (format: [docs/VERTRAEGE.md](docs/VERTRAEGE.md)).
 
-**Browser:** `javit add browser` bindet den Playwright-MCP-Server ein – Javit kann dann Webseiten
-im echten Browser öffnen, klicken und Formulare ausfüllen. Fehlt der Browser:
-`npx playwright install chromium`.
+**Browser:** `javit add browser` adds the Playwright MCP server – Javit can then open web pages in a
+real browser, click and fill in forms. If the browser is missing: `npx playwright install chromium`.
 
-## Beispielsätze
+## Example phrases
 
-* „Javit, wie spät ist es?“ · „Was steht heute in meinem Kalender?“
-* „Spiel etwas Jazz auf Spotify.“ · „Lauter.“ · „Nächstes Lied.“
-* „Erinnere mich morgen um 9 an den Zahnarzt.“ · „Stell einen Timer auf zehn Minuten.“
-* „Leg eine Notiz ‚Einkauf: Milch, Brot‘ an.“
-* „Merk dir, dass ich Earl Grey ohne Zucker trinke.“
-* „Such die PDF mit der Steuererklärung und öffne den Ordner.“
-* „Fasse diese Webseite zusammen: https://…“ · „Suche im Web nach …“
-* „Führe den Kurzbefehl ‚Licht aus‘ aus.“ (mit Freigabe)
-* „Integriere GitHub.“ · „Welche Integrationen sind verbunden?“
+(The assistant understands German; these are the German phrases with translations.)
 
-## Sicherheit und Freigaben
+* „Javit, wie spät ist es?“ (what time is it?) · „Was steht heute in meinem Kalender?“ (what's on my calendar today?)
+* „Spiel etwas Jazz auf Spotify.“ (play some jazz on Spotify) · „Lauter.“ (louder) · „Nächstes Lied.“ (next track)
+* „Erinnere mich morgen um 9 an den Zahnarzt.“ (remind me of the dentist tomorrow at 9) · „Stell einen Timer auf zehn Minuten.“ (set a ten-minute timer)
+* „Leg eine Notiz ‚Einkauf: Milch, Brot‘ an.“ (create a note "shopping: milk, bread")
+* „Merk dir, dass ich Earl Grey ohne Zucker trinke.“ (remember that I drink Earl Grey without sugar)
+* „Such die PDF mit der Steuererklärung und öffne den Ordner.“ (find the tax-return PDF and open its folder)
+* „Fasse diese Webseite zusammen: https://…“ (summarize this web page) · „Suche im Web nach …“ (search the web for …)
+* „Führe den Kurzbefehl ‚Licht aus‘ aus.“ (run the shortcut "lights off") – with approval
+* „Integriere GitHub.“ (integrate GitHub) · „Welche Integrationen sind verbunden?“ (which integrations are connected?)
 
-* Jedes Werkzeug hat eine Risikostufe: **lesen**, **ändern**, **kritisch**. Kritisch (Shell,
-  Löschen, Senden, Bezahlen, Installieren, Kurzbefehle, Überschreiben von Dateien, Schreiben in
-  Autostart-/Konfigurationsordner – macOS `~/Library`, Windows `AppData` inkl. Startup-Ordner sowie
+## Security and approvals
+
+* Every tool has a risk level: **read**, **change**, **critical**. Critical actions (shell,
+  deleting, sending, paying, installing, Shortcuts, overwriting files, writing into autostart or
+  configuration folders – macOS `~/Library`, Windows `AppData` including the Startup folder plus
   `.exe/.bat/.ps1/.reg/.lnk`, Linux `~/.config/autostart`, `~/.config/systemd/user`, `~/.bashrc`/`.profile`,
-  `~/bin`, crontab –, Lesen von Schlüsseldateien) zeigt einen **Freigabe-Dialog** –
-  ohne Antwort gilt nach 120 s „abgelehnt“.
-* Inhalte aus Werkzeugen (Webseiten, Mails, Dateien) gelten als Daten, nicht als Anweisungen; sie
-  können keine Freigabe erteilen.
-* Der Server lauscht **nur auf 127.0.0.1**. Fremde Webseiten können weder die API noch den
-  WebSocket nutzen (Origin-Prüfung, auch im WebSocket-Handshake; Host-Prüfung gegen DNS-Rebinding).
-* API-Schlüssel liegen im **macOS-Schlüsselbund** (Dienst `jarvis`; Windows/Linux: über `keyring` in
-  der Anmeldeinformationsverwaltung bzw. im Secret Service) und werden ohne Prozessargument übergeben; in Ereignissen an die Oberfläche werden geheime Werte geschwärzt.
-* `Esc` bricht die laufende Antwort ab und lehnt offene Freigaben ab.
+  `~/bin`, crontab – and reading key files) show an **approval dialog** –
+  without an answer the request counts as "denied" after 120 s.
+* Content returned by tools (web pages, mails, files) is treated as data, not as instructions; it
+  cannot grant an approval.
+* The server listens **only on 127.0.0.1**. Foreign web pages can use neither the API nor the
+  WebSocket (origin check, also in the WebSocket handshake; host check against DNS rebinding).
+* API keys live in the **macOS Keychain** (service `jarvis`; Windows/Linux: via `keyring` in the
+  Credential Manager or the Secret Service) and are never passed as process arguments; secret values
+  are redacted in events sent to the UI.
+* `Esc` aborts the running answer and denies open approvals.
 
-## Datenablage
+## Data storage
 
-Alles liegt in `~/.jarvis/` (Windows: `%USERPROFILE%\.jarvis`, verlegbar mit `JARVIS_HOME`):
+Everything lives in `~/.jarvis/` (Windows: `%USERPROFILE%\.jarvis`, relocatable with `JARVIS_HOME`):
 
-| Pfad | Inhalt |
+| Path | Content |
 |---|---|
-| `einstellungen.json` | Name, Modell, Persona, Anrede, Stimme/Weckwort, Zeitlimits … |
-| `integrationen.json` | installierte Integrationen (Geheimnisse nur als `${NAME}`) |
-| `jarvis.db` | Verlauf und Erinnerungen (SQLite) |
-| `logs/` | Protokolle (`mcp-<id>.log`, `jarvis.log` beim Autostart) |
-| `modelle/` | Weckwort-Modelle (`modelle/vosk`, `modelle/openwakeword`), unter Linux auch Piper-Stimmen (`modelle/piper`) |
-| `venv/` | Python-Umgebung der Installation |
+| `einstellungen.json` | name, model, persona, form of address, voice/wake word, timeouts … |
+| `integrationen.json` | installed integrations (secrets only as `${NAME}`) |
+| `jarvis.db` | history and memories (SQLite) |
+| `logs/` | logs (`mcp-<id>.log`, `jarvis.log` with autostart) |
+| `modelle/` | wake-word models (`modelle/vosk`, `modelle/openwakeword`), on Linux also Piper voices (`modelle/piper`) |
+| `venv/` | Python environment of the installation |
 
-Das Gedächtnis lässt sich in der Oberfläche (Einstellungen → Gedächtnis) löschen, Verlauf und
-Gedächtnis auch per `curl -X DELETE http://127.0.0.1:8765/api/verlauf` bzw. `…/api/gedaechtnis`.
+The memory can be cleared in the UI (Einstellungen → Gedächtnis); history and memory also via
+`curl -X DELETE http://127.0.0.1:8765/api/verlauf` or `…/api/gedaechtnis`.
 
-## Fehlerbehebung
+## Troubleshooting
 
-| Problem | Lösung |
+| Problem | Solution |
 |---|---|
-| `javit: command not found` | Neues Terminal öffnen bzw. Installer erneut ausführen (legt `javit` an) oder `source ~/.zshrc` (Linux: `~/.bashrc`); notfalls `~/.jarvis/venv/bin/jarvis start` (Windows: `%USERPROFILE%\.jarvis\venv\Scripts\jarvis.exe start`) |
-| Linux: „Für … fehlt ein Hilfsprogramm“ | Den angezeigten Installationsbefehl ausführen (z. B. `sudo apt install playerctl`) |
-| Windows: Skript „kann nicht geladen werden“ | Mit `powershell -ExecutionPolicy Bypass -File …` starten |
-| „Ollama ist nicht erreichbar“ | `brew services start ollama` (oder `ollama serve`), dann `ollama pull qwen2.5:7b` |
-| Modell antwortet ohne Werkzeuge | ein Tool-fähiges Modell wählen (`qwen2.5`, `qwen3`, `llama3.1`, `llama3.2`) |
-| „API-Schlüssel fehlt“ | `javit schluessel ANTHROPIC_API_KEY` (bzw. OPENAI/GEMINI), Server neu starten nicht nötig |
-| „Javit“ reagiert nicht | Mikrofonrecht prüfen; Einstellungen → Stimme → Empfindlichkeit senken; eigene Schreibvarianten (`weckwort_varianten`); `python -m jarvis.stimme --geraete` |
-| „Vosk-Modell … fehlt“ | Internetverbindung beim ersten Einschalten oder Modell von Hand entpacken (siehe oben); `pip install vosk` (Teil von `jarvis[stimme]`) |
-| Weckwort löst zu oft aus | Empfindlichkeit erhöhen (z. B. 0,7–0,9) oder ein eigenes openWakeWord-Modell trainieren |
-| Musik/Kalender verweigert | Datenschutz & Sicherheit → Automation: Terminal/Python erlauben |
-| Integration „fehler“ | Status in Integrationen ansehen, Protokoll `~/.jarvis/logs/mcp-<id>.log`, „Neu verbinden“ |
-| Port 8765 belegt | `javit start --port 8766` |
-| Oberfläche fehlt („nicht gebaut“) | `cd oberflaeche && npm ci && npm run build` |
+| `javit: command not found` | open a new terminal or run the installer again (creates `javit`), or `source ~/.zshrc` (Linux: `~/.bashrc`); as a last resort `~/.jarvis/venv/bin/jarvis start` (Windows: `%USERPROFILE%\.jarvis\venv\Scripts\jarvis.exe start`) |
+| Linux: "Für … fehlt ein Hilfsprogramm" (helper program missing) | run the install command shown (e.g. `sudo apt install playerctl`) |
+| Windows: script "cannot be loaded" | start with `powershell -ExecutionPolicy Bypass -File …` |
+| "Ollama ist nicht erreichbar" (Ollama unreachable) | `brew services start ollama` (or `ollama serve`), then `ollama pull qwen2.5:7b` |
+| Model answers without tools | choose a tool-capable model (`qwen2.5`, `qwen3`, `llama3.1`, `llama3.2`) |
+| "API-Schlüssel fehlt" (API key missing) | `javit schluessel ANTHROPIC_API_KEY` (or OPENAI/GEMINI), no server restart needed |
+| "Javit" does not react | check microphone permission; Einstellungen → Stimme → lower the sensitivity; custom spellings (`weckwort_varianten`); `python -m jarvis.stimme --geraete` |
+| "Vosk-Modell … fehlt" (Vosk model missing) | internet connection when first enabling, or unpack the model manually (see above); `pip install vosk` (part of `jarvis[stimme]`) |
+| Wake word triggers too often | raise the sensitivity (e.g. 0.7–0.9) or train your own openWakeWord model |
+| Music/Calendar refused | Privacy & Security → Automation: allow Terminal/Python |
+| Integration "fehler" (error) | check the status under Integrationen, log `~/.jarvis/logs/mcp-<id>.log`, "Neu verbinden" (reconnect) |
+| Port 8765 in use | `javit start --port 8766` |
+| UI missing ("nicht gebaut") | `cd oberflaeche && npm ci && npm run build` |
 
-## Entwicklung und Tests
+## Development and tests
 
 ```bash
-# Kern
+# core
 cd kern && python3 -m pip install -e '.[stimme,dev]'
-python3 -m pytest -q                      # Unit- und Ende-zu-Ende-Tests (offline)
+python3 -m pytest -q                      # unit and end-to-end tests (offline)
 
-# Oberfläche
+# user interface
 cd oberflaeche && npm ci
-npm run dev                               # Vite auf :5173, Proxy zum Kern auf :8765
+npm run dev                               # Vite on :5173, proxy to the core on :8765
 npm run typecheck && npm test && npm run build
 
-# Browser-Durchlauf (Playwright, Screenshots nach /tmp/jarvis-e2e)
+# browser run (Playwright, screenshots to /tmp/jarvis-e2e)
 cd kern && python3 -m tests.e2e.browser_durchlauf
 ```
 
-Die Ende-zu-Ende-Tests (`kern/tests/e2e/`) starten einen echten Server mit einem
-deterministischen, OpenAI-kompatiblen Fake-LLM (`openai/fake`) und binden den projekteigenen
-Mini-MCP-Server als Integration ein. Hinweise für Beiträge mit Claude: [CLAUDE.md](CLAUDE.md);
-Projektstand: [docs/STAND.md](docs/STAND.md).
+The end-to-end tests (`kern/tests/e2e/`) start a real server with a deterministic,
+OpenAI-compatible fake LLM (`openai/fake`) and add the project's own mini MCP server as an
+integration. Notes for contributions with Claude: [CLAUDE.md](CLAUDE.md);
+project status: [docs/STAND.md](docs/STAND.md).
 
-## Aufbau
+## Layout
 
 ```
 jarvis/
-├── kern/                     Python-Paket „jarvis“ (FastAPI, Agent, LiteLLM, Werkzeuge, MCP-Hub, CLI)
-│   ├── jarvis/plattform/     Plattform-Schicht (macOS, Windows, Linux)
-│   ├── jarvis/stimme/        Weckwort (Vosk/openWakeWord), Aufnahme, Spracherkennung, Sprachausgabe
-│   └── tests/                pytest (inkl. e2e/ mit Fake-LLM und Browser-Durchlauf)
-├── oberflaeche/              React + TypeScript + Vite (wird unter / ausgeliefert)
-├── integrationen/katalog/    Integrationskatalog (eine YAML-Datei je App)
+├── kern/                     Python package "jarvis" (FastAPI, agent, LiteLLM, tools, MCP hub, CLI)
+│   ├── jarvis/plattform/     platform layer (macOS, Windows, Linux)
+│   ├── jarvis/stimme/        wake word (Vosk/openWakeWord), recording, speech recognition, speech output
+│   └── tests/                pytest (including e2e/ with fake LLM and browser run)
+├── oberflaeche/              React + TypeScript + Vite (served under /)
+├── integrationen/katalog/    integration catalog (one YAML file per app)
 ├── scripts/                  install.sh/autostart.sh/start.command (macOS), install-linux.sh/autostart-linux.sh,
-│                             weckwort-trainieren.md + weckwort_trainieren.py (eigenes Weckwort-Modell),
+│                             weckwort-trainieren.md + weckwort_trainieren.py (custom wake-word model),
 │                             install-windows.ps1/autostart-windows.ps1/start-windows.cmd
-└── docs/                     ARCHITEKTUR.md, VERTRAEGE.md (bindende Schnittstellen), STAND.md
+└── docs/                     ARCHITEKTUR.md, VERTRAEGE.md (binding interfaces), STAND.md
 ```
 
-Architektur und Schnittstellen: [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md),
-[docs/VERTRAEGE.md](docs/VERTRAEGE.md), Details zum Kern: [kern/README.md](kern/README.md).
+Architecture and interfaces: [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md),
+[docs/VERTRAEGE.md](docs/VERTRAEGE.md), core details: [kern/README.md](kern/README.md).
