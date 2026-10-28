@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Check, KeyRound, MessageSquarePlus, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, KeyRound, MessageSquarePlus, Pencil, Plus, RefreshCw, Trash2, Volume2 } from 'lucide-react';
 import { api } from '../api/rest';
-import type { AnbieterInfo, EigenerAnbieter, EigenesVerzeichnis, Einstellungen, Erinnerung, Modelle, ModellVorschlag, Unterhaltung } from '../api/types';
+import type { AnbieterInfo, EigenerAnbieter, EigenesVerzeichnis, Einstellungen, Erinnerung, Modelle, ModellVorschlag, StimmModelle, Unterhaltung } from '../api/types';
 import { useJarvis, useName } from '../state/store';
 import { STANDARD_NAME, weckwortAnzeige } from '../lib/name';
 import { neueUnterhaltung, statusLaden, unterhaltungOeffnen } from '../state/verbindung';
@@ -470,11 +470,17 @@ interface Entwurf {
   engine: string;
   schwelle: number;
   stt: string;
+  sttModell: string;
   tts: string;
+  ttsModell: string;
   stimme: string;
+  stoppwort: string;
   sir: boolean;
   anrede: string;
 }
+
+export const STANDARD_TTS_MODELL = 'elevenlabs/eleven-flash-v2.5';
+export const STANDARD_STT_MODELL = 'openai/whisper-large-v3';
 
 function entwurfAus(e: Einstellungen): Entwurf {
   return {
@@ -483,9 +489,12 @@ function entwurfAus(e: Einstellungen): Entwurf {
     weckwort: typeof e.stimme?.weckwort === 'string' ? e.stimme.weckwort : 'javit',
     engine: e.stimme?.weckwort_engine ?? 'auto',
     schwelle: typeof e.stimme?.schwelle === 'number' ? e.stimme.schwelle : 0.5,
-    stt: e.stimme?.stt ?? 'lokal',
+    stt: e.stimme?.stt ?? 'auto',
+    sttModell: e.stimme?.stt_openrouter_modell ?? STANDARD_STT_MODELL,
     tts: e.stimme?.tts ?? 'auto',
+    ttsModell: e.stimme?.tts_openrouter_modell ?? STANDARD_TTS_MODELL,
     stimme: e.stimme?.tts_stimme ?? '',
+    stoppwort: typeof e.stimme?.stoppwort === 'string' ? e.stimme.stoppwort : 'stopp',
     sir: e.anrede_verwenden ?? true,
     anrede: e.anrede ?? 'Sir',
   };
@@ -501,8 +510,11 @@ export function einstellungenTeil(d: Entwurf): Partial<Einstellungen> {
       weckwort_engine: d.engine,
       schwelle: Math.round(d.schwelle * 100) / 100,
       stt: d.stt,
+      stt_openrouter_modell: d.sttModell.trim() || STANDARD_STT_MODELL,
       tts: d.tts,
+      tts_openrouter_modell: d.ttsModell.trim() || STANDARD_TTS_MODELL,
       tts_stimme: d.stimme.trim(),
+      stoppwort: d.stoppwort.trim(),
     },
     anrede_verwenden: d.sir,
     anrede: d.anrede.trim() || 'Sir',
@@ -520,13 +532,21 @@ export function engineOptionen(aktuell: string): [string, string][] {
   return optionen;
 }
 
-/** Sprachausgabe-Optionen je Plattform (Kern: jarvis/stimme/tts.py, „auto“ = say/SAPI/Piper). */
+/** Sprachausgabe-Optionen je Plattform (Kern: jarvis/stimme/tts.py, „auto“ = OpenRouter mit Schlüssel, sonst say/SAPI/Piper). */
 export function ttsOptionen(plattform: string | undefined, aktuell: string): [string, string][] {
   const lokal: [string, string] =
     plattform === 'windows' ? ['sapi', 'Windows-Stimme'] : plattform === 'linux' ? ['piper', 'Piper'] : ['say', 'macOS say'];
-  const optionen: [string, string][] = [['auto', 'Automatisch'], lokal, ['cloud', 'Cloud'], ['aus', 'Aus']];
-  if (!optionen.some(([w]) => w === aktuell)) optionen.splice(2, 0, [aktuell, aktuell]);
+  const optionen: [string, string][] = [['auto', 'Automatisch'], ['openrouter', 'OpenRouter'], lokal, ['cloud', 'Cloud'], ['aus', 'Aus']];
+  if (!optionen.some(([w]) => w === aktuell)) optionen.splice(3, 0, [aktuell, aktuell]);
   return optionen;
+}
+
+/** Preis je Minute Sprache (ca. 900 Zeichen) aus dem Preis je 1 Mio. Zeichen. */
+export function preisJeMinute(je1m: number | null): string {
+  if (je1m === null || !Number.isFinite(je1m)) return '';
+  const cent = (je1m / 1_000_000) * 900 * 100;
+  const zahl = (cent < 1 ? cent.toFixed(2) : cent.toFixed(1)).replace('.', ',');
+  return `ca. ${zahl} Cent je Minute`;
 }
 
 function StimmePersona() {
@@ -536,6 +556,9 @@ function StimmePersona() {
   const [meldung, setMeldung] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [speichert, setSpeichert] = useState(false);
+  const [modelle, setModelle] = useState<StimmModelle | null>(null);
+  const [probe, setProbe] = useState<string | null>(null);
+  const [probeLaeuft, setProbeLaeuft] = useState(false);
 
   useEffect(() => {
     api
@@ -547,6 +570,14 @@ function StimmePersona() {
       })
       .catch((e: Error) => setFehler(e.message));
   }, []);
+  const openrouterSichtbar = d !== null && (d.tts === 'openrouter' || d.tts === 'auto' || d.stt === 'openrouter' || d.stt === 'auto');
+  useEffect(() => {
+    if (!openrouterSichtbar || modelle !== null) return;
+    api
+      .stimmeModelle()
+      .then((m) => setModelle({ tts: Array.isArray(m?.tts) ? m.tts : [], stt: Array.isArray(m?.stt) ? m.stt : [], fehler: m?.fehler ?? null }))
+      .catch((e: Error) => setModelle({ tts: [], stt: [], fehler: e.message }));
+  }, [openrouterSichtbar, modelle]);
 
   if (!d) return <Abschnitt id="s-stimme" titel="Stimme und Persona">{fehler ? <p className="formular-fehler">{fehler}</p> : <p className="gedaempft">Lade Einstellungen …</p>}</Abschnitt>;
 
@@ -556,6 +587,24 @@ function StimmePersona() {
     setD({ ...d, ...teil });
   };
   const geaendert = JSON.stringify(d) !== JSON.stringify(basis);
+  const ttsEintrag = modelle?.tts.find((m) => m.id === d.ttsModell) ?? null;
+
+  const probeSprechen = async () => {
+    setProbeLaeuft(true);
+    setProbe(null);
+    try {
+      if (geaendert) {
+        await api.einstellungenSpeichern(einstellungenTeil(d));
+        setBasis(d);
+      }
+      const r = await api.stimmeProbe();
+      setProbe(`Probe gesprochen (${r.art}${r.modell ? `, ${r.modell}` : ''}${r.stimme ? `, Stimme „${r.stimme}“` : ''}, ${r.ziel === 'browser' ? 'im Browser' : 'am Rechner'}).`);
+    } catch (err) {
+      setProbe(`Probe fehlgeschlagen: ${(err as Error).message}`);
+    } finally {
+      setProbeLaeuft(false);
+    }
+  };
 
   const speichern = async (e: FormEvent) => {
     e.preventDefault();
@@ -601,11 +650,61 @@ function StimmePersona() {
             <span>reagiert selten</span>
           </div>
         </div>
-        <Segmente label="Spracherkennung" wert={d.stt} optionen={[['lokal', 'Lokal (Whisper)'], ['cloud', 'Cloud']]} onChange={(v) => set({ stt: v })} />
+        <Segmente
+          label="Spracherkennung"
+          wert={d.stt}
+          optionen={[['auto', 'Automatisch'], ['lokal', 'Lokal (Whisper)'], ['openrouter', 'OpenRouter'], ['cloud', 'Cloud']]}
+          onChange={(v) => set({ stt: v })}
+        />
+        {(d.stt === 'openrouter' || d.stt === 'auto') && (
+          <div className="feld">
+            <label htmlFor="stt-modell">Erkennungsmodell (OpenRouter)</label>
+            <select id="stt-modell" value={d.sttModell} onChange={(e) => set({ sttModell: e.target.value })}>
+              {(modelle?.stt.length ? modelle.stt : [{ id: d.sttModell, name: d.sttModell }]).map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            <p className="feld-hilfe">„Automatisch“ nutzt OpenRouter, sobald ein OpenRouter-Schlüssel hinterlegt ist, sonst Whisper lokal.</p>
+          </div>
+        )}
         <Segmente label="Sprachausgabe" wert={d.tts} optionen={ttsOptionen(plattform, d.tts)} onChange={(v) => set({ tts: v })} />
+        {(d.tts === 'openrouter' || d.tts === 'auto') && (
+          <div className="feld">
+            <label htmlFor="tts-modell">Stimme (OpenRouter)</label>
+            <select id="tts-modell" value={d.ttsModell} onChange={(e) => set({ ttsModell: e.target.value, stimme: '' })}>
+              {(modelle?.tts.length ? modelle.tts : [{ id: d.ttsModell, name: d.ttsModell, stimmen: [], preis_je_1m_zeichen: null, standard_stimme: '' }]).map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            <p className="feld-hilfe">
+              {ttsEintrag ? `${preisJeMinute(ttsEintrag.preis_je_1m_zeichen)}${ttsEintrag.standard_stimme ? ` · Standardstimme „${ttsEintrag.standard_stimme}“` : ''}` : 'Streamt in Echtzeit über deinen OpenRouter-Schlüssel; „Automatisch“ wählt OpenRouter, sobald der Schlüssel da ist.'}
+              {modelle?.fehler ? ` Modellliste nicht erreichbar: ${modelle.fehler}` : ''}
+            </p>
+          </div>
+        )}
         <div className="feld">
           <label htmlFor="stimme-name">Stimme</label>
-          <input id="stimme-name" placeholder="leer = automatisch, z. B. Anna oder onyx" value={d.stimme} onChange={(e) => set({ stimme: e.target.value })} disabled={d.tts === 'aus'} />
+          {ttsEintrag && ttsEintrag.stimmen.length > 0 && (d.tts === 'openrouter' || d.tts === 'auto') ? (
+            <select id="stimme-name" value={d.stimme} onChange={(e) => set({ stimme: e.target.value })}>
+              <option value="">{ttsEintrag.standard_stimme ? `Standard (${ttsEintrag.standard_stimme})` : 'Standard'}</option>
+              {ttsEintrag.stimmen.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          ) : (
+            <input id="stimme-name" placeholder="leer = automatisch, z. B. Anna, daniel oder onyx" value={d.stimme} onChange={(e) => set({ stimme: e.target.value })} disabled={d.tts === 'aus'} />
+          )}
+        </div>
+        <div className="feld">
+          <label htmlFor="stoppwort">Stoppwort</label>
+          <input id="stoppwort" placeholder="stopp" value={d.stoppwort} onChange={(e) => set({ stoppwort: e.target.value })} />
+          <p className="feld-hilfe">Beendet die Sprachausgabe sofort, mehrere durch Komma (z. B. „stopp, halt“). Leer = aus.</p>
+        </div>
+        <div className="speichern-leiste links">
+          <button className="knopf klein" type="button" onClick={() => void probeSprechen()} disabled={probeLaeuft || d.tts === 'aus'}>
+            <Volume2 size={14} aria-hidden="true" /> {probeLaeuft ? 'Spricht …' : 'Probe sprechen'}
+          </button>
+          {probe && <span className={probe.startsWith('Probe fehlgeschlagen') ? 'formular-fehler' : 'ok-text'}>{probe}</span>}
         </div>
       </Abschnitt>
       <Abschnitt id="s-persona" titel="Persona">

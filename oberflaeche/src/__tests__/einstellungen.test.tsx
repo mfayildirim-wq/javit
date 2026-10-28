@@ -72,7 +72,10 @@ describe('Einstellungen speichern', () => {
     const put = aufrufe.find((a) => a.methode === 'PUT' && a.pfad === '/api/einstellungen');
     expect(put?.body).toEqual({
       name: 'Javit',
-      stimme: { aktiv: false, weckwort: 'hey_jarvis', weckwort_engine: 'auto', schwelle: 0.5, stt: 'cloud', tts: 'aus', tts_stimme: 'Anna' },
+      stimme: {
+        aktiv: false, weckwort: 'hey_jarvis', weckwort_engine: 'auto', schwelle: 0.5, stt: 'cloud', stt_openrouter_modell: 'openai/whisper-large-v3',
+        tts: 'aus', tts_openrouter_modell: 'elevenlabs/eleven-flash-v2.5', tts_stimme: 'Anna', stoppwort: 'stopp',
+      },
       anrede_verwenden: false,
       anrede: 'Chefin',
     });
@@ -180,11 +183,11 @@ describe('Einstellungen speichern', () => {
 
 describe('ttsOptionen', () => {
   it('zeigt je Plattform die passende lokale Stimme', () => {
-    expect(ttsOptionen('mac', 'auto').map(([w]) => w)).toEqual(['auto', 'say', 'cloud', 'aus']);
-    expect(ttsOptionen('windows', 'auto').map(([w]) => w)).toEqual(['auto', 'sapi', 'cloud', 'aus']);
-    expect(ttsOptionen('linux', 'auto').map(([w]) => w)).toEqual(['auto', 'piper', 'cloud', 'aus']);
-    expect(ttsOptionen(undefined, 'say').map(([w]) => w)).toEqual(['auto', 'say', 'cloud', 'aus']);
+    expect(ttsOptionen('mac', 'auto').map(([w]) => w)).toEqual(['auto', 'openrouter', 'say', 'cloud', 'aus']);
+    expect(ttsOptionen('windows', 'auto').map(([w]) => w)).toEqual(['auto', 'openrouter', 'sapi', 'cloud', 'aus']);
+    expect(ttsOptionen('linux', 'auto').map(([w]) => w)).toEqual(['auto', 'openrouter', 'piper', 'cloud', 'aus']);
+    expect(ttsOptionen(undefined, 'say').map(([w]) => w)).toEqual(['auto', 'openrouter', 'say', 'cloud', 'aus']);
     // gespeicherter Wert, der nicht zur Plattform passt, bleibt sichtbar
-    expect(ttsOptionen('linux', 'espeak').map(([w]) => w)).toEqual(['auto', 'piper', 'espeak', 'cloud', 'aus']);
+    expect(ttsOptionen('linux', 'espeak').map(([w]) => w)).toEqual(['auto', 'openrouter', 'piper', 'espeak', 'cloud', 'aus']);
   });
 });

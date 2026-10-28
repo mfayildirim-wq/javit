@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClientNachricht } from '../api/types';
@@ -81,5 +81,60 @@ describe('Reducer sprachausgabe', () => {
     const gestoppt = reduzieren(laeuft, { typ: 'sprachausgabe', zustand: 'gestoppt', grund: 'stoppwort' });
     expect(gestoppt.sprachausgabe).toBe(false);
     expect(gestoppt.hinweise.map((h) => h.text)).toEqual(['Sprachausgabe gestoppt (Stoppwort).']);
+  });
+});
+
+describe('Einstellungen → Stimme (OpenRouter, Stoppwort, Probe)', () => {
+  it('zeigt Modelle und Stimmen, speichert Stoppwort und spricht eine Probe', async () => {
+    const aufrufe: { methode: string; pfad: string; body: unknown }[] = [];
+    let einstellungen: Record<string, unknown> = {
+      modell: 'ollama/x', anbieter_eigene: [], verzeichnisse_eigene: [],
+      stimme: { aktiv: false, weckwort: 'javit', schwelle: 0.5, stt: 'auto', tts: 'openrouter', tts_stimme: '', tts_openrouter_modell: 'elevenlabs/eleven-flash-v2.5', stoppwort: 'stopp' },
+    };
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const pfad = String(input);
+      const methode = init?.method ?? 'GET';
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      aufrufe.push({ methode, pfad, body });
+      const json = (d: unknown) => new Response(JSON.stringify(d), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (pfad === '/api/einstellungen' && methode === 'PUT') {
+        einstellungen = { ...einstellungen, ...(body as object) };
+        return json(einstellungen);
+      }
+      if (pfad === '/api/einstellungen') return json(einstellungen);
+      if (pfad === '/api/stimme/modelle')
+        return json({
+          tts: [
+            { id: 'elevenlabs/eleven-flash-v2.5', name: 'ElevenLabs Flash', stimmen: ['daniel', 'sarah'], preis_je_1m_zeichen: 40, standard_stimme: 'daniel' },
+            { id: 'microsoft/mai-voice-2.1-flash', name: 'MAI Voice Flash', stimmen: ['de-DE-Klaus:MAI-Voice-2.1-Flash'], preis_je_1m_zeichen: 15, standard_stimme: 'de-DE-Klaus:MAI-Voice-2.1-Flash' },
+          ],
+          stt: [{ id: 'openai/whisper-large-v3', name: 'Whisper large v3' }],
+          fehler: null,
+        });
+      if (pfad === '/api/stimme/probe') return json({ ok: true, art: 'openrouter', modell: 'elevenlabs/eleven-flash-v2.5', stimme: 'sarah', ziel: 'lautsprecher' });
+      if (pfad.startsWith('/api/modelle')) return json({ aktuell: 'ollama/x', anbieter: [], vorschlaege: [] });
+      if (pfad === '/api/gedaechtnis') return json([]);
+      if (pfad === '/api/unterhaltungen') return json([]);
+      if (pfad === '/api/status') return json({ ...status, plattform: 'mac' });
+      return json({ ok: true });
+    }));
+    const u = userEvent.setup();
+    const { EinstellungenAnsicht } = await import('../views/Settings');
+    render(<EinstellungenAnsicht />);
+    const modell = await screen.findByLabelText('Stimme (OpenRouter)');
+    await waitFor(() => expect(within(modell).getAllByRole('option')).toHaveLength(2));
+    expect(screen.getByText(/ca\. 3,6 Cent je Minute/)).toBeInTheDocument();
+    await u.selectOptions(screen.getByLabelText('Stimme', { selector: 'input, select' }), 'sarah');
+    await u.selectOptions(modell, 'microsoft/mai-voice-2.1-flash');
+    expect((screen.getByLabelText('Stimme', { selector: 'input, select' }) as HTMLSelectElement).value).toBe(''); // Modellwechsel setzt die Stimme zurück
+    expect(screen.getByText(/ca\. 1,4 Cent je Minute/)).toBeInTheDocument();
+    await u.clear(screen.getByLabelText('Stoppwort'));
+    await u.type(screen.getByLabelText('Stoppwort'), 'stopp, halt');
+    await u.click(screen.getByRole('button', { name: 'Probe sprechen' }));
+    await screen.findByText(/Probe gesprochen \(openrouter, elevenlabs\/eleven-flash-v2.5, Stimme „sarah“, am Rechner\)/);
+    const put = aufrufe.find((a) => a.methode === 'PUT' && a.pfad === '/api/einstellungen');
+    expect(put?.body).toMatchObject({ stimme: { tts: 'openrouter', tts_openrouter_modell: 'microsoft/mai-voice-2.1-flash', tts_stimme: '', stoppwort: 'stopp, halt', stt: 'auto', stt_openrouter_modell: 'openai/whisper-large-v3' } });
+    expect(aufrufe.some((a) => a.methode === 'POST' && a.pfad === '/api/stimme/probe')).toBe(true);
+    vi.unstubAllGlobals();
   });
 });
