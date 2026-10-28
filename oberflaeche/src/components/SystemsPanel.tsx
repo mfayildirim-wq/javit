@@ -5,6 +5,7 @@ import { useJarvis } from '../state/store';
 import { datum, kalenderwoche, modellAnbieter, modellKurz } from '../lib/format';
 import { weckwortAnzeige } from '../lib/name';
 import { Kachel } from './Kachel';
+import { Marke } from './TopBar';
 
 function Uhr() {
   const [jetzt, setJetzt] = useState(() => new Date());
@@ -79,7 +80,7 @@ export function SystemsPanel() {
 
   return (
     <aside className="leiste leiste-links" aria-label="Systeme">
-      <h2 className="leiste-titel">Systeme</h2>
+      <Marke />
       <Uhr />
 
       <Kachel titel="Modell" onClick={() => setAnsicht('einstellungen')} aktionText="Modell ändern">

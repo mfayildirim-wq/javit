@@ -3,6 +3,7 @@ import { Check, LoaderCircle, X } from 'lucide-react';
 import { useJarvis, useName } from '../state/store';
 import type { WerkzeugAufruf } from '../state/reducer';
 import { alsText, argumenteKurz, dauer, zeitpunkt } from '../lib/format';
+import { Werkzeugleiste } from './TopBar';
 
 function LaufzeitAnzeige({ start, ende }: { start: number; ende: number | null }) {
   const [jetzt, setJetzt] = useState(() => Date.now());
@@ -71,6 +72,7 @@ export function ActivityPanel() {
 
   return (
     <aside className="leiste leiste-rechts" aria-label="Aktivität">
+      <Werkzeugleiste />
       <div className="leiste-kopfzeile">
         <h2 className="leiste-titel">Aktivität</h2>
         <span className="leiste-zahl">{laufend > 0 ? `${laufend} laufen` : `${werkzeuge.length} Aufrufe`}</span>

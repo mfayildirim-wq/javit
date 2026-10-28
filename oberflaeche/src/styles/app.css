@@ -34,7 +34,7 @@
   --t-xl: 1.5rem; /* 24 */
   --t-xxl: 2.125rem; /* 34 */
 
-  --kopf-h: 44px;
+  --kopf-h: 0px; /* keine Kopfzeile mehr: Marke links, Symbolleiste rechts */
   --links-b: 284px;
   --rechts-b: 356px;
   --schnitt: 10px;
@@ -151,7 +151,7 @@ kbd {
   position: relative;
   height: 100dvh;
   display: grid;
-  grid-template-rows: var(--kopf-h) 1fr;
+  grid-template-rows: auto 1fr;
   background:
     radial-gradient(ellipse 60% 55% at 50% 38%, rgba(30, 110, 150, 0.16), transparent 70%),
     radial-gradient(ellipse 120% 80% at 50% 120%, rgba(10, 40, 70, 0.35), transparent 60%),
@@ -3078,4 +3078,80 @@ input[type='range'] {
 }
 .modell-mehr {
   align-self: flex-start;
+}
+
+/* ---------- Ohne Kopfzeile: Marke links, Symbolleiste rechts ---------- */
+.marke-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--linie);
+}
+.leiste .marke {
+  padding-left: 0;
+}
+.marke-block .unterhaltung-titel {
+  max-width: 100%;
+}
+.werkzeugleiste {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 40px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--linie);
+}
+.werkzeugleiste .reiter-icons {
+  height: 100%;
+  margin-right: 4px;
+  padding-right: 8px;
+}
+.werkzeugleiste .reiter-knopf.icon::after {
+  bottom: -1px;
+}
+.symbol-knopf {
+  width: 32px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 232, 255, 0.03);
+  border: 1px solid var(--linie);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.symbol-knopf:hover {
+  color: var(--eis);
+  border-color: var(--linie-mittel);
+}
+.verbindung.nur-punkt {
+  padding: 0 4px;
+  font-size: 0;
+}
+.werkzeugleiste.mobil {
+  display: none;
+}
+@media (max-width: 760px) {
+  .werkzeugleiste.mobil {
+    display: flex;
+    height: 44px;
+    margin: 0;
+    padding: 0 10px;
+    background: linear-gradient(to bottom, rgba(4, 12, 22, 0.9), rgba(4, 12, 22, 0.55));
+  }
+  .werkzeugleiste.mobil .marke-klein {
+    margin-right: auto;
+    color: var(--cyan);
+    display: inline-flex;
+  }
+  .leiste-rechts .werkzeugleiste {
+    display: none;
+  }
+  .mitte {
+    height: calc(100dvh - 44px);
+  }
 }

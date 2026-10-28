@@ -378,3 +378,4 @@ mit pwsh geparst (nicht ausgeführt).
   Reiter Stimme (zusätzlich zum Knopf im Composer).
 - Tests klicken jetzt zuerst den Reiter; Anbieterwahl über `combobox`; neuer Test `versionsZahl`.
 - Kopfzeile kompakt (44 px statt 56): Reiter Konsole/Integrationen/Einstellungen als Symbole rechts neben „Neu“, „Befehle“ und Verbindungsstatus; Titel der Unterhaltung mittig. Der Orb bekommt dadurch mehr Platz nach oben.
+- Kopfzeile ganz entfernt: Marke (Symbol + Name + Titel der Unterhaltung) oben im linken Bereich, Symbolleiste (Ansichten, Neu, Befehle, Verbindungspunkt) oben im rechten Bereich über „Aktivität“; auf schmalen Bildschirmen (≤ 760 px) eine mobile Symbolleiste über der Konsole. `TopBar` bleibt als Alias der mobilen Leiste.

@@ -5,7 +5,7 @@ import { ApprovalDialog } from '../components/ApprovalDialog';
 import { Boot } from '../components/Boot';
 import { Composer } from '../components/Composer';
 import { Konsole } from '../components/Konsole';
-import { TopBar } from '../components/TopBar';
+import { Marke } from '../components/TopBar';
 import { ActivityPanel } from '../components/ActivityPanel';
 import { EinstellungenAnsicht } from '../views/Settings';
 import { useFenstertitel, useJarvis } from '../state/store';
@@ -41,17 +41,17 @@ describe('Name des Assistenten', () => {
   it('Fenstertitel, Kopfzeile, Boot-Animation', () => {
     renderHook(() => useFenstertitel());
     expect(document.title).toBe('Javit');
-    render(<TopBar />);
+    render(<Marke />);
     expect(screen.getByLabelText('Javit')).toHaveTextContent('Javit');
     const { container } = render(<Boot onFertig={() => {}} />);
     expect(container.querySelector('.boot-wort')).toHaveTextContent('Javit');
   });
 
   it('Name folgt /api/status (auch im Titel)', async () => {
-    const { rerender } = render(<TopBar />);
+    const { rerender } = render(<Marke />);
     renderHook(() => useFenstertitel());
     setzen(status({ name: 'Friday' }));
-    rerender(<TopBar />);
+    rerender(<Marke />);
     await waitFor(() => expect(document.title).toBe('Friday'));
     expect(screen.getByLabelText('Friday')).toBeInTheDocument();
   });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Boot } from './components/Boot';
-import { TopBar } from './components/TopBar';
+import { Werkzeugleiste } from './components/TopBar';
 import { SystemsPanel } from './components/SystemsPanel';
 import { ActivityPanel } from './components/ActivityPanel';
 import { Konsole } from './components/Konsole';
@@ -27,7 +27,7 @@ export default function App() {
   return (
     <div className="app" data-ansicht={ansicht}>
       <div className="raster" aria-hidden="true" />
-      <TopBar />
+      <Werkzeugleiste mobil />
       <div className="buehne">
         <SystemsPanel />
         <main className="mitte" id="inhalt">

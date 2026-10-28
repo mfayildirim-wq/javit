@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { anfangsZustand, reduzieren, type KernZustand } from '../state/reducer';
 import { useJarvis } from '../state/store';
 import { EinstellungenAnsicht } from '../views/Settings';
-import { TopBar } from '../components/TopBar';
+import { Marke, Werkzeugleiste } from '../components/TopBar';
 
 interface Aufruf { methode: string; pfad: string; body: unknown }
 
@@ -89,9 +89,14 @@ describe('Unterhaltungen – Oberfläche', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('Kopfzeile: Titel und Knopf „Neue Unterhaltung“ legt per POST an', async () => {
+  it('Marke zeigt den Titel, Symbolleiste: „Neue Unterhaltung“ legt per POST an', async () => {
     const u = userEvent.setup();
-    render(<TopBar />);
+    render(
+      <>
+        <Marke />
+        <Werkzeugleiste />
+      </>,
+    );
     expect(screen.getByTitle('Aktuelle Unterhaltung')).toHaveTextContent('Neue Unterhaltung');
     await u.click(screen.getByRole('button', { name: 'Neue Unterhaltung' }));
     await waitFor(() => expect(aufrufe).toContainEqual({ methode: 'POST', pfad: '/api/unterhaltungen', body: {} }));
