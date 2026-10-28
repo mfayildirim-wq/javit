@@ -1,0 +1,36 @@
+{
+  "id": "material-dunkel",
+  "name": "Material dunkel",
+  "beschreibung": "Material 3, dunkles Grundschema",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "material-dunkel"
+  },
+  "werte": {
+    "schema": "dunkel",
+    "farben": {
+      "primaer": "#d0bcff",
+      "akzent": "#ccc2dc",
+      "hintergrund": "#141218",
+      "flaeche": "#211f26",
+      "text": "#e6e0e9",
+      "dezent": "#cac4d0",
+      "ok": "#8ddc9f",
+      "warn": "#ffb95f",
+      "fehler": "#f2b8b5"
+    },
+    "schrift": {
+      "familie": "Roboto, system-ui, sans-serif",
+      "basisgroesse": 14
+    },
+    "rundung": 16,
+    "abstand": 16,
+    "dichte": "normal",
+    "schatten": "keiner"
+  },
+  "vorlieben": {
+    "liste": "kacheln",
+    "bildgroesse": "mittel",
+    "kennzahlenOben": true
+  }
+}

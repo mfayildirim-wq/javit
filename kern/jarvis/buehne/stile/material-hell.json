@@ -1,0 +1,36 @@
+{
+  "id": "material-hell",
+  "name": "Material hell",
+  "beschreibung": "Material 3, helles Grundschema",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "material-hell"
+  },
+  "werte": {
+    "schema": "hell",
+    "farben": {
+      "primaer": "#6750a4",
+      "akzent": "#625b71",
+      "hintergrund": "#fef7ff",
+      "flaeche": "#ffffff",
+      "text": "#1d1b20",
+      "dezent": "#49454f",
+      "ok": "#2e7d32",
+      "warn": "#9a6700",
+      "fehler": "#b3261e"
+    },
+    "schrift": {
+      "familie": "Roboto, system-ui, sans-serif",
+      "basisgroesse": 14
+    },
+    "rundung": 16,
+    "abstand": 16,
+    "dichte": "normal",
+    "schatten": "weich"
+  },
+  "vorlieben": {
+    "liste": "kacheln",
+    "bildgroesse": "mittel",
+    "kennzahlenOben": true
+  }
+}

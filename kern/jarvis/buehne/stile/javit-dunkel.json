@@ -1,0 +1,36 @@
+{
+  "id": "javit-dunkel",
+  "name": "Javit dunkel",
+  "beschreibung": "Standard der Bühne, passend zum Orb",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "javit-dunkel"
+  },
+  "werte": {
+    "schema": "dunkel",
+    "farben": {
+      "primaer": "#7fe8ff",
+      "akzent": "#ffb86b",
+      "hintergrund": "#04080f",
+      "flaeche": "#0b1624",
+      "text": "#e2fbff",
+      "dezent": "#8aa4b8",
+      "ok": "#5de4a0",
+      "warn": "#ffc857",
+      "fehler": "#ff6b6b"
+    },
+    "schrift": {
+      "familie": "Sora Variable, system-ui, sans-serif",
+      "basisgroesse": 14
+    },
+    "rundung": 10,
+    "abstand": 12,
+    "dichte": "normal",
+    "schatten": "weich"
+  },
+  "vorlieben": {
+    "liste": "kacheln",
+    "bildgroesse": "mittel",
+    "kennzahlenOben": true
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "javit-hell",
+  "name": "Javit hell",
+  "beschreibung": "",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "javit-hell"
+  },
+  "werte": {
+    "schema": "hell",
+    "farben": {
+      "primaer": "#0b7fa3",
+      "akzent": "#d97a1a",
+      "hintergrund": "#f5f9fc",
+      "flaeche": "#ffffff",
+      "text": "#0f1f2e",
+      "dezent": "#5c6f82",
+      "ok": "#1f9d5a",
+      "warn": "#b7791f",
+      "fehler": "#c62828"
+    },
+    "schrift": {
+      "familie": "Sora Variable, system-ui, sans-serif",
+      "basisgroesse": 14
+    },
+    "rundung": 10,
+    "abstand": 12,
+    "dichte": "normal",
+    "schatten": "weich"
+  },
+  "vorlieben": {
+    "liste": "kacheln",
+    "bildgroesse": "mittel",
+    "kennzahlenOben": true
+  }
+}

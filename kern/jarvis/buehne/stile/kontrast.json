@@ -1,0 +1,36 @@
+{
+  "id": "kontrast",
+  "name": "Kontrast",
+  "beschreibung": "Barrierearm, hohe Kontraste",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "kontrast"
+  },
+  "werte": {
+    "schema": "dunkel",
+    "farben": {
+      "primaer": "#ffff00",
+      "akzent": "#00e5ff",
+      "hintergrund": "#000000",
+      "flaeche": "#101010",
+      "text": "#ffffff",
+      "dezent": "#d0d0d0",
+      "ok": "#00ff7f",
+      "warn": "#ffd400",
+      "fehler": "#ff4d4d"
+    },
+    "schrift": {
+      "familie": "Sora Variable, system-ui, sans-serif",
+      "basisgroesse": 16
+    },
+    "rundung": 4,
+    "abstand": 14,
+    "dichte": "normal",
+    "schatten": "keiner"
+  },
+  "vorlieben": {
+    "liste": "kacheln",
+    "bildgroesse": "mittel",
+    "kennzahlenOben": true
+  }
+}

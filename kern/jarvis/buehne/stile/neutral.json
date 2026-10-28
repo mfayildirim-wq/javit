@@ -1,0 +1,36 @@
+{
+  "id": "neutral",
+  "name": "Neutral",
+  "beschreibung": "Schlicht, schwarz-weiß-grau",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "neutral"
+  },
+  "werte": {
+    "schema": "hell",
+    "farben": {
+      "primaer": "#111111",
+      "akzent": "#444444",
+      "hintergrund": "#ffffff",
+      "flaeche": "#f6f6f6",
+      "text": "#111111",
+      "dezent": "#666666",
+      "ok": "#2d7a2d",
+      "warn": "#8a6d00",
+      "fehler": "#b00020"
+    },
+    "schrift": {
+      "familie": "Sora Variable, system-ui, sans-serif",
+      "basisgroesse": 14
+    },
+    "rundung": 4,
+    "abstand": 10,
+    "dichte": "normal",
+    "schatten": "keiner"
+  },
+  "vorlieben": {
+    "liste": "zeilen",
+    "bildgroesse": "klein",
+    "kennzahlenOben": false
+  }
+}

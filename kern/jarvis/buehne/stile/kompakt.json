@@ -1,0 +1,36 @@
+{
+  "id": "kompakt",
+  "name": "Kompakt",
+  "beschreibung": "Hohe Dichte, kleine Schrift, Tabellen",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "kompakt"
+  },
+  "werte": {
+    "schema": "dunkel",
+    "farben": {
+      "primaer": "#7fe8ff",
+      "akzent": "#ffb86b",
+      "hintergrund": "#04080f",
+      "flaeche": "#0b1624",
+      "text": "#e2fbff",
+      "dezent": "#8aa4b8",
+      "ok": "#5de4a0",
+      "warn": "#ffc857",
+      "fehler": "#ff6b6b"
+    },
+    "schrift": {
+      "familie": "Sora Variable, system-ui, sans-serif",
+      "basisgroesse": 12
+    },
+    "rundung": 6,
+    "abstand": 6,
+    "dichte": "dicht",
+    "schatten": "keiner"
+  },
+  "vorlieben": {
+    "liste": "tabelle",
+    "bildgroesse": "klein",
+    "kennzahlenOben": true
+  }
+}

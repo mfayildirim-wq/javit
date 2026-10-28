@@ -1,0 +1,36 @@
+{
+  "id": "papier",
+  "name": "Papier",
+  "beschreibung": "Warm, hell, Serifenschrift",
+  "quelle": {
+    "art": "vordefiniert",
+    "wert": "papier"
+  },
+  "werte": {
+    "schema": "hell",
+    "farben": {
+      "primaer": "#7a4a1f",
+      "akzent": "#b2622a",
+      "hintergrund": "#f8f3e8",
+      "flaeche": "#fffdf7",
+      "text": "#2b2117",
+      "dezent": "#7a6a58",
+      "ok": "#3d7a3a",
+      "warn": "#a86f00",
+      "fehler": "#a83232"
+    },
+    "schrift": {
+      "familie": "Georgia, 'Times New Roman', serif",
+      "basisgroesse": 15
+    },
+    "rundung": 8,
+    "abstand": 14,
+    "dichte": "normal",
+    "schatten": "weich"
+  },
+  "vorlieben": {
+    "liste": "kacheln",
+    "bildgroesse": "mittel",
+    "kennzahlenOben": true
+  }
+}
