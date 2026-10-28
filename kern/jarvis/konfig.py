@@ -131,6 +131,8 @@ class StimmEinstellungen(BaseModel):
     weckwort_modell_pfad: str = ""
     #: Stoppwörter (Komma-getrennt): beenden die laufende Sprachausgabe; leer = aus
     stoppwort: str = "stopp"
+    #: Echounterdrückung des Mikrofons (macOS-Helfer ``javit-mikrofon``): auto | an | aus
+    aec: Literal["auto", "an", "aus"] = "auto"
     #: Sprachausgabe über OpenRouter (``tts: openrouter`` bzw. ``auto`` mit OPENROUTER_API_KEY)
     tts_openrouter_modell: str = "elevenlabs/eleven-flash-v2.5"
     #: Spracherkennung über OpenRouter (``stt: openrouter`` bzw. ``auto`` mit OPENROUTER_API_KEY)

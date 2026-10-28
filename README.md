@@ -194,6 +194,10 @@ macOS asks for permissions on first access – please allow:
   model is still writing (streaming, first sound in under a second). Saying **"Stopp"** during the
   output stops it immediately (stop word under Einstellungen → Stimme, several separated by commas);
   the wake word interrupts and records the next question right away.
+* **Echo cancellation on the Mac:** the installer builds the helper `javit-mikrofon` (Apple's voice
+  processing, needs the Xcode Command Line Tools: `xcode-select --install`). It removes Javit's own voice
+  from the microphone signal; without it the stop word would be triggered by Javit itself over speakers.
+  Without the helper the stop word only counts when said on its own; with headphones nothing of this matters.
 * **Audio in the browser:** toggle next to the microphone button (default on for phones/tablets) –
   the browser then records and plays the answer, so the core can run on another machine. Wake word,
   stop word and push-to-talk work unchanged.

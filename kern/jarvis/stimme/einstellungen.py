@@ -52,6 +52,8 @@ class StimmEinstellungen:
     unterbrechen: bool = False  # „Barge-in“: Weckwort während des Sprechens stoppt die Ausgabe
     stoppwort: str = "stopp"  # Stoppwörter (Komma-getrennt) beenden die Ausgabe sofort; leer = aus
     geraet: Any = None  # sounddevice-Eingabegerät (Name oder Index), None = Standard
+    # Echounterdrückung (macOS, Helfer javit-mikrofon): "auto" (an, wenn baubar/vorhanden) | "an" | "aus"
+    aec: str = "auto"
     vad: str = "auto"  # "auto" (webrtcvad falls installiert) | "webrtc" | "energie"
     modell_verzeichnis: str = STANDARD_MODELL_VERZEICHNIS
     extra: dict = field(default_factory=dict)
@@ -88,6 +90,13 @@ class StimmEinstellungen:
         self.vosk_modell = str(self.vosk_modell or STANDARD_VOSK_MODELL).strip()
         self.vosk_modell_sha256 = str(self.vosk_modell_sha256 or "").strip().lower()
         self.stt = str(self.stt or "auto").lower()
+        self.aec = str(self.aec or "auto").lower()
+        if self.aec in ("true", "1", "on", "ein"):
+            self.aec = "an"
+        elif self.aec in ("false", "0", "off", "nein"):
+            self.aec = "aus"
+        elif self.aec not in ("auto", "an", "aus"):
+            self.aec = "auto"
         stoppwort = self.stoppwort
         if isinstance(stoppwort, (list, tuple)):
             stoppwort = ", ".join(str(w) for w in stoppwort)

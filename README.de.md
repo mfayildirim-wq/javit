@@ -194,6 +194,10 @@ macOS fragt beim ersten Zugriff nach Rechten – bitte erlauben:
   schreibt (Streaming, erster Ton nach unter einer Sekunde). **„Stopp“** während der Ausgabe beendet
   sie sofort (Stoppwort unter Einstellungen → Stimme, mehrere durch Komma); das Weckwort unterbricht
   und nimmt direkt die nächste Frage auf.
+* **Echounterdrückung am Mac:** Der Installer baut den Helfer `javit-mikrofon` (Apples Sprachverarbeitung,
+  braucht die Xcode Command Line Tools: `xcode-select --install`). Er rechnet Javits eigene Stimme aus dem
+  Mikrofon heraus, sonst würde das Stoppwort über Lautsprecher von Javit selbst ausgelöst. Ohne Helfer gilt das
+  Stoppwort nur, wenn es allein gesagt wird; mit Kopfhörern ist alles unkritisch.
 * **Audio im Browser:** Umschalter neben dem Mikrofon-Knopf (auf Handy/Tablet Standard an) – dann
   nimmt der Browser auf und spielt die Antwort ab, der Kern kann auf einem anderen Rechner laufen.
   Weckwort, Stoppwort und Push-to-talk funktionieren unverändert.

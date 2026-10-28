@@ -401,6 +401,9 @@ class BrowserZiel:
 class BrowserQuelle:
     """Audioquelle aus Binärframes des Browsers (int16 mono, ``rate``); liefert 16-kHz-Rahmen à 1280."""
 
+    #: der Browser nimmt mit Echounterdrückung auf (getUserMedia echoCancellation)
+    echo_unterdrueckung = True
+
     def __init__(self, rate: int = 48000):
         self.rate = int(rate)
         self._bildner: Rahmenbildner | None = None

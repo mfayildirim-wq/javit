@@ -187,6 +187,15 @@ esac
 # ---------------------------------------------------------------- Weckwort-Modelle
 # Vosk-Modell für das freie Weckwort „Javit“ (vosk-model-small-de-0.15, ~45 MB, nach
 # ~/.jarvis/modelle/vosk) und zusätzlich openWakeWord „Hey Jarvis“
+schritt "Mikrofon-Helfer mit Echounterdrückung (javit-mikrofon) bauen"
+# Apples Sprachverarbeitung rechnet das Echo der eigenen Sprachausgabe aus dem Mikrofon heraus – nötig,
+# damit Stoppwort und Weckwort während der Ausgabe nicht von Javits eigener Stimme ausgelöst werden.
+if "$VENV/bin/python" -c 'import sys; from jarvis.stimme.mac_aec import helfer_sicherstellen; sys.exit(0 if helfer_sicherstellen() else 1)' 2>/dev/null; then
+  hinweis "Helfer bereit: $JARVIS_DATEN/bin/javit-mikrofon"
+else
+  warnung "Mikrofon-Helfer nicht gebaut (swiftc fehlt – Xcode Command Line Tools: xcode-select --install). Javit nutzt das Mikrofon ohne Echounterdrückung."
+fi
+
 schritt "Weckwort-Modelle („Javit“ über Vosk, „Hey Jarvis“ über openWakeWord) vorab laden"
 if "$VENV/bin/python" -m jarvis.stimme --modelle-laden --alle; then
   hinweis "Weckwort-Modelle bereit."

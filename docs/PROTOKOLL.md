@@ -380,3 +380,18 @@ mit pwsh geparst (nicht ausgeführt).
 - Kopfzeile kompakt (44 px statt 56): Reiter Konsole/Integrationen/Einstellungen als Symbole rechts neben „Neu“, „Befehle“ und Verbindungsstatus; Titel der Unterhaltung mittig. Der Orb bekommt dadurch mehr Platz nach oben.
 - Kopfzeile ganz entfernt: Marke (Symbol + Name + Titel der Unterhaltung) oben im linken Bereich, Symbolleiste (Ansichten, Neu, Befehle, Verbindungspunkt) oben im rechten Bereich über „Aktivität“; auf schmalen Bildschirmen (≤ 760 px) eine mobile Symbolleiste über der Konsole. `TopBar` bleibt als Alias der mobilen Leiste.
 - Abbruch beim Sprechen nachgestellt (Prüfinstanz, Mac-Lautsprecher + Mikrofon): nach 13 s „sprachausgabe gestoppt (stoppwort)“ – ein einzelnes Vosk-Teilergebnis „stopp“ aus der eigenen Stimme löste sofort aus (exakte Variante = sofort). Im Modus `nur_ganz` zählt ein Treffer jetzt erst, wenn das Teilergebnis zweimal gleich ist oder abgeschlossen wurde; der Treffertext steht im Protokoll (WARNING). Danach lief eine 46-s-Antwort vollständig durch. Dazu: fehlgeschlagene Satz-Synthese wird einmal wiederholt.
+
+## 28.10.2026 – Stoppwort löst sich selbst aus: Echounterdrückung am Mac
+
+- Live mitgeschrieben (Hauptinstanz): 14 s nach Sprechbeginn `sprachausgabe gestoppt (stoppwort)`. Nachgestellt mit
+  eigener Stimme über Lautsprecher + Mikrofon: Aufnahme übersteuert (Spitze 20987), die kleine Vosk-Grammatik
+  bildet die eigene Stimme laufend auf „stopp“, „halt“, „sei still“ ab (4 Kandidaten in 37 s). Freie Erkennung kennt
+  „stopp“ nicht („stab“), Energie-Gating trennt nicht sauber, die Ganzheitsregel verhindert echte Stopps während
+  der Ausgabe. Lösung: Apples Voice Processing (AVAudioEngine `setVoiceProcessingEnabled`) – Echo im Mikrofon 13×
+  leiser (Spitze 2843, RMS 173 statt 2357), auch für Ausgabe aus einem anderen Prozess (sounddevice).
+- Umgesetzt: `stimme/mac_mikrofon.swift` (Helfer, PCM 16 kHz int16 auf stdout, Ende über stdin), `stimme/mac_aec.py`
+  (`MikrofonAEC` als AudioQuelle, `helfer_sicherstellen` baut mit `xcrun swiftc` nach `~/.jarvis/bin`, nicht bei
+  `JARVIS_KEIN_DOWNLOAD`; Hintergrundbau beim ersten Start), Einstellung `aec: auto|an|aus`, `install.sh` baut den
+  Helfer; Dienst wählt ihn auf dem Mac (kein eigenes `geraet`), Stoppwort-Regel je nach Echounterdrückung
+  (`echo_unterdrueckung` an `MikrofonAEC` und `BrowserQuelle`). Tests `tests/stimme/test_mac_aec.py` (5).
+- Live: 61-s-Antwort über Lautsprecher mit Helfer ohne Abbruch; Helferprozess endet mit dem Dienst.

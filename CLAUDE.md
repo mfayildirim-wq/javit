@@ -31,7 +31,8 @@ Kommentare, Meldungen, Commits, Doku.
   OpenAPI, REST, OAuth, Verzeichnisse = Registry-Suche), `gedaechtnis.py` (SQLite: Unterhaltungen, Verlauf,
   Erinnerungen mit FTS5 + Einbettungen), `gedaechtnis_pflege.py` (lokale Einbettung, Nachbereitung: Titel,
   Zusammenfassung, Fakten), `geheimnisse.py` (Schlüsselbund/keyring/Fernet), `stimme/` (Weckwort, STT, TTS,
-  `sprecher.py` = Streaming-Sprachausgabe mit Satzstrom, OpenRouter-PCM, Lautsprecher-/Browser-Ziel, Browser-Quelle),
+  `sprecher.py` = Streaming-Sprachausgabe mit Satzstrom, OpenRouter-PCM, Lautsprecher-/Browser-Ziel, Browser-Quelle;
+  `mac_aec.py` + `mac_mikrofon.swift` = Mikrofon mit Apples Echounterdrückung, Helfer `~/.jarvis/bin/javit-mikrofon`),
   `plattform/` (Erkennung `aktuelle_plattform()`, Systemaktionen für mac/windows/linux).
 * Weckwort: `stimme/weckwort.py` (openWakeWord, `erzeuge_detektor()` nach `konfig.weckwort_engine()`),
   `stimme/weckwort_vosk.py` (freies Weckwort „Javit“: Grammatik aus Vokabular-Varianten + Kölner Phonetik).

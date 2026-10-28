@@ -181,7 +181,11 @@ Stimm-Einstellungen (`einstellungen.stimme`, Auszug): `tts` = `auto` (Standard: 
 `auto` behandelt. `tts_openrouter_modell` (Standard `elevenlabs/eleven-flash-v2.5`), `tts_stimme` (leer =
 Standardstimme je Modell: ElevenLabs `daniel`, Microsoft MAI `de-DE-Klaus:…`, Google `Kore`), `stt` = `auto`
 (`openrouter` mit Schlüssel, sonst `lokal`) | `lokal` | `openrouter` | `cloud`, `stt_openrouter_modell`
-(Standard `openai/whisper-large-v3`), `stoppwort` (Komma-getrennt, Standard `stopp`, leer = aus).
+(Standard `openai/whisper-large-v3`), `stoppwort` (Komma-getrennt, Standard `stopp`, leer = aus), `aec` = `auto` |
+`an` | `aus` (macOS: Mikrofon über den Helfer `~/.jarvis/bin/javit-mikrofon` mit Apples Echounterdrückung; Quelle
+`stimme/mac_mikrofon.swift`, gebaut vom Installer bzw. beim ersten Start mit `xcrun swiftc`; ohne Helfer das normale
+Mikrofon). Stoppwort-Regel: mit Echounterdrückung (Helfer, Browser) zählt ein stabiler exakter Treffer irgendwo im
+Ergebnis; ohne sie nur eine alleinstehende, stabile Äußerung.
 
 **Streaming-Sprachausgabe** (`stimme/sprecher.py`): Bei `sprechen: true` speist der Agent jedes Text-Delta
 in eine Sprechsitzung; fertige Sätze gehen sofort an die Synthese (bis zu zwei voraus), die Wiedergabe läuft als

@@ -310,10 +310,27 @@ class StimmDienst:
     def _quelle_erzeugen(self, e: StimmEinstellungen) -> AudioQuelle:
         v = self._audioquelle_vorgabe
         if v is None:
-            return MikrofonQuelle(e.geraet)
+            return self._mikrofon_erzeugen(e)
         if hasattr(v, "starten"):
             return v
         return v(e)
+
+    @staticmethod
+    def _mikrofon_erzeugen(e: StimmEinstellungen) -> AudioQuelle:
+        """macOS mit Echounterdrückung (Helfer), sonst bzw. bei ``aec: aus`` das normale Mikrofon."""
+        if _plattform() == "mac" and getattr(e, "aec", "auto") != "aus" and not e.geraet:
+            try:
+                from .mac_aec import MikrofonAEC, helfer_im_hintergrund_bauen, helfer_sicherstellen  # noqa: PLC0415
+
+                pfad = helfer_sicherstellen(bauen=False)
+                if pfad is not None:
+                    return MikrofonAEC(pfad)
+                helfer_im_hintergrund_bauen()  # beim nächsten Einschalten des Mikrofons verfügbar
+                if getattr(e, "aec", "auto") == "an":
+                    log.warning("Echounterdrückung gewünscht, aber der Helfer javit-mikrofon fehlt (Xcode Command Line Tools?)")
+            except Exception:  # noqa: BLE001
+                log.debug("Mikrofon-Helfer nicht nutzbar", exc_info=True)
+        return MikrofonQuelle(e.geraet)
 
     async def _quelle_oeffnen(self, e: StimmEinstellungen) -> bool:
         self._loop = asyncio.get_running_loop()
@@ -484,7 +501,10 @@ class StimmDienst:
         if self._stopp_detektor_vorgegeben:
             return
         woerter = [w.strip() for w in (e.stoppwort or "").split(",") if w.strip()]
-        schluessel = (tuple(woerter), e.vosk_modell, e.modell_verzeichnis)
+        # Mit Echounterdrückung (macOS-Helfer, Browser) darf das Stoppwort auch mitten in der eigenen Ausgabe
+        # irgendwo im Ergebnis stehen; ohne sie zählt nur eine alleinstehende, stabile Äußerung
+        echo_frei = bool(getattr(self._quelle, "echo_unterdrueckung", False))
+        schluessel = (tuple(woerter), e.vosk_modell, e.modell_verzeichnis, echo_frei)
         if not woerter:
             self._stopp_detektor = None
             self._stopp_detektor_schluessel = schluessel
@@ -502,7 +522,7 @@ class StimmDienst:
                 modell=e.vosk_modell,
                 schwelle=e.schwelle,
                 sha256=e.vosk_modell_sha256,
-                nur_ganz=True,
+                nur_ganz=not echo_frei,
             )
             await asyncio.to_thread(detektor.laden)
             self._stopp_detektor = detektor
