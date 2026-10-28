@@ -9,6 +9,8 @@ import type {
   SchrittStand,
   Modelle,
   Status,
+  StimmModelle,
+  StimmProbe,
   Unterhaltung,
   VerlaufEintrag,
   VerzeichnisInstallieren,
@@ -122,6 +124,8 @@ export const api = {
   verzeichnisDetails: (quelle: string, kennung: string) =>
     anfrage<VerzeichnisTreffer>('GET', `/verzeichnisse/${encodeURIComponent(quelle)}/${kennung.split('/').map(encodeURIComponent).join('/')}`),
   verzeichnisInstallieren: (body: VerzeichnisInstallieren) => anfrage<Integration>('POST', '/verzeichnisse/installieren', body),
+  stimmeModelle: () => anfrage<StimmModelle>('GET', '/stimme/modelle'),
+  stimmeProbe: (text?: string) => anfrage<StimmProbe>('POST', '/stimme/probe', text ? { text } : {}),
   verlauf: async (limit = 20) =>
     liste<VerlaufEintrag>(await anfrage<unknown>('GET', `/verlauf?limit=${limit}`), 'verlauf', 'nachrichten'),
   gedaechtnis: async () =>

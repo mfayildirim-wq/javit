@@ -39,6 +39,8 @@ export interface EvOauthAnmeldung { typ: 'oauth_anmeldung'; integration: string;
 export interface EvFehler { typ: 'fehler'; text: string }
 /** Aktuelle Unterhaltung hat gewechselt (neu, gewechselt, geloescht) oder ihren Titel geändert (titel). */
 export interface EvUnterhaltung { typ: 'unterhaltung'; id: number; titel: string; grund: 'neu' | 'gewechselt' | 'titel' | 'geloescht' | string }
+/** Sprachausgabe (Streaming): `start` (danach PCM-Binärframes int16 mono mit `rate`), `ende`, `gestoppt` (Stoppwort, Abbruch). */
+export interface EvSprachausgabe { typ: 'sprachausgabe'; zustand: 'start' | 'ende' | 'gestoppt' | string; rate?: number; grund?: string }
 
 export type ServerEvent =
   | EvZustand
@@ -53,7 +55,8 @@ export type ServerEvent =
   | EvIntegrationGeaendert
   | EvOauthAnmeldung
   | EvFehler
-  | EvUnterhaltung;
+  | EvUnterhaltung
+  | EvSprachausgabe;
 
 export const SERVER_EVENT_TYPEN = [
   'zustand',
@@ -69,6 +72,7 @@ export const SERVER_EVENT_TYPEN = [
   'oauth_anmeldung',
   'fehler',
   'unterhaltung',
+  'sprachausgabe',
 ] as const satisfies readonly ServerEvent['typ'][];
 
 // ---------- Client → Server ----------
@@ -77,7 +81,10 @@ export type ClientNachricht =
   | { typ: 'freigabe'; id: string; erlaubt: boolean }
   | { typ: 'abbrechen' }
   | { typ: 'stimme'; aktiv: boolean }
-  | { typ: 'zuhoeren' };
+  | { typ: 'zuhoeren' }
+  /** Audio im Browser: danach Binärframes (int16 mono, `rate`) bis `audio_stop`. */
+  | { typ: 'audio_start'; rate: number }
+  | { typ: 'audio_stop' };
 
 // ---------- REST ----------
 export interface Status {
@@ -291,9 +298,13 @@ export interface Einstellungen {
     weckwort_modell_pfad?: string;
     /** Weckwort-Schwelle 0..1 */
     schwelle?: number;
-    stt?: 'lokal' | 'cloud' | string;
-    tts?: 'auto' | 'say' | 'sapi' | 'piper' | 'espeak' | 'cloud' | 'aus' | string;
+    stt?: 'auto' | 'lokal' | 'openrouter' | 'cloud' | string;
+    stt_openrouter_modell?: string;
+    tts?: 'auto' | 'openrouter' | 'say' | 'sapi' | 'piper' | 'espeak' | 'cloud' | 'aus' | string;
     tts_stimme?: string;
+    tts_openrouter_modell?: string;
+    /** Stoppwörter (Komma-getrennt), beenden die Sprachausgabe; leer = aus. */
+    stoppwort?: string;
     [schluessel: string]: unknown;
   };
   [schluessel: string]: unknown;
@@ -320,3 +331,12 @@ export interface Unterhaltung {
 }
 /** Kern liefert `{id, zeit, rolle, inhalt}`; `text` wird ebenfalls akzeptiert. */
 export interface VerlaufEintrag { rolle: string; inhalt?: string; text?: string; zeit?: string }
+
+/** GET /api/stimme/modelle */
+export interface StimmModelle {
+  tts: { id: string; name: string; stimmen: string[]; preis_je_1m_zeichen: number | null; standard_stimme: string }[];
+  stt: { id: string; name: string }[];
+  fehler: string | null;
+}
+/** POST /api/stimme/probe */
+export interface StimmProbe { ok: boolean; art: string; modell: string; stimme: string; ziel: 'browser' | 'lautsprecher' | string }

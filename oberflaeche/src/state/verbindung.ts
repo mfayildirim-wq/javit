@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { api } from '../api/rest';
 import { JarvisSocket, wsUrl } from '../api/socket';
+import { BrowserAudio } from '../lib/audio';
 import { ZUSTAENDE } from '../api/types';
 import type { Nachricht } from './reducer';
 import { useJarvis } from './store';
@@ -9,12 +10,17 @@ import { useJarvis } from './store';
 export function useKernVerbindung(): void {
   useEffect(() => {
     const st = useJarvis.getState();
+    let audio: BrowserAudio | null = null;
     const socket = new JarvisSocket({
       url: wsUrl(),
       onEvent: (ev) => {
         const vorher = useJarvis.getState().unterhaltung?.id;
         useJarvis.getState().verarbeiten(ev);
         if (ev.typ === 'unterhaltung' && ev.id !== vorher) void verlaufLaden();
+        if (ev.typ === 'sprachausgabe' && ev.zustand === 'gestoppt') audio?.leeren();
+      },
+      onBinaer: (daten) => {
+        audio?.abspielen(daten);
       },
       onStatus: (v, versuche) => {
         useJarvis.getState().setVerbindung(v, versuche);
@@ -24,7 +30,24 @@ export function useKernVerbindung(): void {
         }
       },
     });
-    useJarvis.setState({ sender: (n) => socket.senden(n) });
+    audio = new BrowserAudio({
+      senden: (daten) => socket.sendeBinaer(daten),
+      onPegel: (wert) => {
+        if (useJarvis.getState().zustand === 'hoert') useJarvis.getState().verarbeiten({ typ: 'pegel', wert });
+      },
+    });
+    const aufnahme = audio;
+    useJarvis.setState({
+      sender: (n) => socket.senden(n),
+      audioStarten: async () => {
+        try {
+          return await aufnahme.start();
+        } catch {
+          return null;
+        }
+      },
+      audioStoppen: () => aufnahme.stop(),
+    });
     socket.start();
 
     const statusTimer = setInterval(() => {
@@ -42,9 +65,10 @@ export function useKernVerbindung(): void {
 
     return () => {
       socket.stop();
+      audio?.stop();
       clearInterval(statusTimer);
       abmelden();
-      useJarvis.setState({ sender: () => false });
+      useJarvis.setState({ sender: () => false, audioStarten: async () => null, audioStoppen: () => undefined });
     };
   }, []);
 }

@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { CornerDownLeft, Mic, MicOff, Square, Volume2, VolumeX } from 'lucide-react';
+import { CornerDownLeft, Mic, MicOff, Smartphone, Square, Volume2, VolumeX } from 'lucide-react';
 import { istBeschaeftigt, useJarvis, useName, useWeckwort } from '../state/store';
 
 export function Composer() {
@@ -11,6 +11,8 @@ export function Composer() {
   const vorlesen = useJarvis((s) => s.vorlesen);
   const setVorlesen = useJarvis((s) => s.setVorlesen);
   const stimmeAn = useJarvis((s) => s.status?.stimme.aktiv ?? false);
+  const audioBrowser = useJarvis((s) => s.audioBrowser);
+  const setAudioBrowser = useJarvis((s) => s.setAudioBrowser);
   const zustand = useJarvis((s) => s.zustand);
   const beschaeftigt = useJarvis(istBeschaeftigt);
   const verbunden = useJarvis((s) => s.verbindung === 'offen');
@@ -30,10 +32,21 @@ export function Composer() {
         aria-pressed={stimmeAn}
         aria-label={stimmeAn ? 'Mikrofon ausschalten' : 'Mikrofon einschalten'}
         title={stimmeAn ? `Mikrofon an – „${weckwort}“ aktiv` : 'Mikrofon aus'}
-        onClick={() => stimmeSetzen(!stimmeAn)}
+        onClick={() => void stimmeSetzen(!stimmeAn)}
         disabled={!verbunden}
       >
         {stimmeAn ? <Mic size={18} aria-hidden="true" /> : <MicOff size={18} aria-hidden="true" />}
+      </button>
+      <button
+        type="button"
+        className={`rund-knopf klein ${audioBrowser ? 'an' : ''}`}
+        aria-pressed={audioBrowser}
+        aria-label={audioBrowser ? 'Audio im Browser ausschalten' : 'Audio im Browser einschalten'}
+        title={audioBrowser ? 'Audio im Browser: Mikrofon und Lautsprecher dieses Geräts' : 'Audio am Rechner des Kerns'}
+        onClick={() => setAudioBrowser(!audioBrowser)}
+        disabled={stimmeAn}
+      >
+        <Smartphone size={15} aria-hidden="true" />
       </button>
 
       <div className="eingabe-feld">

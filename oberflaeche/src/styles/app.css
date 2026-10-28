@@ -3011,3 +3011,13 @@ input[type='range'] {
   flex-shrink: 0;
   margin-left: auto;
 }
+
+/* ---------- Audio im Browser (Umschalter im Composer) ---------- */
+.rund-knopf.klein {
+  width: 32px;
+  height: 32px;
+  opacity: 0.75;
+}
+.rund-knopf.klein.an {
+  opacity: 1;
+}

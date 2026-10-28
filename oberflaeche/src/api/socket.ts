@@ -9,8 +9,9 @@ export interface SocketLike {
   onclose: ((ev: unknown) => void) | null;
   onerror: ((ev: unknown) => void) | null;
   onmessage: ((ev: { data: unknown }) => void) | null;
-  send(daten: string): void;
+  send(daten: string | ArrayBuffer): void;
   close(): void;
+  binaryType?: string;
 }
 export type SocketFactory = (url: string) => SocketLike;
 
@@ -18,6 +19,8 @@ export interface SocketOptionen {
   url: string;
   onEvent: (ev: ServerEvent) => void;
   onStatus: (status: VerbindungsStatus, versuche: number) => void;
+  /** Binärnachricht des Kerns (PCM der Sprachausgabe). */
+  onBinaer?: (daten: ArrayBuffer) => void;
   factory?: SocketFactory;
   /** Erste Wartezeit vor Wiederverbindung (ms). */
   minVerzoegerung?: number;
@@ -43,7 +46,7 @@ export class JarvisSocket {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private fehlversuche = 0;
   private beendet = false;
-  private readonly opt: Required<Omit<SocketOptionen, 'factory'>> & { factory: SocketFactory };
+  private readonly opt: Required<Omit<SocketOptionen, 'factory' | 'onBinaer'>> & { factory: SocketFactory; onBinaer?: (daten: ArrayBuffer) => void };
 
   constructor(opt: SocketOptionen) {
     this.opt = {
@@ -89,6 +92,13 @@ export class JarvisSocket {
     return true;
   }
 
+  /** Sendet Binärdaten (Audio-Blöcke). */
+  sendeBinaer(daten: ArrayBuffer): boolean {
+    if (!this.ws || this.ws.readyState !== OFFEN) return false;
+    this.ws.send(daten);
+    return true;
+  }
+
   private verbinden(): void {
     if (this.beendet) return;
     this.opt.onStatus('verbinde', this.fehlversuche);
@@ -100,11 +110,20 @@ export class JarvisSocket {
       return;
     }
     this.ws = ws;
+    try {
+      ws.binaryType = 'arraybuffer';
+    } catch {
+      /* Attrappe ohne binaryType */
+    }
     ws.onopen = () => {
       this.fehlversuche = 0;
       this.opt.onStatus('offen', 0);
     };
     ws.onmessage = (ev) => {
+      if (ev.data instanceof ArrayBuffer) {
+        this.opt.onBinaer?.(ev.data);
+        return;
+      }
       if (typeof ev.data !== 'string') return;
       let daten: unknown;
       try {

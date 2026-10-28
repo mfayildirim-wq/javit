@@ -54,6 +54,8 @@ export interface KernZustand {
   oauthAnmeldung: { integration: string; url: string; zeit: number } | null;
   /** Aktuelle Unterhaltung (aus Status bzw. Ereignis `unterhaltung`). */
   unterhaltung: { id: number; titel: string } | null;
+  /** Streaming-Sprachausgabe läuft (zwischen `sprachausgabe start` und `ende`/`gestoppt`). */
+  sprachausgabe: boolean;
 }
 
 export const MAX_NACHRICHTEN = 60;
@@ -71,6 +73,7 @@ export const anfangsZustand: KernZustand = {
   integrationsStand: 0,
   oauthAnmeldung: null,
   unterhaltung: null,
+  sprachausgabe: false,
 };
 
 let hinweisZaehler = 0;
@@ -271,6 +274,15 @@ export function reduzieren(s: KernZustand, a: Aktion, jetzt: number = Date.now()
 
     case 'lokal_unterhaltung':
       return { ...s, unterhaltung: { id: a.id, titel: a.titel } };
+
+    case 'sprachausgabe': {
+      const laeuft = a.zustand === 'start';
+      if (a.zustand === 'gestoppt' && a.grund === 'stoppwort') {
+        hinweisZaehler += 1;
+        return { ...s, sprachausgabe: false, hinweise: [...s.hinweise, { id: hinweisZaehler, text: 'Sprachausgabe gestoppt (Stoppwort).', zeit: jetzt }].slice(-4) };
+      }
+      return { ...s, sprachausgabe: laeuft };
+    }
 
     case 'unterhaltung': {
       // Gleiche Unterhaltung: nur der Titel ändert sich. Andere: Konsole leeren, der Verlauf wird neu geladen.

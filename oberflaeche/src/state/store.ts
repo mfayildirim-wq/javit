@@ -16,20 +16,38 @@ export interface AppZustand extends KernZustand {
   ansicht: Ansicht;
   paletteOffen: boolean;
   vorlesen: boolean;
+  /** Mikrofon und Lautsprecher des Browsers statt des Rechners, auf dem der Kern läuft. */
+  audioBrowser: boolean;
   /** Sender wird von der Verbindung gesetzt; in Tests austauschbar. */
   sender: (n: ClientNachricht) => boolean;
+  /** Von der Verbindung gesetzt: Browser-Aufnahme starten (liefert Abtastrate oder null) bzw. stoppen. */
+  audioStarten: () => Promise<number | null>;
+  audioStoppen: () => void;
 
   verarbeiten: (a: Aktion) => void;
   senden: (n: ClientNachricht) => boolean;
   nachrichtSenden: (text: string) => boolean;
   freigabeBeantworten: (id: string, erlaubt: boolean) => void;
   abbrechen: () => void;
-  stimmeSetzen: (aktiv: boolean) => void;
+  stimmeSetzen: (aktiv: boolean) => Promise<void>;
+  setAudioBrowser: (an: boolean) => void;
   setVerbindung: (v: VerbindungsStatus, versuche: number) => void;
   setStatus: (s: Status | null) => void;
   setAnsicht: (a: Ansicht) => void;
   setPalette: (offen: boolean) => void;
   setVorlesen: (an: boolean) => void;
+}
+
+export function audioBrowserStandard(): boolean {
+  try {
+    const gespeichert = localStorage.getItem('jarvis.audioBrowser');
+    if (gespeichert === '1') return true;
+    if (gespeichert === '0') return false;
+  } catch {
+    /* egal */
+  }
+  // Handy/Tablet: nur das Browser-Mikrofon ist erreichbar
+  return typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 1 || /Android|iPhone|iPad/.test(navigator.userAgent));
 }
 
 function vorlesenLaden(): boolean {
@@ -49,7 +67,10 @@ export const useJarvis = create<AppZustand>()((set, get) => ({
   ansicht: 'konsole',
   paletteOffen: false,
   vorlesen: vorlesenLaden(),
+  audioBrowser: audioBrowserStandard(),
   sender: () => false,
+  audioStarten: async () => null,
+  audioStoppen: () => undefined,
 
   verarbeiten: (a) => set((s) => reduzieren(s, a)),
 
@@ -77,10 +98,34 @@ export const useJarvis = create<AppZustand>()((set, get) => ({
     get().verarbeiten({ typ: 'lokal_abgebrochen' });
   },
 
-  stimmeSetzen: (aktiv) => {
+  stimmeSetzen: async (aktiv) => {
+    if (get().audioBrowser) {
+      if (aktiv) {
+        const rate = await get().audioStarten();
+        if (rate === null) {
+          get().verarbeiten({ typ: 'lokal_hinweis', text: 'Mikrofon im Browser nicht verfügbar – Zugriff erlauben oder „Audio im Browser“ ausschalten.' });
+          return;
+        }
+        if (!get().senden({ typ: 'audio_start', rate })) {
+          get().audioStoppen();
+          return;
+        }
+      } else {
+        get().senden({ typ: 'audio_stop' });
+        get().audioStoppen();
+      }
+    }
     if (!get().senden({ typ: 'stimme', aktiv })) return;
     const st = get().status;
     if (st) set({ status: { ...st, stimme: { ...st.stimme, aktiv } } });
+  },
+  setAudioBrowser: (audioBrowser) => {
+    try {
+      localStorage.setItem('jarvis.audioBrowser', audioBrowser ? '1' : '0');
+    } catch {
+      /* egal */
+    }
+    set({ audioBrowser });
   },
 
   setVerbindung: (v, versuche) =>
