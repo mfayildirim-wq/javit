@@ -3,6 +3,8 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Orb } from './Orb';
 import { Composer } from './Composer';
+import { Buehne } from './Buehne';
+import { useBuehne } from '../buehne/store';
 import { useJarvis, useName, useWeckwort } from '../state/store';
 import { ZUSTAND_TEXT } from '../lib/format';
 import type { Nachricht } from '../state/reducer';
@@ -74,6 +76,7 @@ export function Konsole({ aktiv }: { aktiv: boolean }) {
   const zustand = useJarvis((s) => s.zustand);
   const ansicht = useJarvis((s) => s.ansicht);
   const name = useName();
+  const buehneOffen = useBuehne((s) => s.reihenfolge.length > 0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const letzteJarvis = [...nachrichten].reverse().find((n) => n.rolle === 'jarvis')?.id;
   const letzterText = nachrichten[nachrichten.length - 1]?.text.length ?? 0;
@@ -85,8 +88,9 @@ export function Konsole({ aktiv }: { aktiv: boolean }) {
   }, [nachrichten.length, letzterText, transkript]);
 
   return (
-    <section className="konsole" hidden={ansicht !== 'konsole'} aria-label="Konsole">
-      <div className="orb-buehne">
+    <section className={`konsole ${buehneOffen ? 'mit-buehne' : ''}`} hidden={ansicht !== 'konsole'} aria-label="Konsole">
+      {buehneOffen && <Buehne />}
+      <div className={`orb-buehne ${buehneOffen ? 'klein' : ''}`}>
         <div className="fadenkreuz" aria-hidden="true" />
         <Orb aktiv={aktiv} />
         <ZustandsAnzeige />

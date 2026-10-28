@@ -343,6 +343,24 @@ Einfache REST-Endpunkte und Kopfzeilen/Authentifizierung lassen sich in der Ober
 im echten Browser öffnen, klicken und Formulare ausfüllen. Fehlt der Browser:
 `npx playwright install chromium`.
 
+## Bühne – generative Oberfläche über dem Chat
+
+Strukturierte Ergebnisse (Listen aus Apps wie GG-Immobilien, Wetter, ungelesene Mails, Vergleiche) zeigt Javit auf
+der **Bühne** oberhalb des Chats als bedienbare Oberfläche – nicht als Fließtext:
+
+* Beim ersten Mal baut das Modell aus dem Werkzeugergebnis eine **Vorlage** (A2UI-JSON, nur Komponenten aus dem
+  eingebauten Katalog: Kacheln, Tabellen, Kennzahlen, Knöpfe, Formulare, Diagramme, Karte …). Danach wird die Vorlage
+  nur noch mit Daten befüllt – keine erneute Erzeugung, gleiche Darstellung.
+* Umbauten durch Kommunikation: „zeig das als Kacheln mit Bild“, „nimm die Spalte Preis nach vorn“ – jede Änderung
+  ist eine neue Version (bis zu zehn), „mach das rückgängig“ geht zurück.
+* **Knöpfe** auf der Bühne (z. B. „Notiz anlegen“) laufen beim ersten Klick über Javit; danach liegt ein **Rezept**
+  vor, das den Klick direkt ausführt (Werkzeug mit Argumenten aus der Zeile oder Auftrag an Javit).
+* Vorlagen, Rezepte und Stile gelten global (nicht je Unterhaltung) und liegen unter `~/.jarvis/buehne/`.
+* **Stile**: acht vordefinierte (Javit dunkel/hell, Material dunkel/hell, Neutral, Kompakt, Papier, Kontrast),
+  eigene aus einer App-Adresse, CSS-Datei oder Klassen abgeleitet, Farben per Farbwähler änderbar; Stile lassen sich
+  je Integration zuweisen (z. B. GG-Immobilien im Firmenlook). Einstellungen → Bühne verwaltet Vorlagen, Rezepte und
+  Stile; `buehne.aktiv` schaltet die Bühne aus.
+
 ## Beispielsätze
 
 * „Javit, wie spät ist es?“ · „Was steht heute in meinem Kalender?“
@@ -446,6 +464,7 @@ jarvis/
 ├── kern/                     Python-Paket „jarvis“ (FastAPI, Agent, LiteLLM, Werkzeuge, MCP-Hub, CLI)
 │   ├── jarvis/plattform/     Plattform-Schicht (macOS, Windows, Linux)
 │   ├── jarvis/stimme/        Weckwort (Vosk/openWakeWord), Aufnahme, Spracherkennung, Sprachausgabe
+│   ├── jarvis/buehne/        Bühne: A2UI-Katalog, Vorlagen/Rezepte/Stile, Erzeuger, Manager
 │   └── tests/                pytest (inkl. e2e/ mit Fake-LLM und Browser-Durchlauf)
 ├── oberflaeche/              React + TypeScript + Vite (wird unter / ausgeliefert)
 ├── integrationen/katalog/    Integrationskatalog (eine YAML-Datei je App)

@@ -81,7 +81,7 @@ class BuehnenManager:
 
     async def _flaeche_senden(self, surface_id: str, titel: str, stil_id: str, komponenten: list[dict[str, Any]], daten: Any, vorlage_id: str | None) -> dict[str, Any]:
         await self._stil_senden(stil_id)
-        await self._nachricht({"createSurface": {"surfaceId": surface_id, "catalogId": KATALOG_ID, "theme": {"stil": stil_id}, "titel": titel}})
+        await self._nachricht({"createSurface": {"surfaceId": surface_id, "catalogId": KATALOG_ID, "theme": {"stil": stil_id}, "titel": titel, "vorlage": vorlage_id}})
         await self._nachricht({"updateComponents": {"surfaceId": surface_id, "components": komponenten}})
         await self._nachricht({"updateDataModel": {"surfaceId": surface_id, "path": "/", "value": daten}})
         flaeche = {"surfaceId": surface_id, "titel": titel, "catalogId": KATALOG_ID, "stil": stil_id, "components": komponenten, "daten": daten, "vorlage": vorlage_id}
@@ -224,7 +224,7 @@ class BuehnenManager:
             neuer = self.stil_fuer(vorlage, None, vorlage["datenquelle"].get("werkzeug"))
             flaeche["stil"] = neuer
             await self._stil_senden(neuer)
-            await self._nachricht({"createSurface": {"surfaceId": vorlage_id, "catalogId": KATALOG_ID, "theme": {"stil": neuer}, "titel": flaeche["titel"]}})
+            await self._nachricht({"createSurface": {"surfaceId": vorlage_id, "catalogId": KATALOG_ID, "theme": {"stil": neuer}, "titel": flaeche["titel"], "vorlage": vorlage_id}})
             self._speichern()
         return vorlage
 

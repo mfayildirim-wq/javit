@@ -46,6 +46,21 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | GET | `/api/unterhaltungen/{id}/verlauf?limit=` | Nachrichten dieser Unterhaltung; 404 |
 | GET | `/api/gedaechtnis` | Erinnerungen `[{id, zeit, text, quelle: nutzer\|auto, unterhaltung_id, aktualisiert, einbettung_modell}]` |
 | DELETE | `/api/gedaechtnis?id=` | alle bzw. eine Erinnerung löschen → `{geloescht: n}` |
+| GET | `/api/buehne` | Zustand der Bühne `{flaechen: [Flaeche…], stile: [Stil…], zuordnung: {integration: stilId}}` – die Oberfläche lädt ihn beim Verbinden (offene Flächen überleben Neustarts) |
+| GET | `/api/buehne/vorlagen` | `[Vorlage…]` ohne `komponenten`, mit `versionen: n` |
+| GET | `/api/buehne/vorlagen/{id}` | Vorlage vollständig; 404 |
+| PUT | `/api/buehne/vorlagen/{id}` | `{name?, stil?}` (`stil: null` = Stil der Integration/Standard) → Vorlage; eine offene Fläche wechselt sofort den Stil (`stil` + `createSurface`) |
+| DELETE | `/api/buehne/vorlagen/{id}` | schließt die Fläche und löscht die Vorlage → `{geloescht: bool}` |
+| POST | `/api/buehne/vorlagen/{id}/zurueck` | neueste Version verwerfen (Rückgängig; mind. eine bleibt) → Vorlage; 404 |
+| GET | `/api/buehne/rezepte` | `[Rezept…]` |
+| DELETE | `/api/buehne/rezepte/{id}` | löscht das Rezept und die Zuordnung in den Vorlagen → `{geloescht: bool}` |
+| GET | `/api/buehne/stile` | `[Stil…]` – vordefinierte (`eigen: false`) + eigene |
+| POST | `/api/buehne/stile` | `{name, quelle: {art: url\|klassen\|datei\|werte, wert?, inhalt_base64?, werte?}, basis?, vorlieben?}` – `url`/`klassen`/`datei`: Stil über das Modell ableiten (Kandidaten aus CSS: Variablen, Farben, Schriften, Rundungen; Fallback ohne Modell); `werte`: Kopie von `basis` (Standard `javit-dunkel`) mit den Werten → Stil; 400 bei http-URL/Fehler |
+| PUT | `/api/buehne/stile/{id}` | `{name?, werte?: {farben?, schema?, rundung?, abstand?, dichte?, schatten?, schrift?}, vorlieben?}` → Stil; ein vordefinierter wird als eigene Kopie gespeichert (Kennung aus `name`, sonst `<id>-eigen`) |
+| DELETE | `/api/buehne/stile/{id}` | `{geloescht: bool}` (vordefinierte nie) |
+| PUT | `/api/buehne/zuordnung` | `{integration: stilId}` ersetzt die ganze Zuordnung → Zuordnung; 400 bei unbekanntem Stil |
+| POST | `/api/buehne/aktion` | wie `buehne_aktion` (WebSocket) → `{ok, rezept, ergebnis?\|antwort?}`; 400 bei unbekannter Fläche |
+| DELETE | `/api/buehne/flaechen/{surfaceId}` | Fläche schließen (`deleteSurface`) → `{geschlossen: [surfaceId…]}` |
 
 Integration hinzufügen – eine der Formen:
 ```json
@@ -75,6 +90,8 @@ Client → Server (JSON):
 | `stimme` | `aktiv: bool` (Mikrofon/Weckwort an/aus) |
 | `zuhoeren` | – (Push-to-talk: einmal zuhören ohne Weckwort) |
 | `audio_start` | `rate` (Hz) – Audio im Browser: diese Verbindung liefert danach **Binärframes** (int16 mono, `rate`) als Mikrofon und erhält die Sprachausgabe als Binärframes; der Kern schaltet das Sprachmodul auf diese Quelle um (genau eine Sitzung je Kern, eine neue ersetzt die alte) |
+| `buehne_aktion` | `name`, `surfaceId`, `sourceComponentId?`, `timestamp?`, `context` (Objekt aus der Vorlage, Bindungen aufgelöst) – Knopf/Formular auf der Bühne. Rezept der Vorlage → Werkzeug (Argumente aus `context` per `argumentAbbildung`, danach Datenquelle neu laden) oder Auftrag an den Assistenten; ohne Rezept geht eine Nachricht an den Assistenten, der danach ein Rezept anlegt |
+| `buehne_daten` | `surfaceId`, `path` (JSON-Pointer), `value` – Eingabefelder (zweiseitige Bindung, bei Blur/Enter); kein Ereignis zurück; Eingaben bleiben beim Neuladen der Daten erhalten |
 | `audio_stop` | – beendet die Audio-Sitzung (auch beim Trennen der Verbindung); das Sprachmodul bleibt danach aus, bis `stimme {aktiv: true}` es mit dem Mikrofon des Kerns neu startet |
 
 Server → Client:
@@ -94,6 +111,36 @@ Server → Client:
 | `fehler` | `text` |
 | `sprachausgabe` | `zustand: start` (`rate`, danach PCM-**Binärframes** int16 mono an die Verbindung mit Audio-Sitzung, ≤ 9600 Bytes je Frame) \| `ende` \| `gestoppt` (`grund?: stoppwort\|ersetzt`; Wiedergabe sofort verwerfen) – kommt nur bei einer Audio-Sitzung im Browser; am Lautsprecher des Kerns gibt es nur `zustand spricht` und `pegel` |
 | `unterhaltung` | `id`, `titel`, `grund` (`neu` \| `gewechselt` \| `geloescht` – die aktuelle Unterhaltung ist eine andere, die Oberfläche leert die Konsole und lädt `/api/verlauf`; `titel` – nur der Titel hat sich geändert, z. B. automatisch nach der ersten Antwort) |
+| `buehne` | `nachricht` – eine A2UI-Nachricht (`version: "v0.9.1"`) mit genau einem Schlüssel: `stil` (Stil-Objekt, kommt vor `createSurface`), `createSurface {surfaceId, catalogId: "jarvis:buehne/1", theme: {stil}, titel, vorlage?}`, `updateComponents {surfaceId, components[]}`, `updateDataModel {surfaceId, path, value}` (`path: "/"` = ganzes Modell), `deleteSurface {surfaceId}`. Antworten auf Rezepte erscheinen als `antwort_start`/`antwort_ende` mit `id` `buehne_…` |
+
+## Bühne (`jarvis/buehne/`, Katalog `jarvis:buehne/1`)
+
+Die Bühne ist eine generative Oberfläche über dem Chat im A2UI-Format (v0.9.1, flache Komponentenliste mit `root`,
+Bindungen `{"path": "/…"}`, Listen `children: {path, componentId}`, Aktionen `action.event {name, context}`).
+Erlaubt sind nur Komponenten und Eigenschaften aus `buehne/katalog.json` (`komponenten_pruefen` weist alles
+andere ab: unbekannte Komponenten/Eigenschaften, fehlende `root`, Zyklen, Tiefe > 12, > 300 Komponenten, Bilder ohne
+https/data-URL); die Oberfläche rendert den Katalog mit eigenen React-Komponenten – nie HTML aus dem Modell.
+
+* **Vorlage** (`~/.jarvis/buehne/vorlagen/<id>.json`): `{id, name, zweck, version, protokollVersion, katalogId,
+  komponenten, datenschema, datenquelle: {werkzeug, argumente, abbildung}, aktionen: {aktion: rezeptId}, stil,
+  signatur: {werkzeug, schluessel[], eintrag[]}, erstellt, geaendert, modell, versionen}`; bis zu 10 Versionen,
+  `zurueck` verwirft die neueste. Vorlagen gelten global (nicht je Unterhaltung) und werden über die Signatur
+  (Werkzeug + Schlüssel des Ergebnisses) wiedergefunden.
+* **Abbildung** `{"/ziel": "/quelle|formatierer"}` – Ziel-JSON-Pointer im Datenmodell ← Quell-Pointer im
+  Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`. Ergebnisse ohne JSON: Markdown-Tabellen →
+  `eintraege`, sonst `text`. Fehlt `anzahl`, ergänzt der Manager sie aus `eintraege`/der einzigen Liste.
+* **Rezept** (`rezepte/<id>.json`): `{id, name, art: werkzeug|agent, vorlage, aktion, werkzeug?, argumentAbbildung?:
+  {"arg": "context.feld"}, auftrag? (mit `{feld}`-Platzhaltern), risiko, bestaetigung?}`.
+* **Stil** (`stile/*.json` im Paket = vordefiniert, `~/.jarvis/buehne/stile/` = eigene): `{id, name, beschreibung,
+  quelle: {art: vordefiniert|url|datei|klassen|werte, wert?}, werte: {schema: hell|dunkel, farben: {primaer, akzent,
+  hintergrund, flaeche, text, dezent, ok, warn, fehler}, schrift: {familie, basisgroesse}, rundung, abstand, dichte:
+  dicht|normal|luftig, schatten: keiner|weich|stark}, vorlieben: {liste: kacheln|zeilen|tabelle, bildgroesse,
+  kennzahlenOben}, eigen}`. Stil einer Fläche: Vorlage.stil → Zuordnung der Integration (`zuordnung.json`) →
+  `javit-dunkel`.
+* **Werkzeuge des Modells**: `buehne_zeigen` (lesen; führt das Datenwerkzeug über den Agenten aus – Freigaben und
+  Aktivitäten wie sonst), `buehne_vorlage_aendern`, `buehne_vorlage_zurueck`, `buehne_daten`, `buehne_neu_laden`,
+  `buehne_rezept_anlegen` (kritisch), `buehne_stil_ableiten`, `buehne_stil_aendern`, `buehne_stil_zuweisen`,
+  `buehne_schliessen`. Einstellung `buehne: {aktiv, hoehe}`.
 
 ## Integrationskatalog (`integrationen/katalog/*.yaml`)
 

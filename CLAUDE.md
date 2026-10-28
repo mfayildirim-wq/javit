@@ -33,7 +33,11 @@ Kommentare, Meldungen, Commits, Doku.
   Zusammenfassung, Fakten), `geheimnisse.py` (Schlüsselbund/keyring/Fernet), `stimme/` (Weckwort, STT, TTS,
   `sprecher.py` = Streaming-Sprachausgabe mit Satzstrom, OpenRouter-PCM, Lautsprecher-/Browser-Ziel, Browser-Quelle;
   `mac_aec.py` + `mac_mikrofon.swift` = Mikrofon mit Apples Echounterdrückung, Helfer `~/.jarvis/bin/javit-mikrofon`),
-  `plattform/` (Erkennung `aktuelle_plattform()`, Systemaktionen für mac/windows/linux).
+  `plattform/` (Erkennung `aktuelle_plattform()`, Systemaktionen für mac/windows/linux), `buehne/` (generative
+  Oberfläche über dem Chat im A2UI-Format: `katalog.json` + `katalog.py` (Prüfung), `speicher.py` (Vorlagen mit
+  Versionen, Rezepte, Stile, Zuordnung, Flächen unter `~/.jarvis/buehne/`), `daten.py` (JSON-Pointer, Abbildung,
+  Standardvorlage), `erzeuger.py` (Modell baut/ändert Vorlagen, leitet Stile ab), `manager.py` (Flächen, Aktionen,
+  Rezepte), `werkzeuge.py` (`buehne_*`); vordefinierte Stile in `buehne/stile/*.json`).
 * Weckwort: `stimme/weckwort.py` (openWakeWord, `erzeuge_detektor()` nach `konfig.weckwort_engine()`),
   `stimme/weckwort_vosk.py` (freies Weckwort „Javit“: Grammatik aus Vokabular-Varianten + Kölner Phonetik).
 * Werkzeuge: `werkzeuge/mac.py` (nur macOS, **nicht verändern** – Ausnahme: Standard-Mitteilungstitel =
@@ -59,6 +63,10 @@ Kommentare, Meldungen, Commits, Doku.
   (Löschen, Zugangsdaten). Regel in `werkzeuge.freigabe_noetig`, Katalogeinträge tragen `bereich`.
 * Geheimnisse nie in Logs, Events oder `integrationen.json` (dort nur `${NAME}`); Events über
   `geheimnisse.schwaerzen` leiten.
+* Bühne: Das Modell liefert nur A2UI-JSON aus dem Katalog `jarvis:buehne/1` (`buehne/katalog.json`); nie HTML/CSS
+  vom Modell rendern. Neue Komponenten gleichzeitig im Katalog, in `komponenten_pruefen` (falls Sonderregeln) und im
+  Renderer der Oberfläche (`oberflaeche/src/buehne/`) ergänzen. Werkzeuge der Bühne laufen über
+  `Agent.werkzeug_ausfuehren_extern` (gleiche Freigaberegeln). Vorlagen/Rezepte/Stile sind global, nie je Unterhaltung.
 * Modellaufrufe nur über `LLMFassade`. Anbieter und Modell-Vorschläge stehen in `anbieter.py`
   (`EINGEBAUTE`; `llm.CLOUD_VORSCHLAEGE` wird daraus abgeleitet)
   (LiteLLM-Schreibweise) – vor Änderungen die aktuellen IDs bei den Anbietern prüfen.

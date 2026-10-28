@@ -1,4 +1,5 @@
 import type {
+  BuehnenStand,
   Einstellungen,
   Erinnerung,
   Integration,
@@ -8,11 +9,16 @@ import type {
   Schritt,
   SchrittStand,
   Modelle,
+  Rezept,
+  Stil,
+  StilAnlegen,
+  StilWerte,
   Status,
   StimmModelle,
   StimmProbe,
   Unterhaltung,
   VerlaufEintrag,
+  Vorlage,
   VerzeichnisInstallieren,
   VerzeichnisQuelle,
   VerzeichnisSuche,
@@ -139,6 +145,25 @@ export const api = {
   unterhaltungLoeschen: (id: number) => anfrage<{ geloescht: boolean; aktuell: Unterhaltung }>('DELETE', `/unterhaltungen/${id}`),
   unterhaltungVerlauf: async (id: number, limit = 200) =>
     liste<VerlaufEintrag>(await anfrage<unknown>('GET', `/unterhaltungen/${id}/verlauf?limit=${limit}`), 'verlauf'),
+  // ---------- Bühne ----------
+  buehne: () => anfrage<BuehnenStand>('GET', '/buehne'),
+  buehneVorlagen: async () => liste<Vorlage>(await anfrage<unknown>('GET', '/buehne/vorlagen'), 'vorlagen'),
+  buehneVorlage: (id: string) => anfrage<Vorlage>('GET', `/buehne/vorlagen/${encodeURIComponent(id)}`),
+  buehneVorlageAendern: (id: string, teil: { name?: string; stil?: string | null }) =>
+    anfrage<Vorlage>('PUT', `/buehne/vorlagen/${encodeURIComponent(id)}`, teil),
+  buehneVorlageLoeschen: (id: string) => anfrage<{ geloescht: boolean }>('DELETE', `/buehne/vorlagen/${encodeURIComponent(id)}`),
+  buehneVorlageZurueck: (id: string) => anfrage<Vorlage>('POST', `/buehne/vorlagen/${encodeURIComponent(id)}/zurueck`),
+  buehneRezepte: async () => liste<Rezept>(await anfrage<unknown>('GET', '/buehne/rezepte'), 'rezepte'),
+  buehneRezeptLoeschen: (id: string) => anfrage<{ geloescht: boolean }>('DELETE', `/buehne/rezepte/${encodeURIComponent(id)}`),
+  buehneStile: async () => liste<Stil>(await anfrage<unknown>('GET', '/buehne/stile'), 'stile'),
+  buehneStilAnlegen: (body: StilAnlegen) => anfrage<Stil>('POST', '/buehne/stile', body),
+  buehneStilAendern: (id: string, teil: { name?: string; werte?: StilWerte; vorlieben?: Stil['vorlieben'] }) =>
+    anfrage<Stil>('PUT', `/buehne/stile/${encodeURIComponent(id)}`, teil),
+  buehneStilLoeschen: (id: string) => anfrage<{ geloescht: boolean }>('DELETE', `/buehne/stile/${encodeURIComponent(id)}`),
+  buehneZuordnung: (zuordnung: Record<string, string | null>) => anfrage<Record<string, string>>('PUT', '/buehne/zuordnung', zuordnung),
+  buehneAktion: (aktion: { name: string; surfaceId: string; sourceComponentId?: string; timestamp?: string; context?: Record<string, unknown> }) =>
+    anfrage<{ ok: boolean; ergebnis?: unknown }>('POST', '/buehne/aktion', aktion),
+  buehneFlaecheSchliessen: (surfaceId: string) => anfrage<unknown>('DELETE', `/buehne/flaechen/${encodeURIComponent(surfaceId)}`),
 };
 
 export type Api = typeof api;

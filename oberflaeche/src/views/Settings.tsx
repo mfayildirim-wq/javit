@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Check, KeyRound, MessageSquarePlus, Pencil, Plus, RefreshCw, Trash2, Volume2 } from 'lucide-react';
 import { api } from '../api/rest';
 import type { AnbieterInfo, EigenerAnbieter, EigenesVerzeichnis, Einstellungen, Erinnerung, Modelle, ModellVorschlag, StimmModelle, Unterhaltung } from '../api/types';
@@ -6,13 +6,16 @@ import { useJarvis, useName } from '../state/store';
 import { STANDARD_NAME, weckwortAnzeige } from '../lib/name';
 import { neueUnterhaltung, statusLaden, unterhaltungOeffnen } from '../state/verbindung';
 import { modellAnbieter } from '../lib/format';
+import { Abschnitt, Schalter, Segmente } from './EinstellungsBausteine';
+import { BuehneEinstellungen } from './BuehneEinstellungen';
 
-export type Reiter = 'modell' | 'stimme' | 'freigaben' | 'gedaechtnis' | 'erweitert';
+export type Reiter = 'modell' | 'stimme' | 'freigaben' | 'gedaechtnis' | 'buehne' | 'erweitert';
 export const REITER: { id: Reiter; titel: string }[] = [
   { id: 'modell', titel: 'Modell' },
   { id: 'stimme', titel: 'Stimme' },
   { id: 'freigaben', titel: 'Freigaben' },
   { id: 'gedaechtnis', titel: 'Gedächtnis' },
+  { id: 'buehne', titel: 'Bühne' },
   { id: 'erweitert', titel: 'Erweitert' },
 ];
 
@@ -47,45 +50,6 @@ export const SCHLUESSEL = [
   { name: 'MISTRAL_API_KEY', titel: 'Mistral' },
   { name: 'OPENROUTER_API_KEY', titel: 'OpenRouter' },
 ] as const;
-
-function Abschnitt({ titel, text, children, id }: { titel: string; text?: string; children: ReactNode; id: string }) {
-  return (
-    <section className="abschnitt" aria-labelledby={id}>
-      <header>
-        <h2 id={id}>{titel}</h2>
-        {text && <p>{text}</p>}
-      </header>
-      <div className="abschnitt-inhalt">{children}</div>
-    </section>
-  );
-}
-
-function Schalter({ an, onChange, label, beschreibung }: { an: boolean; onChange: (v: boolean) => void; label: string; beschreibung?: string }) {
-  return (
-    <label className="schalter-zeile">
-      <span>
-        <span className="schalter-label">{label}</span>
-        {beschreibung && <span className="schalter-text">{beschreibung}</span>}
-      </span>
-      <input type="checkbox" role="switch" className="schalter" checked={an} onChange={(e) => onChange(e.target.checked)} />
-    </label>
-  );
-}
-
-function Segmente<T extends string>({ wert, optionen, onChange, label }: { wert: T; optionen: [T, string][]; onChange: (v: T) => void; label: string }) {
-  return (
-    <div className="feld">
-      <span className="feld-label">{label}</span>
-      <div className="seg-gruppe" role="radiogroup" aria-label={label}>
-        {optionen.map(([v, t]) => (
-          <button type="button" key={v} role="radio" aria-checked={wert === v} className={wert === v ? 'an' : ''} onClick={() => onChange(v)}>
-            {t}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** Anbieter des Modells aus der ID („openrouter/x/y“ → „openrouter“); ollama_chat zählt als ollama. */
 export function anbieterVonModell(id: string): string {
@@ -1144,7 +1108,7 @@ export function EinstellungenAnsicht() {
       <header className="ansicht-kopf">
         <div>
           <h1 id="einst-titel">Einstellungen</h1>
-          <p>Modell, Stimme, Freigaben, Gedächtnis. Änderungen gelten sofort.</p>
+          <p>Modell, Stimme, Freigaben, Gedächtnis, Bühne. Änderungen gelten sofort.</p>
         </div>
       </header>
       <nav className="reiter einstellungen-reiter" role="tablist" aria-label="Einstellungsbereiche">
@@ -1169,6 +1133,7 @@ export function EinstellungenAnsicht() {
             <Gedaechtnis />
           </>
         )}
+        {reiter === 'buehne' && <BuehneEinstellungen />}
         {reiter === 'erweitert' && (
           <>
             <WeitereSchluessel />

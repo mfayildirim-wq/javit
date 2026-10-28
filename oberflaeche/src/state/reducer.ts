@@ -56,6 +56,8 @@ export interface KernZustand {
   unterhaltung: { id: number; titel: string } | null;
   /** Streaming-Sprachausgabe läuft (zwischen `sprachausgabe start` und `ende`/`gestoppt`). */
   sprachausgabe: boolean;
+  /** Zähler der Bühnen-Ereignisse; die Bühne selbst liegt in ihrem eigenen Store (`src/buehne/store.ts`). */
+  buehneStand: number;
 }
 
 export const MAX_NACHRICHTEN = 60;
@@ -74,6 +76,7 @@ export const anfangsZustand: KernZustand = {
   oauthAnmeldung: null,
   unterhaltung: null,
   sprachausgabe: false,
+  buehneStand: 0,
 };
 
 let hinweisZaehler = 0;
@@ -283,6 +286,10 @@ export function reduzieren(s: KernZustand, a: Aktion, jetzt: number = Date.now()
       }
       return { ...s, sprachausgabe: laeuft };
     }
+
+    case 'buehne':
+      // Inhalt verarbeitet der Bühnen-Store (verbindung.ts reicht das Ereignis weiter).
+      return { ...s, buehneStand: s.buehneStand + 1 };
 
     case 'unterhaltung': {
       // Gleiche Unterhaltung: nur der Titel ändert sich. Andere: Konsole leeren, der Verlauf wird neu geladen.

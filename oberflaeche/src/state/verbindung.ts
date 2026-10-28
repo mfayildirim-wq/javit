@@ -5,6 +5,7 @@ import { BrowserAudio } from '../lib/audio';
 import { ZUSTAENDE } from '../api/types';
 import type { Nachricht } from './reducer';
 import { useJarvis } from './store';
+import { useBuehne } from '../buehne/store';
 
 /** Stellt die WebSocket-Verbindung her und hält den Status aktuell. */
 export function useKernVerbindung(): void {
@@ -18,6 +19,7 @@ export function useKernVerbindung(): void {
         useJarvis.getState().verarbeiten(ev);
         if (ev.typ === 'unterhaltung' && ev.id !== vorher) void verlaufLaden();
         if (ev.typ === 'sprachausgabe' && ev.zustand === 'gestoppt') audio?.leeren();
+        if (ev.typ === 'buehne') useBuehne.getState().verarbeiten(ev.nachricht);
       },
       onBinaer: (daten) => {
         audio?.abspielen(daten);
@@ -27,6 +29,7 @@ export function useKernVerbindung(): void {
         if (v === 'offen') {
           void statusLaden(true);
           void verlaufLaden();
+          void buehneLaden();
         }
       },
     });
@@ -109,6 +112,16 @@ export async function verlaufLaden(): Promise<void> {
     useJarvis.getState().verarbeiten({ typ: 'lokal_verlauf', nachrichten });
   } catch {
     /* kein Verlauf */
+  }
+}
+
+/** Offene Flächen und Stile der Bühne laden (nach jedem Verbinden). */
+export async function buehneLaden(): Promise<void> {
+  try {
+    const stand = await api.buehne();
+    useBuehne.getState().ausServer(stand?.flaechen ?? [], stand?.stile ?? []);
+  } catch {
+    /* älterer Kern ohne Bühne */
   }
 }
 

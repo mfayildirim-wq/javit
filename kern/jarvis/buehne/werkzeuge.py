@@ -27,11 +27,11 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
 
     async def buehne_vorlage_aendern(vorlage: str, wunsch: str) -> str:
         e = await manager.aendern(vorlage, wunsch)
-        return f"Vorlage {e['vorlage']} geändert (Version {e['version']}). Rückgängig mit buehne_vorlage_zurueck."
+        return f"Vorlage {e['vorlage']} geändert (Version {e['version']}); die offene Fläche zeigt bereits die neue Darstellung mit den aktuellen Daten – kein Neuladen nötig. Rückgängig mit buehne_vorlage_zurueck."
 
     async def buehne_vorlage_zurueck(vorlage: str) -> str:
         e = await manager.zurueck(vorlage)
-        return f"Vorlage {e['vorlage']} auf Version {e['version']} zurückgesetzt."
+        return f"Vorlage {e['vorlage']} auf Version {e['version']} zurückgesetzt; die offene Fläche zeigt bereits wieder die alte Darstellung."
 
     async def buehne_daten(surfaceId: str, daten: dict[str, Any] | None = None, path: str = "/", value: Any = None) -> str:  # noqa: N803
         if daten is not None:
@@ -42,7 +42,9 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
 
     async def buehne_neu_laden(surfaceId: str) -> str:  # noqa: N803
         f = await manager.neu_laden(surfaceId)
-        return f"Fläche {surfaceId} neu geladen ({len(f.get('daten') or {})} Felder)."
+        daten = f.get("daten") or {}
+        anzahl = daten.get("anzahl") if isinstance(daten, dict) else None
+        return f"Fläche {surfaceId} neu geladen" + (f" ({anzahl} Einträge)." if anzahl is not None else ".")
 
     async def buehne_rezept_anlegen(
         vorlage: str,

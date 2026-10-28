@@ -339,6 +339,23 @@ Custom catalog entries: YAML file in `~/.jarvis/katalog/` (format: [docs/VERTRAE
 **Browser:** `javit add browser` adds the Playwright MCP server – Javit can then open web pages in a
 real browser, click and fill in forms. If the browser is missing: `npx playwright install chromium`.
 
+## Stage – generative UI above the chat
+
+Structured results (lists from apps such as GG real estate, weather, unread mail, comparisons) appear on the
+**stage** above the chat as a usable interface instead of prose:
+
+* The first time, the model builds a **template** from the tool result (A2UI JSON using only components from the
+  built-in catalog: cards, tables, KPIs, buttons, forms, charts, map …). Afterwards the template is only filled with
+  data – no regeneration, same look.
+* Changes through conversation: "show that as cards with pictures", "move the price column first" – every change is a
+  new version (up to ten), "undo that" goes back.
+* **Buttons** on the stage (e.g. "add note") go through Javit on the first click; afterwards a **recipe** runs the
+  click directly (a tool with arguments from the row, or a task for Javit).
+* Templates, recipes and styles are global (not per conversation) and live under `~/.jarvis/buehne/`.
+* **Styles**: eight predefined (Javit dark/light, Material dark/light, Neutral, Compact, Paper, Contrast), custom ones
+  derived from an app URL, a CSS file or pasted classes, colours editable with a colour picker; styles can be assigned
+  per integration. Settings → Stage manages templates, recipes and styles; `buehne.aktiv` turns the stage off.
+
 ## Example phrases
 
 (The assistant understands German; these are the German phrases with translations.)
@@ -445,6 +462,7 @@ project status: [docs/STAND.md](docs/STAND.md).
 jarvis/
 ├── kern/                     Python package "jarvis" (FastAPI, agent, LiteLLM, tools, MCP hub, CLI)
 │   ├── jarvis/plattform/     platform layer (macOS, Windows, Linux)
+│   ├── jarvis/buehne/        stage: A2UI catalog, templates/recipes/styles, generator, manager
 │   ├── jarvis/stimme/        wake word (Vosk/openWakeWord), recording, speech recognition, speech output
 │   └── tests/                pytest (including e2e/ with fake LLM and browser run)
 ├── oberflaeche/              React + TypeScript + Vite (served under /)

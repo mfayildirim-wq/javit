@@ -2,12 +2,13 @@
 // Mock des Kerns (Assistent „Javit“) für Entwicklung und Screenshots.
 // REST unter /api, WebSocket unter /ws – gemäß docs/VERTRAEGE.md.
 // Zusätzlich Steuer-Endpunkte für Tests: POST /mock/szenario/<name>
-//   (bereit | hoert | denkt | arbeitet | spricht | freigabe | gespraech | reset)
+//   (bereit | hoert | denkt | arbeitet | spricht | freigabe | gespraech | buehne | reset)
 //
 // Start: npm run mock   (Port 8765, oder PORT=…)
 
 import http from 'node:http';
 import { WebSocketServer } from 'ws';
+import { buehneAnfrage, buehneSzenario } from './mock-buehne.mjs';
 
 const PORT = Number(process.env.PORT ?? 8765);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -209,6 +210,9 @@ const server = http.createServer(async (req, res) => {
     return senden(res, 200, { ok: true });
   }
 
+  const b = await buehneAnfrage(p, m, () => lesen(req));
+  if (b) return senden(res, b[0], b[1]);
+
   // Steuerung für Screenshots/Tests
   const sz = p.match(/^\/mock\/szenario\/([a-z_]+)$/);
   if (sz && m === 'POST') {
@@ -406,6 +410,9 @@ wss.on('connection', (ws) => {
         }
         break;
       }
+      case 'buehne_aktion':
+      case 'buehne_daten':
+        break; // im Mock nur protokolliert
       case 'abbrechen':
         allesStoppen();
         zustand('bereit');
@@ -442,6 +449,9 @@ async function szenario(name) {
       }
       break; // bleibt im Zuhören, Pegel läuft weiter
     }
+    case 'buehne':
+      for (const n of buehneSzenario()) rundruf(n);
+      break;
     case 'gespraech': {
       rundruf({ typ: 'transkript', text: 'Wie ist das Wetter in Hamburg?', final: true });
       const id = nid('a');

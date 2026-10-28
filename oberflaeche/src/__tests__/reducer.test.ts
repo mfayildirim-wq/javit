@@ -139,6 +139,7 @@ describe('Event-Reducer', () => {
       fehler: { typ: 'fehler', text: 'x' },
       unterhaltung: { typ: 'unterhaltung', id: 2, titel: 'Neu', grund: 'neu' },
       sprachausgabe: { typ: 'sprachausgabe', zustand: 'start', rate: 24000 },
+      buehne: { typ: 'buehne', nachricht: { version: 'v0.9.1', deleteSurface: { surfaceId: 'x' } } },
     };
     for (const typ of SERVER_EVENT_TYPEN) {
       const vorher = anfangsZustand;

@@ -41,6 +41,8 @@ export interface EvFehler { typ: 'fehler'; text: string }
 export interface EvUnterhaltung { typ: 'unterhaltung'; id: number; titel: string; grund: 'neu' | 'gewechselt' | 'titel' | 'geloescht' | string }
 /** Sprachausgabe (Streaming): `start` (danach PCM-Binärframes int16 mono mit `rate`), `ende`, `gestoppt` (Stoppwort, Abbruch). */
 export interface EvSprachausgabe { typ: 'sprachausgabe'; zustand: 'start' | 'ende' | 'gestoppt' | string; rate?: number; grund?: string }
+/** Bühne: eine A2UI-Nachricht (v0.9.1-Teilmenge) bzw. Stilwerte, siehe {@link A2uiNachricht}. */
+export interface EvBuehne { typ: 'buehne'; nachricht: A2uiNachricht }
 
 export type ServerEvent =
   | EvZustand
@@ -56,7 +58,8 @@ export type ServerEvent =
   | EvOauthAnmeldung
   | EvFehler
   | EvUnterhaltung
-  | EvSprachausgabe;
+  | EvSprachausgabe
+  | EvBuehne;
 
 export const SERVER_EVENT_TYPEN = [
   'zustand',
@@ -73,6 +76,7 @@ export const SERVER_EVENT_TYPEN = [
   'fehler',
   'unterhaltung',
   'sprachausgabe',
+  'buehne',
 ] as const satisfies readonly ServerEvent['typ'][];
 
 // ---------- Client → Server ----------
@@ -84,7 +88,34 @@ export type ClientNachricht =
   | { typ: 'zuhoeren' }
   /** Audio im Browser: danach Binärframes (int16 mono, `rate`) bis `audio_stop`. */
   | { typ: 'audio_start'; rate: number }
-  | { typ: 'audio_stop' };
+  | { typ: 'audio_stop' }
+  /** Bühne: Klick auf eine Aktion (Button, Karte, Tabellenzeile, Formular). */
+  | { typ: 'buehne_aktion'; name: string; surfaceId: string; sourceComponentId: string; timestamp: string; context: Record<string, unknown> }
+  /** Bühne: Eingabefeld geändert (zweiseitige Bindung; gesendet bei Blur/Enter). */
+  | { typ: 'buehne_daten'; surfaceId: string; path: string; value: unknown };
+
+// ---------- Bühne (A2UI v0.9.1-Teilmenge, Katalog jarvis:buehne/1) ----------
+/** Eine Komponente der flachen Liste: `id`, `component` (Bausteinname) und Eigenschaften laut Katalog. */
+export interface BuehnenKomponente { id: string; component: string; [eigenschaft: string]: unknown }
+export interface A2uiNachricht {
+  version: string;
+  createSurface?: { surfaceId: string; catalogId?: string; theme?: { stil?: string; [k: string]: unknown }; titel?: string; vorlage?: string | null };
+  updateComponents?: { surfaceId: string; components: BuehnenKomponente[] };
+  /** path "/" = ganzes Modell; ohne `value` wird der Pfad gelöscht. */
+  updateDataModel?: { surfaceId: string; path?: string; value?: unknown };
+  deleteSurface?: { surfaceId: string };
+  /** Werte eines Stils (vor `createSurface`, wenn der Client ihn nicht kennt). */
+  stil?: Stil;
+}
+export interface StilWerte { schema: 'hell' | 'dunkel'; farben: { primaer: string; akzent: string; hintergrund: string; flaeche: string; text: string; dezent: string; ok: string; warn: string; fehler: string }; schrift: { familie: string; basisgroesse: number }; rundung: number; abstand: number; dichte: 'dicht' | 'normal' | 'luftig'; schatten: 'keiner' | 'weich' | 'stark' }
+export interface Stil { id: string; name: string; beschreibung?: string; quelle: { art: 'vordefiniert' | 'url' | 'datei' | 'klassen' | 'werte'; wert?: string }; werte: StilWerte; vorlieben: { liste: 'kacheln' | 'zeilen' | 'tabelle'; bildgroesse: 'klein' | 'mittel' | 'gross'; kennzahlenOben: boolean }; eigen?: boolean }
+export interface Vorlage { id: string; name: string; zweck: string; version: number; protokollVersion: string; katalogId: string; komponenten?: unknown[]; datenschema?: unknown; datenquelle: { werkzeug: string; argumente: Record<string, unknown>; abbildung: Record<string, string> }; aktionen: Record<string, string>; stil: string | null; signatur: { werkzeug: string; schluessel: string[] }; erstellt: string; geaendert: string; modell?: string; versionen?: number }
+export interface Rezept { id: string; name: string; art: 'werkzeug' | 'agent'; werkzeug?: string; argumentAbbildung?: Record<string, string>; auftrag?: string; bestaetigung?: string; risiko: 'lesen' | 'aendern' | 'kritisch'; vorlage: string }
+export interface Flaeche { surfaceId: string; titel: string; catalogId: string; stil: string; components: unknown[]; daten: Record<string, unknown>; vorlage: string | null }
+/** GET /api/buehne */
+export interface BuehnenStand { flaechen: Flaeche[]; stile: Stil[]; zuordnung: Record<string, string> }
+/** POST /api/buehne/stile – Stil ableiten (url/datei/klassen) oder aus Werten anlegen. */
+export interface StilAnlegen { name: string; quelle: { art: 'url' | 'datei' | 'klassen' | 'werte'; wert?: string; inhalt_base64?: string; werte?: StilWerte } }
 
 // ---------- REST ----------
 export interface Status {

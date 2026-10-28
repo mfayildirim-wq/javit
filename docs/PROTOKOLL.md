@@ -395,3 +395,36 @@ mit pwsh geparst (nicht ausgeführt).
   Helfer; Dienst wählt ihn auf dem Mac (kein eigenes `geraet`), Stoppwort-Regel je nach Echounterdrückung
   (`echo_unterdrueckung` an `MikrofonAEC` und `BrowserQuelle`). Tests `tests/stimme/test_mac_aec.py` (5).
 - Live: 61-s-Antwort über Lautsprecher mit Helfer ohne Abbruch; Helferprozess endet mit dem Dienst.
+
+## 28.10.2026 – Bühne: generative Oberfläche über dem Chat (A2UI)
+
+- Spezifikation und Plan (`docs/superpowers/specs/2026-10-28-buehne-generative-oberflaeche-design.md`,
+  `docs/superpowers/plans/2026-10-28-buehne.md`): anbieterunabhängig über A2UI v0.9.1 (eigener Katalog
+  `jarvis:buehne/1`, 22 Komponenten, eigener React-Renderer – nie HTML vom Modell); Vorlage wird einmal gebaut, danach
+  nur befüllt; Umbauten durch Kommunikation mit Versionen (max. 10) und Rückgängig; Knöpfe → Rezepte; Vorlagen,
+  Rezepte und Stile global; Stile vordefiniert (8), aus App-URL/Datei/Klassen abgeleitet, Farbwähler, je Integration.
+- Kern (`jarvis/buehne/`): `katalog.py` (Prüfung: IDs, Eigenschaften, Typen, root, Zyklen, Tiefe, Bild-URLs nur
+  https/data), `speicher.py` (Vorlagen mit Versionen, Rezepte, Stile, Zuordnung, Flächen unter `~/.jarvis/buehne/`),
+  `daten.py` (JSON-Pointer, Abbildung mit `|datum`/`|waehrung`/`|zahl`, Markdown-Tabellen, Signatur,
+  Standardvorlage ohne Modell), `erzeuger.py` (Vorlage bauen mit einem Reparaturversuch und Fallback, Vorlage ändern,
+  Stil ableiten: CSS-Kandidaten → Modell → Prüfung/Fallback), `manager.py` (zeigen/wiederverwenden, Eingaben der
+  Oberfläche bleiben beim Neuladen erhalten, Aktionen → Rezept „werkzeug“ mit `argumentAbbildung` oder „agent“,
+  ohne Rezept Nachricht an den Agenten), `werkzeuge.py` (`buehne_*`, Rezept anlegen kritisch). Agent:
+  `prompt_zusatz` (Abschnitt „Bühne“ mit Vorlagen und offenen Flächen), `werkzeug_ausfuehren_extern` (Bühne nutzt
+  dieselben Freigaben/Ereignisse). Server: REST `/api/buehne…`, WebSocket `buehne`/`buehne_aktion`/`buehne_daten`.
+  Einstellung `buehne: {aktiv, hoehe}`. Tests `tests/buehne/` (28), Server-Test, E2E `test_buehne_immobilien`
+  (Fake-LLM liefert Vorlage/Umbau/Rezept) – Kern gesamt 604 Tests.
+- Oberfläche (Agent „frontend-architect“, danach geprüft): `src/buehne/` (Store, Binder mit JSON-Pointer und
+  Client-Funktionen, Stil → CSS-Variablen mit Kontrastprüfung, Renderer, Register, 22 Komponenten), `components/
+  Buehne.tsx` (Reiter je Fläche, Stilwahl, Teiler, einklappbar), Einstellungen → Reiter „Bühne“ (Vorlagen mit
+  Version/Stil/Umbenennen/Zurück/Löschen, Stile mit Vorschau und Editor/Farbwähler, Ableiten aus URL/Datei/
+  Klassen, Zuordnung je Integration), `mock-buehne.mjs`; 150 Tests (vorher 85), Abgleichtest gegen `katalog.json`.
+  Abweichungen: `createSurface.vorlage` optional ergänzt (Kern sendet es), Höhe nur aus localStorage.
+- Live am Mac (Prüfinstanz 8766 mit isoliertem `JARVIS_HOME`-Abbild, Stimme aus, Claude Sonnet 5.5, GG-Integration):
+  „Zeig mir die Immobilien aus GG auf der Bühne“ → Modell ruft `buehne_zeigen` mit `read_collection`, Vorlage in
+  18 s gebaut (Kacheln mit Preis, Einheiten, Fläche, Status, Knöpfe Öffnen/Bearbeiten/Neues Objekt); „als Tabelle mit
+  Adresse, Preis, Einheiten, Status“ → Version 2 in 11 s; Rückgängig → Kacheln zurück; Klick „Öffnen“ → Agent liest
+  das Objekt (`read_entity`), legt Rezept `objekt-oeffnen` an, fasst zusammen; Einstellungen → Bühne zeigt Vorlage
+  und Stile. Werkzeugtexte danach präzisiert (Umbau/Zurück melden, dass die Fläche schon aktualisiert ist).
+- Hinweis an mich: ein Debug-Skript lief ohne `JARVIS_HOME` gegen die echten Nutzerdaten (zwei Verlaufszeilen und
+  `~/.jarvis/buehne/` entstanden) – sofort entfernt. Ad-hoc-Skripte nur mit gesetztem `JARVIS_HOME`.
