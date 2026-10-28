@@ -185,9 +185,18 @@ macOS asks for permissions on first access – please allow:
 * The microphone button in the UI (or `Ctrl/⌘ + K` → "Mikrofon") toggles the wake word on/off.
 * Then **"Javit, …"** is enough – Javit listens until you pause and answers by voice.
 * **Space bar** (outside input fields) = push-to-talk: listen once without the wake word.
-* Speech recognition runs locally with faster-whisper (model downloaded on first use) or in the
-  cloud; speech output "Automatisch" (macOS `say`, Windows SAPI, Linux Piper/espeak-ng) or cloud
-  voices – all under **Einstellungen → Stimme** (Settings → Voice).
+* Speech recognition runs locally with faster-whisper (model downloaded on first use), via
+  OpenRouter (Whisper, about 1 s) or in the cloud; speech output "Automatisch" = an OpenRouter voice
+  as soon as an OpenRouter key is stored (ElevenLabs Flash, Microsoft MAI with German voices, Google),
+  otherwise macOS `say`, Windows SAPI, Linux Piper/espeak-ng – all under **Einstellungen → Stimme**
+  (Settings → Voice) with model and voice lists, price per minute and a "Probe sprechen" button.
+* **Fluent:** Javit starts speaking as soon as the first sentence of the answer is ready while the
+  model is still writing (streaming, first sound in under a second). Saying **"Stopp"** during the
+  output stops it immediately (stop word under Einstellungen → Stimme, several separated by commas);
+  the wake word interrupts and records the next question right away.
+* **Audio in the browser:** toggle next to the microphone button (default on for phones/tablets) –
+  the browser then records and plays the answer, so the core can run on another machine. Wake word,
+  stop word and push-to-talk work unchanged.
 * Approvals can be answered by voice ("Ja", "Mach das" / "Nein", "Abbrechen").
 
 ### Changing the name

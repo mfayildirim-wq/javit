@@ -185,9 +185,18 @@ macOS fragt beim ersten Zugriff nach Rechten – bitte erlauben:
 * Mikrofon-Knopf in der Oberfläche (oder `Strg/⌘ + K` → „Mikrofon“) schaltet das Weckwort an/aus.
 * Danach genügt **„Javit, …“** – Javit hört bis zur Sprechpause zu und antwortet per Sprache.
 * **Leertaste** (außerhalb von Eingabefeldern) = Push-to-talk: einmal zuhören ohne Weckwort.
-* Spracherkennung lokal mit faster-whisper (Modell wird beim ersten Mal geladen) oder per Cloud;
-  Sprachausgabe „Automatisch“ (macOS `say`, Windows SAPI, Linux Piper/espeak-ng) oder Cloud-Stimmen –
-  alles unter **Einstellungen → Stimme**.
+* Spracherkennung lokal mit faster-whisper (Modell wird beim ersten Mal geladen), über OpenRouter
+  (Whisper, ca. 1 s) oder per Cloud; Sprachausgabe „Automatisch“ = OpenRouter-Stimme, sobald ein
+  OpenRouter-Schlüssel hinterlegt ist (ElevenLabs Flash, Microsoft MAI mit deutschen Stimmen, Google),
+  sonst macOS `say`, Windows SAPI, Linux Piper/espeak-ng – alles unter **Einstellungen → Stimme**
+  mit Modell- und Stimmenliste, Preis je Minute und Knopf „Probe sprechen“.
+* **Flüssig:** Javit spricht, sobald der erste Satz der Antwort feststeht, während das Modell noch
+  schreibt (Streaming, erster Ton nach unter einer Sekunde). **„Stopp“** während der Ausgabe beendet
+  sie sofort (Stoppwort unter Einstellungen → Stimme, mehrere durch Komma); das Weckwort unterbricht
+  und nimmt direkt die nächste Frage auf.
+* **Audio im Browser:** Umschalter neben dem Mikrofon-Knopf (auf Handy/Tablet Standard an) – dann
+  nimmt der Browser auf und spielt die Antwort ab, der Kern kann auf einem anderen Rechner laufen.
+  Weckwort, Stoppwort und Push-to-talk funktionieren unverändert.
 * Freigaben lassen sich per Sprache beantworten („Ja“, „Mach das“ / „Nein“, „Abbrechen“).
 
 ### Name ändern

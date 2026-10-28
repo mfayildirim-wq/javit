@@ -333,3 +333,34 @@ mit pwsh geparst (nicht ausgeführt).
   (öffnen/umbenennen/löschen) und Gedächtnis mit Herkunft, Einzellöschung, Schalter „Automatisch merken“.
 - Tests: `test_unterhaltungen.py` (15), `test_gedaechtnis_pflege.py` (12), `unterhaltungen.test.tsx` (4);
   `test_websocket_ende_zu_ende` toleriert das Titel-Ereignis.
+
+## 28.10.2026 – Flüssige Stimme: Streaming, Stoppwort, Audio im Browser
+
+- Spezifikation `docs/superpowers/specs/2026-10-28-stimme-streaming-browser-design.md`, Plan
+  `docs/superpowers/plans/2026-10-28-stimme-streaming-browser.md`. Recherche live: OpenRouter bietet seit 5/2026
+  `/audio/speech` (PCM 24 kHz) und `/audio/transcriptions`; OpenAI-TTS dort nicht verfügbar. Gemessen (deutscher
+  Satz, 8 s Audio): ElevenLabs Flash v2.5 erster Byte 0,39 s, Microsoft MAI `de-DE-Klaus` 1,0 s, Gemini 2,4 s;
+  Whisper large v3 0,96 s. Entscheidung des Nutzers: OpenAI über OpenRouter, sonst lokal Piper → umgesetzt als
+  `auto` = OpenRouter mit Schlüssel, Standard ElevenLabs Flash.
+- Kern: `stimme/sprecher.py` (Satzstrom mit Abkürzungs-/Zahlen-Schutz, erster Satz sofort, kurze Folgesätze
+  verschmolzen; `OpenRouterTTS` streamt PCM, Stereo→Mono, Rate aus dem Content-Type; `LautsprecherZiel` über
+  `sounddevice.OutputStream` mit Rückstau 2 s; `BrowserZiel` Binärframes ≤ 9600 Bytes mit Spieldauer-Wartezeit;
+  `BrowserQuelle` über `Rahmenbildner`; `Sprecher`-Warteschlange mit zwei Synthesen voraus, Dateiweg für
+  say/SAPI/Piper/cloud; Modellkatalog `openrouter_sprachmodelle`). `StimmDienst`: `sprecher_beginnen/
+  sprecher_abschliessen` (Zustand `spricht` erst beim ersten Ton), `sprechen()` reiht in eine laufende Sitzung ein
+  (keine Verklemmung bei Freigabefragen), Stoppwort-Detektor (zweiter `VoskWeckwortDetektor`, lazy),
+  `quelle_setzen`/`ausgabe_setzen`; Dialog spricht nicht doppelt (`antwort=True`-Sitzungen). Agent: `sprecher`-Fabrik,
+  Deltas → Sitzung, `abschliessen` nach `antwort_ende`, `stoppen` bei Abbruch, `antwort_gesprochen`. Anwendung:
+  `browser_audio_start/daten/stop`, `stimme_probe`, `stimme_modelle`. Server: `ws.receive()` mit Binärframes,
+  `audio_start/audio_stop`, Sender je Verbindung, `/api/stimme/probe`, `/api/stimme/modelle`.
+- Oberfläche: `lib/audio.ts` (AudioWorklet aus Blob-URL, int16-Blöcke, lückenlose Wiedergabe, Fakes für Tests),
+  Socket binär, `audioBrowser` (localStorage, Standard an bei Touch-Geräten), Mikrofon-Knopf sendet
+  `audio_start` + `stimme`, Umschalter im Composer, Reducer `sprachausgabe` (Stoppwort-Hinweis), Einstellungen →
+  Stimme mit OpenRouter-Modellen/Stimmen, Preis je Minute, Stoppwort, „Probe sprechen“.
+- Stolpersteine: `Sprecher.warten_bis_leer` wartete ewig, weil das „leer“-Ereignis erst nach dem Blockieren in
+  `queue.get()` gesetzt wurde; Testmarker 54321 passte nicht in int16; `Satzstrom` erster Satz anfangs ab 12 Zeichen –
+  bestehende Tests erwarten den sofortigen kurzen ersten Satz (jetzt `min_erster=1`); Flag „Antwort schon
+  gesprochen“ darf nur von Antwort-Sitzungen gesetzt werden, sonst verschluckt der Dialog die Antwort nach
+  einer Rückfrage; `getByLabelText('Stimme')` kollidiert mit dem gleichnamigen Abschnitt (Selector eingrenzen).
+- Live am Mac (Port 8766, echte Schlüssel): Audio-Sitzung per WebSocket, Antwort als PCM-Binärframes (7 s,
+  erster Frame 0,9 s nach dem ersten Text), per Whisper gegengeprüft; Probe über Lautsprecher ok.

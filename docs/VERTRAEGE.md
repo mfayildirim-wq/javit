@@ -35,6 +35,8 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | POST | `/api/verzeichnisse/installieren` | `{quelle, kennung, werte?, name?}` – baut aus dem Treffer eine Integration (`mcp_url` mit OAuth/Kopfzeilen oder `mcp_befehl` per npx/uvx) und legt sie wie `POST /api/integrationen` an; 400 + `fehlend` bei fehlenden Pflichtfeldern, 400 bei nicht installierbaren Treffern |
 | GET | `/api/verlauf?limit=` | Nachrichten der **aktuellen** Unterhaltung `[{id, zeit, rolle: nutzer\|jarvis, inhalt}]` |
 | DELETE | `/api/verlauf` | leert nur die aktuelle Unterhaltung |
+| POST | `/api/stimme/probe` | `{text?}` – spricht einen Probesatz über den aktuellen Weg (Lautsprecher des Kerns oder Browser-Sitzung) → `{ok, art, modell, stimme, ziel: lautsprecher\|browser}`; 400 bei `tts: aus`, fehlendem OpenRouter-Schlüssel oder fehlendem Sprachmodul |
+| GET | `/api/stimme/modelle` | OpenRouter-Sprachmodelle `{tts: [{id, name, stimmen[], preis_je_1m_zeichen, standard_stimme}], stt: [{id, name}], fehler}` (10 min Cache; ohne Netz `tts: []` + `fehler`) |
 | GET | `/api/unterhaltungen` | alle Unterhaltungen, neueste zuerst `[{id, titel, titel_fest, erstellt, aktualisiert, zusammenfassung, nachbereitet, nachrichten, aktuell}]` |
 | POST | `/api/unterhaltungen` | `{titel?}` – neue Unterhaltung, wird aktuell (die verlassene wird im Hintergrund nachbereitet) → Unterhaltung; 400 bei ungültigem Titel (1–80 Zeichen) |
 | GET | `/api/unterhaltungen/{id}` | eine Unterhaltung; 404 |
@@ -72,6 +74,8 @@ Client → Server (JSON):
 | `abbrechen` | – |
 | `stimme` | `aktiv: bool` (Mikrofon/Weckwort an/aus) |
 | `zuhoeren` | – (Push-to-talk: einmal zuhören ohne Weckwort) |
+| `audio_start` | `rate` (Hz) – Audio im Browser: diese Verbindung liefert danach **Binärframes** (int16 mono, `rate`) als Mikrofon und erhält die Sprachausgabe als Binärframes; der Kern schaltet das Sprachmodul auf diese Quelle um (genau eine Sitzung je Kern, eine neue ersetzt die alte) |
+| `audio_stop` | – beendet die Audio-Sitzung (auch beim Trennen der Verbindung); das Sprachmodul bleibt danach aus, bis `stimme {aktiv: true}` es mit dem Mikrofon des Kerns neu startet |
 
 Server → Client:
 | typ | Felder |
@@ -88,6 +92,7 @@ Server → Client:
 | `integration_geaendert` | `integration` |
 | `oauth_anmeldung` | `integration`, `url` – Anmeldeseite wurde im Browser geöffnet; die Oberfläche zeigt den Link, falls kein Fenster aufging |
 | `fehler` | `text` |
+| `sprachausgabe` | `zustand: start` (`rate`, danach PCM-**Binärframes** int16 mono an die Verbindung mit Audio-Sitzung, ≤ 9600 Bytes je Frame) \| `ende` \| `gestoppt` (`grund?: stoppwort\|ersetzt`; Wiedergabe sofort verwerfen) – kommt nur bei einer Audio-Sitzung im Browser; am Lautsprecher des Kerns gibt es nur `zustand spricht` und `pegel` |
 | `unterhaltung` | `id`, `titel`, `grund` (`neu` \| `gewechselt` \| `geloescht` – die aktuelle Unterhaltung ist eine andere, die Oberfläche leert die Konsole und lädt `/api/verlauf`; `titel` – nur der Titel hat sich geändert, z. B. automatisch nach der ersten Antwort) |
 
 ## Integrationskatalog (`integrationen/katalog/*.yaml`)
@@ -170,6 +175,18 @@ oder `weckwort_modell_pfad` → `openwakeword`, sonst `vosk`) | `openwakeword` |
 `vosk-model-small-de-0.15`), `schwelle` (0..1, beide Engines). Eine Änderung dieser Felder per
 `PUT /api/einstellungen` startet ein laufendes Sprachmodul neu.
 
-Stimm-Einstellungen (`einstellungen.stimme`, Auszug): `tts` = `auto` (Standard: Mac `say`, Windows
-`sapi`, Linux `piper` mit Fallback `espeak`) | `say` | `sapi` | `piper` | `espeak` | `cloud` | `aus`.
-`say` wird außerhalb des Macs wie `auto` behandelt.
+Stimm-Einstellungen (`einstellungen.stimme`, Auszug): `tts` = `auto` (Standard: `openrouter`, sobald
+`OPENROUTER_API_KEY` hinterlegt ist; sonst Mac `say`, Windows `sapi`, Linux `piper` mit Fallback `espeak`)
+| `openrouter` | `say` | `sapi` | `piper` | `espeak` | `cloud` | `aus`. `say` wird außerhalb des Macs wie
+`auto` behandelt. `tts_openrouter_modell` (Standard `elevenlabs/eleven-flash-v2.5`), `tts_stimme` (leer =
+Standardstimme je Modell: ElevenLabs `daniel`, Microsoft MAI `de-DE-Klaus:…`, Google `Kore`), `stt` = `auto`
+(`openrouter` mit Schlüssel, sonst `lokal`) | `lokal` | `openrouter` | `cloud`, `stt_openrouter_modell`
+(Standard `openai/whisper-large-v3`), `stoppwort` (Komma-getrennt, Standard `stopp`, leer = aus).
+
+**Streaming-Sprachausgabe** (`stimme/sprecher.py`): Bei `sprechen: true` speist der Agent jedes Text-Delta
+in eine Sprechsitzung; fertige Sätze gehen sofort an die Synthese (bis zu zwei voraus), die Wiedergabe läuft als
+Warteschlange – `openrouter` als PCM-Strom (24 kHz) über `sounddevice` bzw. als Binärframes an den Browser, die
+anderen Arten dateiweise je Satz. Der Zustand `spricht` kommt mit dem ersten Ton. Das **Stoppwort** wird während
+`spricht` über einen zweiten Vosk-Abgleich erkannt (Schwelle `schwelle + 0,2`), bricht Ausgabe und Dialog ab
+(kein Folgefrage-Fenster) und sendet `sprachausgabe gestoppt`; das Weckwort unterbricht weiterhin
+(`unterbrechen`).
