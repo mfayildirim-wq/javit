@@ -152,6 +152,35 @@ Einstellung `buehne: {aktiv: true, hoehe: 0.45}`.
 * Sicherheit: Text nur als Text, Markdown ohne HTML, Bilder nur https/data:image, `openUrl` nur https und nach Klick,
   Kontextwerte nur aus Bindungen; keine Skripte, kein fremdes CSS (Stile sind reine Werte).
 
+## Stile im Detail
+
+* **Vordefiniert** (mitgeliefert, erweiterbar): `javit-dunkel`, `javit-hell`, `material-dunkel`, `material-hell`
+  (Material-3-Grundpaletten und -Rundungen), `neutral` (schlicht, schwarz/weiß/grau), `kompakt` (hohe Dichte,
+  kleine Schrift), `papier` (warm, hell, Serifen), `kontrast` (barrierearm, hohe Kontraste). Werte liegen als JSON im
+  Repo (`kern/jarvis/buehne/stile/*.json`); „aus dem Internet übernehmen“ = `buehne_stil_ableiten` mit URL, z. B.
+  m3.material.io oder eine beliebige App-Seite.
+* **Farbwähler**: Einstellungen → Bühne → Stil bearbeiten: jede Farbe (Primär, Akzent, Hintergrund, Fläche, Text,
+  Dezent, OK, Warnung, Fehler) mit Farbwähler (`<input type="color">` plus Hex-Feld), Schrift, Rundung, Abstand und
+  Dichte als Regler, Schema hell/dunkel; Vorschau mit einer Beispielfläche aktualisiert live; „Als neuen Stil
+  speichern“ oder „Überschreiben“. Kontrastprüfung Text/Hintergrund (WCAG) mit Hinweis.
+* **Per Chat**: „Mach die Immobilien-Fläche blauer“, „nimm den Material-Stil für GG“ → `buehne_stil_aendern(stil,
+  aenderungen)` bzw. `buehne_stil_zuweisen`; die KI leitet aus Worten wie „blauer“, „ruhiger“, „größer“ konkrete
+  Werte ab.
+
+## Generative App durch Kommunikation
+
+Das Wesentliche: Die Fläche einer App **wächst im Gespräch**. Jede Anfrage kann die Vorlage erweitern oder
+umbauen – „füge einen Filter nach Stadt hinzu“, „zeig die Deals als Kanban“, „pack einen Knopf ‚Exposé senden‘ dazu“.
+Dafür:
+
+* `buehne_vorlage_aendern` arbeitet auf der gespeicherten Vorlage (nicht auf dem Chatverlauf) und erzeugt eine
+  **neue Version**; die letzten 10 Versionen bleiben, „mach das rückgängig“ springt zurück (`buehne_vorlage_zurueck`).
+* Neue Aktionen auf Knöpfen werden beim ersten Klick zu Rezepten; so entsteht aus Liste + Detail + Aktionen nach
+  und nach eine kleine App je Integration, gespeichert und beim nächsten Mal sofort da.
+* Flächen können sich gegenseitig öffnen (Klick „Exposé“ → neue Fläche „Objekt“ mit eigener Vorlage).
+* Der Systemprompt nennt die Vorlagen der aktuell genutzten Integration mit ihren Aktionen, damit die KI an das
+  Bestehende anknüpft statt neu zu bauen; in den Einstellungen sind alle Vorlagen und Versionen sichtbar.
+
 ## Beispiele (Abnahme)
 
 1. „Zeige mir aktuelle Immobilien“ → `buehne_zeigen("gg_immobilien_vercel_test__read_collection", …)` → Vorlage
