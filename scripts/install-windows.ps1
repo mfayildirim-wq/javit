@@ -204,7 +204,7 @@ if (-not (Venv-Ok)) {
 if (-not (Venv-Ok)) { Abbruch "Python-Umgebung liess sich nicht anlegen. Details: $(Join-Path $JarvisDaten 'venv-fehler.log')" }
 & $VenvPython -m pip install --quiet --upgrade pip; Pruefe-Exit 'pip aktualisieren'
 Hinweis 'Installiere den Kern mit Sprachmodul (das dauert beim ersten Mal etwas) ...'
-& $VenvPython -m pip install --quiet -e "$Projekt\kern[stimme]"
+& $VenvPython -m pip install --quiet -e "$Projekt\kern[stimme,gedaechtnis]"
 if ($LASTEXITCODE -ne 0) {
     Warnung 'Installation mit Sprachmodul fehlgeschlagen - installiere den Kern ohne Sprachmodul.'
     & $VenvPython -m pip install --quiet -e "$Projekt\kern"; Pruefe-Exit 'pip install kern'

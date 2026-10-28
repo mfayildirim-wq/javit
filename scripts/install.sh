@@ -140,7 +140,7 @@ fi
 venv_ok || abbruch "pip fehlt weiterhin in $VENV. Bitte die Datei $JARVIS_DATEN/venv-fehler.log an Claude schicken."
 "$VENV/bin/python" -m pip install --quiet --upgrade pip
 hinweis "Installiere den Kern mit Sprachmodul (das dauert beim ersten Mal etwas) …"
-"$VENV/bin/python" -m pip install --quiet -e "$PROJEKT/kern[stimme]"
+"$VENV/bin/python" -m pip install --quiet -e "$PROJEKT/kern[stimme,gedaechtnis]"
 
 # ---------------------------------------------------------------- Oberfläche
 schritt "Oberfläche bauen"

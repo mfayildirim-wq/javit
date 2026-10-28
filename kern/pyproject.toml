@@ -38,6 +38,10 @@ stimme = [
     # Lokale Sprachausgabe unter Linux (Wheels für x86_64 und aarch64); Fallback espeak-ng
     "piper-tts>=1.2; sys_platform == 'linux'",
 ]
+# Lokale Einbettungen für das Gedächtnis ohne Ollama/Cloud (ONNX, Modell ca. 220 MB beim ersten Gebrauch)
+gedaechtnis = [
+    "fastembed>=0.4",
+]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",

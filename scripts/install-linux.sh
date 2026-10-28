@@ -218,7 +218,7 @@ fi
 venv_ok || abbruch "pip fehlt weiterhin in $VENV. Details: $JARVIS_DATEN/venv-fehler.log"
 "$VENV/bin/python" -m pip install --quiet --upgrade pip
 hinweis "Installiere den Kern mit Sprachmodul (inkl. Piper-Sprachausgabe; dauert beim ersten Mal etwas) …"
-if ! "$VENV/bin/python" -m pip install --quiet -e "$PROJEKT/kern[stimme]"; then
+if ! "$VENV/bin/python" -m pip install --quiet -e "$PROJEKT/kern[stimme,gedaechtnis]"; then
   warnung "Installation mit Sprachmodul fehlgeschlagen – installiere den Kern ohne Sprachmodul."
   "$VENV/bin/python" -m pip install --quiet -e "$PROJEKT/kern"
 fi

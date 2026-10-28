@@ -507,14 +507,15 @@ class Gedaechtnis:
             ).fetchall()]
         if not zeilen or not anfrage.strip():
             return []
-        modell = einbetter_modell(self._einbetten)
         anfrage_vektor = None
-        if self._einbetten and any(z["einbettung"] and z["einbettung_modell"] == modell for z in zeilen):
+        if self._einbetten and any(z["einbettung"] for z in zeilen):
             try:
                 vektoren = await self._einbetten([anfrage])
             except Exception:  # noqa: BLE001
                 vektoren = None
             anfrage_vektor = vektoren[0] if vektoren else None
+        # Erst jetzt lesen: eine Einbetter-Kette kennt ihr Modell nach dem ersten erfolgreichen Aufruf
+        modell = einbetter_modell(self._einbetten)
         fts = self._fts_werte(anfrage)
         anfrage_woerter = _woerter(anfrage)
         bewertet = []

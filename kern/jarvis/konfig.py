@@ -194,6 +194,8 @@ class Einstellungen(BaseModel):
     verzeichnisse_eigene: list[dict[str, Any]] = Field(default_factory=list)
     port: int = 8765
     verlauf_kontext: int = 10
+    # Unterhaltungen beim Verlassen zusammenfassen, dauerhafte Fakten merken, Titel erzeugen
+    gedaechtnis_automatisch: bool = True
     stimme: StimmEinstellungen = Field(default_factory=StimmEinstellungen)
 
     @model_validator(mode="before")
