@@ -18,9 +18,9 @@ from jarvis.stimme.sprecher import BrowserQuelle, BrowserZiel, OpenRouterTTS, Sa
 # ---------------------------------------------------------------- Satzstrom
 def test_satzstrom_grenzen_und_rest():
     s = Satzstrom()
-    assert s.einspeisen("Guten Tag. ") == []  # erster Satz erst ab 12 Zeichen
-    assert s.einspeisen("Die Reise ist gebucht. Soll ich") == ["Guten Tag. Die Reise ist gebucht."]
-    assert s.einspeisen(" das Hotel reservieren? Ja") == ["Soll ich das Hotel reservieren?"]
+    assert s.einspeisen("Guten Tag. ") == []  # Satzende steht erst fest, wenn der nächste Satz beginnt
+    assert s.einspeisen("Die Reise ist gebucht. Soll ich") == ["Guten Tag."]  # kurzer Satz wartet (< 25 Zeichen)
+    assert s.einspeisen(" das Hotel reservieren? Ja") == ["Die Reise ist gebucht. Soll ich das Hotel reservieren?"]
     assert s.abschliessen() == "Ja"
     assert s.abschliessen() is None
 

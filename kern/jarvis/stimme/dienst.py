@@ -28,8 +28,9 @@ from .audio import AudioQuelle, MikrofonQuelle
 from .einstellungen import StimmEinstellungen
 from .fehler import StimmFehler, hinweis_mikrofon_rechte, kurz
 from .stt import erzeuge_stt
-from .text import fuer_sprache, in_saetze
-from .tts import Abspieler, _plattform, aufraeumen, erzeuge_tts, temp_verzeichnis, ton_datei
+from .sprecher import Ausgabeziel, LautsprecherZiel, Sprecher
+from .text import fuer_sprache
+from .tts import Abspieler, _plattform, erzeuge_tts, ton_datei
 from .vad import ABTASTRATE, RAHMEN, Sprachpausenerkenner, erzeuge_vad, pegel_anzeige
 from .weckwort import detektor_schluessel, erzeuge_detektor
 
@@ -75,6 +76,8 @@ class StimmDienst:
         tts=None,
         abspieler=None,
         ton: Callable[[], Any] | None = None,
+        stopp_detektor=None,
+        ausgabeziel: Ausgabeziel | Callable[[], Ausgabeziel] | None = None,
     ):
         self._einstellungs_quelle = einstellungen
         self._ereignis = ereignis
@@ -87,6 +90,14 @@ class StimmDienst:
         self._tts_cache: tuple[tuple, Any] | None = None
         self._abspieler = abspieler or Abspieler()
         self._ton = ton
+        # Streaming-Sprachausgabe (sprecher.py): laufende Sitzung, Ausgabeziel (Lautsprecher/Browser), Stoppwort
+        self._sprecher: Sprecher | None = None
+        self._ziel_vorgabe = ausgabeziel
+        self._stopp_detektor = stopp_detektor
+        self._stopp_detektor_vorgegeben = stopp_detektor is not None
+        self._stopp_detektor_schluessel: tuple | None = None
+        self._stoppwort_ausgeloest = False
+        self._gesprochen_in_anfrage = False
 
         self._loop: asyncio.AbstractEventLoop | None = None
         self._quelle: AudioQuelle | None = None
@@ -174,6 +185,12 @@ class StimmDienst:
             return
         if self._loop is None:
             self._loop = asyncio.get_running_loop()
+        laufend = self._sprecher
+        if laufend is not None and not laufend.gestoppt:
+            # Eine Sitzung spricht gerade (z. B. der Agent streamt): Text einreihen und warten, bis er gesprochen ist
+            laufend.einspeisen(text + " ")
+            await laufend.warten_bis_leer()
+            return
         fremd = self._dialog_laeuft() and asyncio.current_task() is not self._dialog_task
         if fremd and self._modus is Modus.AUFNAHME:
             self._aufnahme_beenden(None)  # z. B. offenes Folgefrage-Fenster schließen
@@ -235,8 +252,12 @@ class StimmDienst:
         self._loop = asyncio.get_running_loop()
         if self._modus is Modus.AUFNAHME:
             return None
-        async with self._sprech_lock:
-            pass  # eine laufende Ausgabe erst zu Ende sprechen lassen
+        laufend = self._sprecher
+        if laufend is not None and not laufend.gestoppt:
+            await laufend.warten_bis_leer()  # laufende Ausgabe erst zu Ende sprechen lassen
+        else:
+            async with self._sprech_lock:
+                pass
         e = self.einstellungen
         warte_s = float(warte_s or e.warte_auf_sprache_s)
         temporaer = False
@@ -413,6 +434,13 @@ class StimmDienst:
                     await self._weckwort_erkannt()
         elif modus is Modus.SPRICHT:
             e = self.einstellungen
+            if self._stopp_detektor is not None and await self._stoppwort_score(rahmen) >= min(e.schwelle + 0.2, 0.95):
+                log.info("Stoppwort erkannt – Ausgabe wird abgebrochen")
+                self._stoppwort_ausgeloest = True
+                self._unterbrochen = False
+                self._ausgabe_stoppen()
+                await self._senden({"typ": "sprachausgabe", "zustand": "gestoppt", "grund": "stoppwort"})
+                return
             if e.unterbrechen and self._weckwort_an:
                 # Barge-in mit erhöhter Schwelle, damit die eigene Stimme nicht auslöst
                 if await self._weckwort_score(rahmen) >= min(e.schwelle + 0.2, 0.95):
@@ -435,6 +463,51 @@ class StimmDienst:
             log.exception("Weckwort-Erkennung")
             await self._fehler(f"Weckwort-Erkennung ausgefallen ({kurz(exc)}). Bitte Sprache aus- und wieder einschalten.")
         return 0.0
+
+    async def _stoppwort_score(self, rahmen: np.ndarray) -> float:
+        detektor = self._stopp_detektor
+        if detektor is None:
+            return 0.0
+        try:
+            loop = asyncio.get_running_loop()
+            return float(await loop.run_in_executor(self._executor, detektor.pruefen, rahmen))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Stoppwort-Erkennung ausgefallen: %s", kurz(exc))
+            self._stopp_detektor = None
+            return 0.0
+
+    async def _stoppwort_laden(self, e: StimmEinstellungen) -> None:
+        """Zweiter Vosk-Abgleich für das Stoppwort (lazy beim ersten Sprechen; leer = aus)."""
+        if self._stopp_detektor_vorgegeben:
+            return
+        woerter = [w.strip() for w in (e.stoppwort or "").split(",") if w.strip()]
+        schluessel = (tuple(woerter), e.vosk_modell, e.modell_verzeichnis)
+        if not woerter:
+            self._stopp_detektor = None
+            self._stopp_detektor_schluessel = schluessel
+            return
+        if self._stopp_detektor is not None and self._stopp_detektor_schluessel == schluessel:
+            return
+        self._stopp_detektor_schluessel = schluessel
+        try:
+            from .weckwort_vosk import VoskWeckwortDetektor  # noqa: PLC0415
+
+            detektor = VoskWeckwortDetektor(
+                ", ".join(woerter),
+                varianten=["stop", "stopp", "halt", "stopp jetzt", "sei still"],
+                verzeichnis=Path(e.modell_verzeichnis) / "vosk",
+                modell=e.vosk_modell,
+                schwelle=e.schwelle,
+                sha256=e.vosk_modell_sha256,
+            )
+            await asyncio.to_thread(detektor.laden)
+            self._stopp_detektor = detektor
+        except StimmFehler as f:
+            self._stopp_detektor = None
+            await self._fehler(f"Stoppwort nicht verfügbar: {f.text}")
+        except Exception as exc:  # noqa: BLE001
+            self._stopp_detektor = None
+            log.warning("Stoppwort-Detektor konnte nicht geladen werden: %s", kurz(exc))
 
     async def _detektor_zuruecksetzen(self) -> None:
         if self._detektor is None:
@@ -527,6 +600,8 @@ class StimmDienst:
                 erster_text = erster_text or text
                 await self._senden({"typ": "transkript", "text": text, "final": True})
                 await self._zustand("denkt")
+                self._gesprochen_in_anfrage = False
+                self._stoppwort_ausgeloest = False
                 try:
                     antwort = await self._anfrage(text)
                 except asyncio.CancelledError:
@@ -535,10 +610,13 @@ class StimmDienst:
                     log.exception("Anfrage fehlgeschlagen")
                     await self._fehler(f"Die Anfrage konnte nicht bearbeitet werden: {kurz(exc)}")
                     break
-                self._unterbrochen = False
-                if antwort and str(antwort).strip():
-                    await self._sprechen_intern(str(antwort))
-                if self._quelle is None:
+                if self._gesprochen_in_anfrage:
+                    pass  # der Agent hat die Antwort bereits während der Anfrage gesprochen (Streaming)
+                else:
+                    self._unterbrochen = False
+                    if antwort and str(antwort).strip():
+                        await self._sprechen_intern(str(antwort))
+                if self._quelle is None or self._stoppwort_ausgeloest:
                     break
                 e = self.einstellungen
                 if self._unterbrochen:  # Barge-in: sofort neue Frage aufnehmen
@@ -619,58 +697,104 @@ class StimmDienst:
     # ------------------------------------------------------------------------------------
     # Sprachausgabe
     # ------------------------------------------------------------------------------------
-    async def _sprechen_intern(self, text: str) -> None:
+    def _ziel_erzeugen(self) -> Ausgabeziel:
+        v = self._ziel_vorgabe
+        if v is None:
+            return LautsprecherZiel(pegel=self._pegel)
+        if callable(v) and not hasattr(v, "start"):
+            return v()
+        return v
+
+    def ausgabe_setzen(self, ziel: Ausgabeziel | Callable[[], Ausgabeziel] | None) -> None:
+        """Ausgabeziel wechseln: ``None`` = Lautsprecher, sonst z. B. ``BrowserZiel``."""
+        self._ziel_vorgabe = ziel
+
+    async def quelle_setzen(self, quelle: AudioQuelle | None, starten: bool | None = None) -> None:
+        """Audioquelle wechseln (``None`` = Mikrofon). ``starten``: None = wie vorher, sonst an/aus."""
+        async with self._start_lock:
+            war_an = self.aktiv
+            await self._stoppen_intern()
+            self._audioquelle_vorgabe = quelle
+        if starten if starten is not None else war_an:
+            await self.start()
+
+    async def sprecher_beginnen(self, antwort: bool = False) -> Sprecher | None:
+        """Streaming-Sitzung: Text-Deltas mit ``einspeisen`` nachreichen, am Ende ``sprecher_abschliessen``.
+        ``antwort=True`` = der Agent spricht die Antwort selbst (der Dialog liest sie dann nicht erneut vor).
+        Ohne Sprachausgabe (``tts=aus``) ``None``."""
         tts = self._tts_holen()
         if tts is None:
-            return
+            return None
+        if self._loop is None:
+            self._loop = asyncio.get_running_loop()
+        laufend = self._sprecher
+        if laufend is not None and not laufend.gestoppt:
+            await laufend.warten_bis_leer()
+        await self._sprech_lock.acquire()
+        try:
+            e = self.einstellungen
+            self._stopp.clear()
+            self._stoppwort_ausgeloest = False
+            await self._stoppwort_laden(e)
+            vorher = self._modus
+            sprecher = Sprecher(
+                tts,
+                self._ziel_erzeugen(),
+                abspieler=self._abspieler,
+                pegel=self._pegel,
+                stopp=self._stopp,
+                fehler=lambda t: self._im_hintergrund(self._fehler(t)),
+                bei_start=lambda: self._ausgabe_beginnt(vorher),
+            )
+            sprecher.modus_vorher = vorher  # type: ignore[attr-defined]
+            sprecher.ist_antwort = antwort  # type: ignore[attr-defined]
+            await sprecher.beginnen()
+            self._sprecher = sprecher
+            return sprecher
+        except BaseException:
+            self._sprech_lock.release()
+            raise
+
+    async def _ausgabe_beginnt(self, vorher: Modus) -> None:
+        """Erster Ton: Zustand „spricht“ (Stoppwort/Barge-in werden ab jetzt geprüft)."""
+        self._modus = Modus.SPRICHT
+        await self._detektor_zuruecksetzen()
+        await self._zustand("spricht")
+
+    async def sprecher_abschliessen(self, sprecher: Sprecher) -> None:
+        """Wartet, bis alles gesprochen ist, und räumt die Sitzung auf."""
+        vorher = getattr(sprecher, "modus_vorher", self._modus)
+        try:
+            await sprecher.abschliessen()
+        finally:
+            if self._sprecher is sprecher:
+                self._sprecher = None
+            if sprecher.gesprochen and getattr(sprecher, "ist_antwort", False):
+                self._gesprochen_in_anfrage = True
+            # Selbsthören-Schutz: alles, was während der Ausgabe aufgenommen wurde, verwerfen
+            self._rahmen_leeren()
+            await self._detektor_zuruecksetzen()
+            if self._loop is not None:
+                self._ignoriere_bis = self._loop.time() + self.nachlauf_s
+            if self._modus is Modus.SPRICHT:
+                self._modus = Modus.BESCHAEFTIGT if vorher is not Modus.AUS else Modus.AUS
+            self._sprech_lock.release()
+
+    async def _sprechen_intern(self, text: str) -> None:
         sauber = fuer_sprache(text)
         if not sauber:
             return
-        async with self._sprech_lock:
-            vorher = self._modus
-            self._modus = Modus.SPRICHT
-            self._stopp.clear()
-            await self._detektor_zuruecksetzen()
-            await self._zustand("spricht")
-            verzeichnis = temp_verzeichnis()
-            naechste: asyncio.Task | None = None
-            try:
-                stuecke = in_saetze(sauber)
-                naechste = asyncio.create_task(tts.synthetisieren(stuecke[0], str(Path(verzeichnis) / "teil0")))
-                for i in range(len(stuecke)):
-                    pfad = await naechste
-                    naechste = None
-                    if i + 1 < len(stuecke):
-                        naechste = asyncio.create_task(
-                            tts.synthetisieren(stuecke[i + 1], str(Path(verzeichnis) / f"teil{i + 1}"))
-                        )
-                    if self._stopp.is_set():
-                        break
-                    await self._abspieler.abspielen(pfad, pegel=self._pegel, stopp=self._stopp)
-                    if self._stopp.is_set():
-                        break
-            except StimmFehler as f:
-                await self._fehler(f.text)
-            except asyncio.CancelledError:
-                self._abspieler.abbrechen()
-                raise
-            except Exception as exc:  # noqa: BLE001
-                log.exception("Sprachausgabe")
-                await self._fehler(f"Sprachausgabe fehlgeschlagen: {kurz(exc)}")
-            finally:
-                if naechste is not None and not naechste.done():
-                    naechste.cancel()
-                aufraeumen(verzeichnis)
-                # Selbsthören-Schutz: alles, was während der Ausgabe aufgenommen wurde, verwerfen
-                self._rahmen_leeren()
-                await self._detektor_zuruecksetzen()
-                if self._loop is not None:
-                    self._ignoriere_bis = self._loop.time() + self.nachlauf_s
-                if self._modus is Modus.SPRICHT:
-                    self._modus = Modus.BESCHAEFTIGT if vorher is not Modus.AUS else Modus.AUS
+        sprecher = await self.sprecher_beginnen()
+        if sprecher is None:
+            return
+        sprecher.einspeisen(sauber)
+        await self.sprecher_abschliessen(sprecher)
 
     def _ausgabe_stoppen(self) -> None:
         self._stopp.set()
+        sprecher = self._sprecher
+        if sprecher is not None:
+            sprecher.stoppen()
         try:
             self._abspieler.abbrechen()
         except Exception:  # noqa: BLE001

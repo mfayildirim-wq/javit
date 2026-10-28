@@ -453,3 +453,161 @@ async def test_antwort_abhoeren_ohne_mikrofon_und_ohne_sprache(protokoll):
     assert await asyncio.wait_for(aufgabe, 3) is None
     assert t.quelle.gestoppt == 1 and t.dienst.modus == "aus"
     assert protokoll.zustaende() == ["hoert", "bereit"]
+
+
+# ---------------------------------------------------------------- Streaming-Sprecher, Stoppwort, Quelle/Ziel
+STOPP_MARKER = 23456
+
+
+def rahmen_stoppwort() -> np.ndarray:
+    r = rahmen_stille(1, seed=77)[0]
+    r[0] = STOPP_MARKER
+    return r
+
+
+class FakeStoppDetektor:
+    def __init__(self):
+        self.geprueft = 0
+
+    def pruefen(self, rahmen) -> float:
+        self.geprueft += 1
+        return 0.99 if int(rahmen[0]) == STOPP_MARKER else 0.0
+
+    def zuruecksetzen(self):
+        pass
+
+
+class StromTTS:
+    rate = 24000
+
+    def __init__(self, verzoegerung: float = 0.0):
+        self.texte: list[str] = []
+        self.verzoegerung = verzoegerung
+
+    async def strom(self, text: str):
+        self.texte.append(text)
+        await asyncio.sleep(self.verzoegerung)
+        yield text.encode()
+
+    async def synthetisieren(self, text: str, ziel: str) -> str:
+        raise AssertionError("Stream-Weg erwartet")
+
+
+class FakeZiel:
+    def __init__(self):
+        self.daten: list[bytes] = []
+        self.gestartet = 0
+        self.beendet = 0
+        self.gestoppt = 0
+
+    async def start(self, rate: int) -> None:
+        self.gestartet += 1
+
+    async def schreiben(self, pcm: bytes) -> None:
+        self.daten.append(pcm)
+        await asyncio.sleep(0.02)  # „Abspielen“
+
+    async def leer(self) -> None:
+        return None
+
+    async def ende(self) -> None:
+        self.beendet += 1
+
+    def stoppen(self) -> None:
+        self.gestoppt += 1
+
+
+async def test_sprechen_streamt_ueber_ziel(protokoll):
+    ziel = FakeZiel()
+    t = baue(protokoll, tts=StromTTS(), ausgabeziel=ziel)
+    await t.dienst.sprechen("Hallo Welt. Zweiter Satz folgt hier.")
+    assert b"".join(ziel.daten).decode() == "Hallo Welt.Zweiter Satz folgt hier."
+    assert ziel.gestartet == 1 and ziel.beendet == 1 and ziel.gestoppt == 0
+    assert protokoll.zustaende() == ["spricht", "bereit"]
+    assert any(e["typ"] == "pegel" for e in protokoll.ereignisse) is False  # Pegel liefert das Ziel selbst
+
+
+async def test_sprecher_sitzung_zustand_erst_beim_ersten_ton(protokoll):
+    ziel = FakeZiel()
+    t = baue(protokoll, tts=StromTTS(verzoegerung=0.03), ausgabeziel=ziel)
+    sp = await t.dienst.sprecher_beginnen(antwort=True)
+    assert sp is not None and protokoll.zustaende() == []
+    sp.einspeisen("Erster Satz ist da. Zwei")
+    sp.einspeisen("ter Satz kommt gleich. ")
+    await asyncio.sleep(0.05)
+    assert protokoll.zustaende() == ["spricht"] and t.dienst.modus == "spricht"
+    # Rückfrage mitten in der Sitzung: wird eingereiht, kein zweiter Sprecher
+    await t.dienst.sprechen("Soll ich weitermachen?")
+    await t.dienst.sprecher_abschliessen(sp)
+    assert b"".join(ziel.daten).decode() == "Erster Satz ist da.Zweiter Satz kommt gleich.Soll ich weitermachen?"
+    assert t.dienst.modus == "aus" and ziel.beendet == 1
+
+
+async def test_stoppwort_bricht_ausgabe_ab(protokoll):
+    ziel = FakeZiel()
+    stopp = FakeStoppDetektor()
+    t = baue(protokoll, tts=StromTTS(verzoegerung=0.03), ausgabeziel=ziel, stopp_detektor=stopp)
+    await t.dienst.start()
+    aufgabe = asyncio.create_task(
+        t.dienst.sprechen("Erster Satz ist lang genug. Zweiter Satz auch noch. Dritter Satz kommt. Vierter Satz zum Schluss.")
+    )
+    await warte_bis(lambda: t.dienst.modus == "spricht")
+    await t.quelle.senden([rahmen_stoppwort()])
+    await asyncio.wait_for(aufgabe, 3)
+    assert stopp.geprueft >= 1 and ziel.gestoppt == 1 and ziel.beendet == 0
+    assert {"typ": "sprachausgabe", "zustand": "gestoppt", "grund": "stoppwort"} in protokoll.ereignisse
+    assert len(ziel.daten) < 4
+    assert protokoll.zustaende()[-1] == "bereit" and t.dienst.aktiv
+    await t.dienst.stop()
+
+
+async def test_stoppwort_im_dialog_ohne_folgemodus(protokoll):
+    ziel = FakeZiel()
+    t = baue(
+        protokoll,
+        {"folgemodus_s": 5.0},
+        tts=StromTTS(verzoegerung=0.03),
+        ausgabeziel=ziel,
+        stopp_detektor=FakeStoppDetektor(),
+        anfrage=lambda text: asyncio.sleep(0, "Erster Satz ist lang genug. Zweiter Satz auch noch. Dritter Satz kommt."),
+    )
+    await t.dienst.start()
+    await weckwort_sagen(t)
+    await t.quelle.senden(aeusserung())
+    await warte_bis(lambda: t.dienst.modus == "spricht")
+    await t.quelle.senden([rahmen_stoppwort()])
+    await warte_bis(lambda: protokoll.zustaende()[-1] == "bereit" and not t.dienst.hoert)
+    assert ziel.gestoppt == 1 and protokoll.zustaende().count("hoert") == 1  # kein Folgefrage-Fenster
+    await t.dienst.stop()
+
+
+async def test_dialog_spricht_antwort_nicht_doppelt(protokoll):
+    ziel = FakeZiel()
+    holder = {}
+
+    async def anfrage_streamt(text):
+        dienst = holder["t"].dienst
+        sp = await dienst.sprecher_beginnen(antwort=True)
+        sp.einspeisen("Die Antwort kommt gestreamt.")
+        await dienst.sprecher_abschliessen(sp)
+        return "Die Antwort kommt gestreamt."
+
+    t = baue(protokoll, tts=StromTTS(), ausgabeziel=ziel, anfrage=anfrage_streamt)
+    holder["t"] = t
+    await t.dienst.start()
+    await weckwort_sagen(t)
+    await t.quelle.senden(aeusserung())
+    await warte_bis(lambda: protokoll.zustaende()[-1] == "bereit" and ziel.beendet == 1)
+    assert b"".join(ziel.daten).decode() == "Die Antwort kommt gestreamt."
+    assert protokoll.zustaende() == ["bereit", "hoert", "denkt", "spricht", "bereit"]
+    await t.dienst.stop()
+
+
+async def test_quelle_setzen_wechselt_mikrofon(protokoll):
+    t = baue(protokoll)
+    await t.dienst.start()
+    neu = FakeQuelle()
+    await t.dienst.quelle_setzen(neu)
+    assert t.quelle.gestoppt == 1 and neu.gestartet == 1 and t.dienst.aktiv
+    await t.dienst.quelle_setzen(None, starten=False)
+    assert neu.gestoppt == 1 and not t.dienst.aktiv and t.dienst.modus == "aus"

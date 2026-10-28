@@ -58,11 +58,11 @@ _GRENZE = re.compile(r"[.!?…]+[\"“»)\]]?\s+(?=[A-ZÄÖÜ0-9\"„(«])")
 class Satzstrom:
     """Sammelt Text-Deltas und gibt fertige Sätze frei.
 
-    Der erste Satz kommt ab ``min_erster`` Zeichen, danach werden sehr kurze Sätze (< ``min_laenge``)
+    Der erste Satz kommt sofort (schneller Start), danach werden sehr kurze Sätze (< ``min_laenge``)
     mit dem nächsten verschmolzen, damit die Synthese nicht mit Schnipseln hantiert.
     """
 
-    def __init__(self, min_erster: int = 12, min_laenge: int = 25):
+    def __init__(self, min_erster: int = 1, min_laenge: int = 25):
         self.min_erster = min_erster
         self.min_laenge = min_laenge
         self._puffer = ""
@@ -281,9 +281,13 @@ class LautsprecherZiel:
         while self._offen > self._rate * 2 * 2 and not self._gestoppt:
             await asyncio.sleep(0.05)
 
-    async def ende(self) -> None:
+    async def leer(self) -> None:
+        """Wartet, bis der Puffer abgespielt ist (Strom bleibt offen)."""
         while self._offen > 0 and not self._gestoppt:
             await asyncio.sleep(0.02)
+
+    async def ende(self) -> None:
+        await self.leer()
         await asyncio.sleep(0.1)  # Latenz des Geräts
         await self._schliessen()
 
@@ -362,12 +366,15 @@ class BrowserZiel:
         if vorsprung > 0:
             await self._schlaf(vorsprung)
 
+    async def leer(self) -> None:
+        rest = self._gespielt_bis - self._uhr()
+        if rest > 0 and not self._gestoppt:
+            await self._schlaf(rest)
+
     async def ende(self) -> None:
         if self._gestoppt:
             return
-        rest = self._gespielt_bis - self._uhr()
-        if rest > 0:
-            await self._schlaf(rest)
+        await self.leer()
         if self._pegel is not None:
             await self._pegel(0.0)
         await self._sender({"typ": "sprachausgabe", "zustand": "ende"})
@@ -426,6 +433,7 @@ class Sprecher:
         stopp: asyncio.Event | None = None,
         fehler: Callable[[str], Any] | None = None,
         voraus: int = 2,
+        bei_start: Callable[[], Awaitable[None]] | None = None,
     ):
         self.tts = tts
         self.ziel = ziel
@@ -442,6 +450,9 @@ class Sprecher:
         self.gesprochen = False
         self.gestoppt = False
         self.streamt = False
+        self._bei_start = bei_start
+        self._leer = asyncio.Event()
+        self._leer.set()
 
     async def beginnen(self) -> None:
         self.stopp.clear()
@@ -457,7 +468,19 @@ class Sprecher:
     def _reihen(self, satz: str) -> None:
         sauber = fuer_sprache(satz)
         if sauber:
+            self._leer.clear()
             self._saetze.put_nowait(sauber)
+
+    async def warten_bis_leer(self) -> None:
+        """Wartet, bis alle eingereihten Sätze synthetisiert, geschrieben und abgespielt sind."""
+        rest = self._strom.abschliessen()
+        if rest and not self.gestoppt:
+            self._reihen(rest)
+        await self._leer.wait()
+        if self.streamt and self.ziel is not None and not self.gestoppt:
+            leer = getattr(self.ziel, "leer", None)
+            if leer is not None:
+                await leer()
 
     async def abschliessen(self) -> None:
         rest = self._strom.abschliessen()
@@ -524,6 +547,8 @@ class Sprecher:
                         except asyncio.QueueEmpty:
                             break
                     else:
+                        if self._saetze.empty():
+                            self._leer.set()  # nichts in Arbeit, nichts eingereiht: alles gesprochen
                         satz = await self._saetze.get()
                     if satz is None:
                         zu_ende = True
@@ -533,6 +558,7 @@ class Sprecher:
                     self._laufende.append(aufgabe)
                     warte.append((satz, aufgabe))
                 if not warte:
+                    self._leer.set()
                     if zu_ende:
                         break
                     continue
@@ -555,6 +581,8 @@ class Sprecher:
                         self._laufende.remove(aufgabe)
                 if self.gestoppt:
                     break
+                if not self.gesprochen and self._bei_start is not None:
+                    await self._bei_start()
                 self.gesprochen = True
                 if self.streamt:
                     await self.ziel.schreiben(ergebnis)  # type: ignore[union-attr]
@@ -566,6 +594,7 @@ class Sprecher:
             self.stoppen()
             raise
         finally:
+            self._leer.set()
             for t in self._laufende:
                 t.cancel()
             self._laufende.clear()
