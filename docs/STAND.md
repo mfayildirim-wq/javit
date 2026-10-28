@@ -55,6 +55,8 @@ Stand: Oktober 2026 (Version 0.1.0, mit Windows-/Linux-Unterstützung; Assistent
   Medientasten, Clipboard, Bildschirmfoto mit DPI, Systeminfo, Windows-Suchindex via ADODB,
   VisualBasic-Papierkorb) und SAPI-Sprachausgabe; `winsound`-Wiedergabe; keyring mit der
   Anmeldeinformationsverwaltung; `jarvis start` (Proactor-Loop, UTF-8-Konsole), `npx.cmd` für MCP.
+  Bekannt und behoben (28.10.2026): schwarze Oberfläche, weil `mimetypes` aus der Registry `text/plain`
+  für `.js` lieferte – der Server setzt die MIME-Typen jetzt selbst (`server.MIME_TYPEN`).
 * **Linux-Desktop**: `install-linux.sh` auf Ubuntu/Fedora/Arch/openSUSE, `autostart-linux.sh`
   (systemd --user), `gtk-launch`, `notify-send` mit echtem Benachrichtigungsdienst, `wpctl`/`pactl`
   mit echtem Audio, `playerctl` mit Spotify, Wayland (`wl-clipboard`, `grim`, `gnome-screenshot`,

@@ -10,6 +10,20 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Ohne Modul-Skript (z. B. falscher MIME-Typ, alter Browser, Skriptfehler) bliebe die Seite schwarz –
+      // nach kurzer Wartezeit einen lesbaren Hinweis zeigen statt einer leeren Fläche.
+      setTimeout(function () {
+        var wurzel = document.getElementById('root');
+        if (wurzel && wurzel.childElementCount === 0) {
+          wurzel.innerHTML =
+            '<div style="font:15px/1.5 system-ui,sans-serif;color:#dbe7f3;background:#04080f;min-height:100vh;padding:32px;box-sizing:border-box">' +
+            '<p><strong>Die Oberfläche konnte nicht geladen werden.</strong></p>' +
+            '<p>Bitte die Seite neu laden (Strg+F5). Bleibt es dabei, die Browser-Konsole (F12 → Konsole) prüfen und die Meldung melden.</p>' +
+            '<p>Der Kern antwortet unter <a href="/api/status" style="color:#7fe8ff">/api/status</a>.</p></div>';
+        }
+      }, 4000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

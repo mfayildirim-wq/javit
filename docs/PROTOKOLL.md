@@ -292,3 +292,18 @@ mit pwsh geparst (nicht ausgeführt).
   Freigabedialog nennt den Bereich.
 - Tests: `tests/test_freigaben.py` (5), `freigaben.test.tsx` (2); E2E „Mini Test“ bekommt `bereich: technisch`,
   sonst bräuchte `echo` (ändern, fachlich) jetzt eine Freigabe – genau die neue Regel.
+
+## 28.10.2026 – Schwarze Oberfläche unter Windows: MIME-Typen
+
+- Befund (Nutzer: Windows-Installation zeigt nur eine schwarze Seite): Pythons `mimetypes.init()` liest unter
+  Windows die Registry (`HKCR\.js` → „Content Type“) und überschreibt damit den eingebauten Wert
+  `text/javascript`; auf vielen Rechnern steht dort `text/plain`. Starlettes `FileResponse` übernimmt das,
+  Browser verweigern Modul-Skripte mit falschem MIME-Typ, React startet nie – wegen `color-scheme: dark`
+  bleibt die Seite schwarz. Unter Linux hängt das Ergebnis von `/etc/mime.types` ab (dort üblicherweise korrekt).
+- Behebung: `server.MIME_TYPEN`/`mime_typ()` – feste Typen für die Vite-Ausgabe (js/mjs/css/svg/woff2/json …),
+  `index.html` immer `text/html`; Test `test_oberflaeche_mime_typen_unabhaengig_vom_system` (gefälschtes
+  `guess_type` → `text/plain`). Live am Mac geprüft (GET der Assets auf Port 8766).
+- Zusätzlich zeigt `index.html` nach 4 s einen lesbaren Hinweis (Neu laden, F12-Konsole, `/api/status`), falls
+  das Modul-Skript nicht läuft – statt einer leeren schwarzen Fläche.
+- Linux-Skripte (`install-linux.sh`, `autostart-linux.sh`) gegengelesen: keine Auffälligkeit; die feste
+  MIME-Tabelle gilt dort ebenso.

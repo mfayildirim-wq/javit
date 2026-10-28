@@ -38,6 +38,32 @@ def oberflaeche_pfad() -> Path:
     return Path(__file__).resolve().parents[2] / "oberflaeche" / "dist"
 
 
+# Feste MIME-Typen für die Vite-Ausgabe. Pythons mimetypes liest unter Windows die Registry und
+# liefert für .js dort häufig „text/plain“ – Browser verweigern dann das Modul-Skript und die
+# Oberfläche bleibt schwarz. Unter Linux hängt das Ergebnis von /etc/mime.types ab.
+MIME_TYPEN = {
+    ".html": "text/html",
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".map": "application/json",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".wasm": "application/wasm",
+    ".webmanifest": "application/manifest+json",
+    ".txt": "text/plain",
+}
+
+
+def mime_typ(pfad: Path) -> str | None:
+    return MIME_TYPEN.get(pfad.suffix.lower())
+
+
 # Nur diese Host-Namen werden akzeptiert (Schutz gegen DNS-Rebinding: eine fremde Domain, die auf
 # 127.0.0.1 zeigt, hätte sonst Lesezugriff auf Verlauf, Gedächtnis und Einstellungen).
 ERLAUBTE_HOSTS = frozenset({"127.0.0.1", "localhost", "[::1]"})
@@ -462,10 +488,10 @@ def create_app(
             )
         datei = (dist / pfad).resolve()
         if pfad and datei.is_file() and dist.resolve() in datei.parents:
-            return FileResponse(datei)
+            return FileResponse(datei, media_type=mime_typ(datei))
         index = dist / "index.html"
         if index.exists():
-            return FileResponse(index)
+            return FileResponse(index, media_type="text/html")
         raise HTTPException(404, "index.html fehlt")
 
     return app

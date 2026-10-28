@@ -223,3 +223,29 @@ def test_ohne_oberflaeche():
     client, _, _ = _client()
     with client as c:
         assert "npm run build" in c.get("/").json()["hinweis"]
+
+
+def test_oberflaeche_mime_typen_unabhaengig_vom_system(tmp_path, monkeypatch):
+    """Windows: mimetypes liest die Registry und liefert für .js oft text/plain – der Browser
+    verweigert dann das Modul-Skript und die Oberfläche bleibt schwarz. Der Server setzt die
+    Typen für Vite-Ausgaben deshalb selbst."""
+    import starlette.responses
+
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html>Jarvis</html>")
+    for name in ("app.js", "app.mjs", "app.css", "logo.svg", "schrift.woff2", "daten.json"):
+        (dist / "assets" / name).write_text("x")
+    monkeypatch.setenv("JARVIS_OBERFLAECHE", str(dist))
+    monkeypatch.setattr(starlette.responses, "guess_type", lambda *_a, **_k: ("text/plain", None))
+    client, _, _ = _client()
+    with client as c:
+        typ = lambda pfad: c.get(pfad).headers["content-type"].split(";")[0]  # noqa: E731
+        assert typ("/assets/app.js") == "text/javascript"
+        assert typ("/assets/app.mjs") == "text/javascript"
+        assert typ("/assets/app.css") == "text/css"
+        assert typ("/assets/logo.svg") == "image/svg+xml"
+        assert typ("/assets/schrift.woff2") == "font/woff2"
+        assert typ("/assets/daten.json") == "application/json"
+        assert typ("/") == "text/html"
+        assert typ("/einstellungen") == "text/html"
