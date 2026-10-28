@@ -28,7 +28,9 @@ Kommentare, Meldungen, Commits, Doku.
 * `kern/jarvis/` – `server.py` (FastAPI, nur 127.0.0.1, Origin-/Host-Prüfung), `agent.py`
   (Schleife, Freigaben, Abbrechen), `llm.py` (**einziger** LiteLLM-Zugriff), `werkzeuge/`
   (Register + eingebaute Werkzeuge mit Risikostufe), `integrationen/` (Katalog, Manager, MCP-Hub,
-  OpenAPI, REST, OAuth, Verzeichnisse = Registry-Suche), `geheimnisse.py` (Schlüsselbund/keyring/Fernet), `stimme/` (Weckwort, STT, TTS),
+  OpenAPI, REST, OAuth, Verzeichnisse = Registry-Suche), `gedaechtnis.py` (SQLite: Unterhaltungen, Verlauf,
+  Erinnerungen mit FTS5 + Einbettungen), `gedaechtnis_pflege.py` (lokale Einbettung, Nachbereitung: Titel,
+  Zusammenfassung, Fakten), `geheimnisse.py` (Schlüsselbund/keyring/Fernet), `stimme/` (Weckwort, STT, TTS),
   `plattform/` (Erkennung `aktuelle_plattform()`, Systemaktionen für mac/windows/linux).
 * Weckwort: `stimme/weckwort.py` (openWakeWord, `erzeuge_detektor()` nach `konfig.weckwort_engine()`),
   `stimme/weckwort_vosk.py` (freies Weckwort „Javit“: Grammatik aus Vokabular-Varianten + Kölner Phonetik).

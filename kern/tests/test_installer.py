@@ -106,7 +106,7 @@ def test_installer_linux_inhalt():
         assert pv in text
     assert 'JARVIS_OLLAMA:-0}" == "1"' in text and "ollama.com/install.sh" in text
     assert "nvm" in text and "nodesource" in text.lower()
-    assert 'kern[stimme]' in text and "jarvis.desktop" in text and "uv venv" in text
+    assert 'kern[stimme,gedaechtnis]' in text and "jarvis.desktop" in text and "uv venv" in text
     # sudo nur für die Paketverwaltung: direkt nur in als_root(), und als_root nur mit Paketverwaltungen
     aufrufe = re.findall(r"(?m)^\s*als_root (\S+)", text)
     assert aufrufe and set(aufrufe) <= {"apt-get", "env", "dnf", "pacman", "zypper"}, aufrufe

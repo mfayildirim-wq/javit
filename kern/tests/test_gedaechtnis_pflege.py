@@ -138,6 +138,14 @@ async def _vektoren(texte):
 
 
 # ---------------------------------------------------------------- Nachbereiter
+def test_kuerzen():
+    from jarvis.gedaechtnis_pflege import kuerzen
+
+    assert kuerzen("Kurz.", 50) == "Kurz."
+    assert kuerzen("Erster Satz. Zweiter Satz. " + "x" * 100, 40) == "Erster Satz. Zweiter Satz."
+    assert kuerzen("ein " * 30, 20).endswith(" …") and len(kuerzen("ein " * 30, 20)) <= 22
+
+
 def test_json_block_und_titel():
     assert json_block('Hier:\n```json\n{"zusammenfassung": "x", "fakten": []}\n```') == {"zusammenfassung": "x", "fakten": []}
     assert json_block('{"a": 1} und {"b": 2}') == {"a": 1}

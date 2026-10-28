@@ -370,10 +370,19 @@ Everything lives in `~/.jarvis/` (Windows: `%USERPROFILE%\.jarvis`, relocatable 
 |---|---|
 | `einstellungen.json` | name, model, persona, form of address, voice/wake word, timeouts … |
 | `integrationen.json` | installed integrations (secrets only as `${NAME}`) |
-| `jarvis.db` | history and memories (SQLite) |
+| `jarvis.db` | conversations, history and memories (SQLite, full-text index) |
 | `logs/` | logs (`mcp-<id>.log`, `jarvis.log` with autostart) |
 | `modelle/` | wake-word models (`modelle/vosk`, `modelle/openwakeword`), on Linux also Piper voices (`modelle/piper`) |
 | `venv/` | Python environment of the installation |
+
+**Conversations:** The history is organised in conversations; only the current one is context for the model.
+Start a new one with the “Neu” button in the header, Alt+N, the command palette, or by telling the assistant
+you want to change the topic (tool `unterhaltung_neu`). Earlier conversations live under Einstellungen →
+Unterhaltungen (open, rename, delete). After the first answer every conversation gets an automatic title; when
+you leave it, the model writes a summary and extracts lasting facts about you into the memory (Einstellungen →
+Gedächtnis, switch “Automatisch merken”; each memory shows its origin and can be deleted individually).
+Memory search is hybrid: full text plus embeddings – via Ollama (`nomic-embed-text`), otherwise a small local
+model (`fastembed`, about 220 MB on first use), otherwise full text only.
 
 The memory can be cleared in the UI (Einstellungen → Gedächtnis); history and memory also via
 `curl -X DELETE http://127.0.0.1:8765/api/verlauf` or `…/api/gedaechtnis`.

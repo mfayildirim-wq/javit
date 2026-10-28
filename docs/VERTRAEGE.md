@@ -33,8 +33,17 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | GET | `/api/verzeichnisse/suche?q=&quelle=&limit=` | `{treffer:[{quelle, kennung, name, beschreibung, webseite, repository, herausgeber, verifiziert, nutzungen, art: mcp_http\|mcp_stdio\|null, laufzeit: fern\|npx\|uvx\|null, oauth, felder:[{name, titel, geheim, optional, beschreibung, standard}], warnungen:[…], installierbar, vollstaendig, aktualisiert}], fehler:{quelle: text}}` – parallel über alle Quellen (10 s je Quelle, 10 min Cache), sortiert verifiziert → installierbar → Nutzungen; `q` min. 2 Zeichen (sonst 400) |
 | GET | `/api/verzeichnisse/{quelle}/{kennung}` | vollständiger Treffer (Felder, Warnungen); 404 wenn unbekannt |
 | POST | `/api/verzeichnisse/installieren` | `{quelle, kennung, werte?, name?}` – baut aus dem Treffer eine Integration (`mcp_url` mit OAuth/Kopfzeilen oder `mcp_befehl` per npx/uvx) und legt sie wie `POST /api/integrationen` an; 400 + `fehlend` bei fehlenden Pflichtfeldern, 400 bei nicht installierbaren Treffern |
-| GET | `/api/verlauf?limit=` | letzte Unterhaltung |
-| GET/DELETE | `/api/gedaechtnis` | Erinnerungen lesen/löschen |
+| GET | `/api/verlauf?limit=` | Nachrichten der **aktuellen** Unterhaltung `[{id, zeit, rolle: nutzer\|jarvis, inhalt}]` |
+| DELETE | `/api/verlauf` | leert nur die aktuelle Unterhaltung |
+| GET | `/api/unterhaltungen` | alle Unterhaltungen, neueste zuerst `[{id, titel, titel_fest, erstellt, aktualisiert, zusammenfassung, nachbereitet, nachrichten, aktuell}]` |
+| POST | `/api/unterhaltungen` | `{titel?}` – neue Unterhaltung, wird aktuell (die verlassene wird im Hintergrund nachbereitet) → Unterhaltung; 400 bei ungültigem Titel (1–80 Zeichen) |
+| GET | `/api/unterhaltungen/{id}` | eine Unterhaltung; 404 |
+| PUT | `/api/unterhaltungen/{id}` | `{titel}` – umbenennen (setzt `titel_fest`, kein automatischer Titel mehr); 400/404 |
+| DELETE | `/api/unterhaltungen/{id}` | löschen samt Verlauf (Erinnerungen bleiben) → `{geloescht, aktuell}`; war sie aktuell, wird die neueste verbliebene aktuell, sonst eine neue leere |
+| POST | `/api/unterhaltungen/{id}/aktivieren` | aktuell machen → Unterhaltung; 404 |
+| GET | `/api/unterhaltungen/{id}/verlauf?limit=` | Nachrichten dieser Unterhaltung; 404 |
+| GET | `/api/gedaechtnis` | Erinnerungen `[{id, zeit, text, quelle: nutzer\|auto, unterhaltung_id, aktualisiert, einbettung_modell}]` |
+| DELETE | `/api/gedaechtnis?id=` | alle bzw. eine Erinnerung löschen → `{geloescht: n}` |
 
 Integration hinzufügen – eine der Formen:
 ```json
@@ -79,6 +88,7 @@ Server → Client:
 | `integration_geaendert` | `integration` |
 | `oauth_anmeldung` | `integration`, `url` – Anmeldeseite wurde im Browser geöffnet; die Oberfläche zeigt den Link, falls kein Fenster aufging |
 | `fehler` | `text` |
+| `unterhaltung` | `id`, `titel`, `grund` (`neu` \| `gewechselt` \| `geloescht` – die aktuelle Unterhaltung ist eine andere, die Oberfläche leert die Konsole und lädt `/api/verlauf`; `titel` – nur der Titel hat sich geändert, z. B. automatisch nach der ersten Antwort) |
 
 ## Integrationskatalog (`integrationen/katalog/*.yaml`)
 
@@ -112,6 +122,15 @@ Zugangsdaten lesen) und die Einstellung `freigabe_technisch: true` (dann kritisc
 Werkzeuge werden ab `aendern` vorgelegt (`freigabe_fachlich: aendern|kritisch|nie`). Eingebaute Werkzeuge sind
 technisch außer `termin_anlegen`, `erinnerung_anlegen`, `notiz_anlegen`; Integrationen erben den Katalogwert
 (`bereich`), eigene Integrationen sind fachlich, umstellbar per `bereich` im POST/PUT oder `PUT …/bereich`.
+
+**Unterhaltungen und Gedächtnis**: `GET /api/status` enthält `unterhaltung: {id, titel}`. Der Agent nimmt nur die aktuelle
+Unterhaltung als Kontext (`verlauf_kontext`) und bekommt die Zusammenfassungen der letzten fünf Unterhaltungen in den
+Systemprompt; das Werkzeug `unterhaltung_neu(titel?)` (aendern, technisch) beginnt eine neue. Einstellung
+`gedaechtnis_automatisch: bool` (Standard true): nach der ersten Antwort ein automatischer Titel, beim Verlassen einer
+Unterhaltung Zusammenfassung plus dauerhafte Fakten als Erinnerungen mit `quelle: auto` (`gedaechtnis_pflege.Nachbereiter`;
+ähnliche Erinnerungen werden aktualisiert statt dupliziert; Fakten mit Zugangsdaten werden verworfen). Einbettungen:
+`einbettungs_modell` (Ollama/Cloud), sonst lokal über fastembed (Extra `kern[gedaechtnis]`), sonst Volltext (FTS5) und
+Stichwortmaß; jede Erinnerung speichert ihr Einbettungsmodell, verglichen wird nur bei gleichem Modell.
 
 `GET /api/integrationen/katalog` liefert je Eintrag zusätzlich `webseite`, `einrichtung`, `oauth` (Modus oder null),
 `vertrauen` (`offiziell` | `community`), `quelle`, `gruppe` und je Feld `typ`, `standard`, `beschreibung`.

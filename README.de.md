@@ -370,10 +370,19 @@ Alles liegt in `~/.jarvis/` (Windows: `%USERPROFILE%\.jarvis`, verlegbar mit `JA
 |---|---|
 | `einstellungen.json` | Name, Modell, Persona, Anrede, Stimme/Weckwort, Zeitlimits … |
 | `integrationen.json` | installierte Integrationen (Geheimnisse nur als `${NAME}`) |
-| `jarvis.db` | Verlauf und Erinnerungen (SQLite) |
+| `jarvis.db` | Unterhaltungen, Verlauf und Erinnerungen (SQLite, Volltextindex) |
 | `logs/` | Protokolle (`mcp-<id>.log`, `jarvis.log` beim Autostart) |
 | `modelle/` | Weckwort-Modelle (`modelle/vosk`, `modelle/openwakeword`), unter Linux auch Piper-Stimmen (`modelle/piper`) |
 | `venv/` | Python-Umgebung der Installation |
+
+**Unterhaltungen:** Der Verlauf ist in Unterhaltungen gegliedert; nur die aktuelle ist Kontext für das Modell.
+Eine neue beginnt über den Knopf „Neu“ in der Kopfzeile, Alt+N, die Befehlspalette oder indem du dem Assistenten
+ein neues Thema ankündigst (Werkzeug `unterhaltung_neu`). Frühere Unterhaltungen stehen unter Einstellungen →
+Unterhaltungen (öffnen, umbenennen, löschen). Nach der ersten Antwort bekommt jede Unterhaltung automatisch einen
+Titel; beim Verlassen fasst das Modell sie zusammen und merkt sich dauerhafte Fakten über dich (Einstellungen →
+Gedächtnis, Schalter „Automatisch merken“; jede Erinnerung zeigt ihre Herkunft und lässt sich einzeln löschen).
+Die Suche im Gedächtnis läuft hybrid über Volltext und Einbettungen – mit Ollama (`nomic-embed-text`), sonst mit
+einem kleinen lokalen Modell (`fastembed`, ca. 220 MB beim ersten Gebrauch), sonst rein über Volltext.
 
 Das Gedächtnis lässt sich in der Oberfläche (Einstellungen → Gedächtnis) löschen, Verlauf und
 Gedächtnis auch per `curl -X DELETE http://127.0.0.1:8765/api/verlauf` bzw. `…/api/gedaechtnis`.

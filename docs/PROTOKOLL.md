@@ -307,3 +307,29 @@ mit pwsh geparst (nicht ausgeführt).
   das Modul-Skript nicht läuft – statt einer leeren schwarzen Fläche.
 - Linux-Skripte (`install-linux.sh`, `autostart-linux.sh`) gegengelesen: keine Auffälligkeit; die feste
   MIME-Tabelle gilt dort ebenso.
+
+## 28.10.2026 – Unterhaltungen und Gedächtnis-Optimierung
+
+- Spezifikation `docs/superpowers/specs/2026-10-28-unterhaltungen-gedaechtnis-design.md`, Plan
+  `docs/superpowers/plans/2026-10-28-unterhaltungen-gedaechtnis.md`. Entscheidung des Nutzers: frühere Unterhaltungen
+  nicht auf der Startseite, sondern unter Einstellungen → Unterhaltungen.
+- Kern: `gedaechtnis.py` neu geschrieben – Tabellen `unterhaltungen` (titel, titel_fest, zusammenfassung, nachbereitet),
+  `meta` (aktuelle Unterhaltung), Spalten `verlauf.unterhaltung_id` und `erinnerungen.{einbettung_modell, quelle,
+  unterhaltung_id, aktualisiert}`, Migration alter Datenbanken (Verlauf → „Bisheriger Verlauf“), FTS5 über Trigger
+  (Fallback ohne FTS5), Hybridsuche (max aus Kosinus bei gleichem Modell, BM25-Wert, Stichwortmaß).
+  `gedaechtnis_pflege.py`: `LokaleEinbettung` (fastembed `paraphrase-multilingual-MiniLM-L12-v2`, 384 Dim., ca. 220 MB,
+  Extra `kern[gedaechtnis]`, kein Download bei `JARVIS_KEIN_DOWNLOAD`), `EinbetterKette`, `BenannterEinbetter`,
+  `Nachbereiter` (Titel in 3–5 Wörtern mit Fallback aus der ersten Nachricht; JSON-Zusammenfassung + Fakten, Abgleich
+  ≥ 0,85 bzw. ≥ 0,6 bei `auto`, Fakten mit Zugangsdaten verworfen). Anwendung: `unterhaltung_neu/aktivieren/
+  umbenennen/loeschen` mit Ereignis `unterhaltung`, Pflege-Tasks (`pflege_abwarten`), Nachbereitung alter aktueller
+  Unterhaltung (> 6 h) beim Start, Nachbetten fehlender Vektoren; Agent: Kontext nur aktuelle Unterhaltung, Abschnitt
+  „Letzte Unterhaltungen“, `nach_antwort`-Haken für den Titel; Werkzeug `unterhaltung_neu`; REST-Endpunkte laut VERTRAEGE.
+- Stolpersteine: `threading.Lock` ist nicht reentrant (Deadlock im Schema-Aufbau); `asyncio.gather` über bereits
+  fertige Tasks kehrt in 3.12 synchron zurück – der `discard`-Callback kam nie dran (Endlosschleife in
+  `pflege_abwarten`, jetzt nur offene Tasks); automatische Titel/Nachbereitung verbrauchen gescriptete LLM-Antworten –
+  Testhelfer (`baue_jarvis`, E2E-Umgebung) schalten `gedaechtnis_automatisch` aus, Tests schalten gezielt ein.
+- Oberfläche: Ereignis `unterhaltung` (Reducer leert Konsole bei Wechsel, Verbindung lädt Verlauf), Status →
+  `lokal_unterhaltung`, Kopfzeile mit Titel und Knopf „Neu“, Palette, Alt+N, Einstellungen „Unterhaltungen“
+  (öffnen/umbenennen/löschen) und Gedächtnis mit Herkunft, Einzellöschung, Schalter „Automatisch merken“.
+- Tests: `test_unterhaltungen.py` (15), `test_gedaechtnis_pflege.py` (12), `unterhaltungen.test.tsx` (4);
+  `test_websocket_ende_zu_ende` toleriert das Titel-Ereignis.

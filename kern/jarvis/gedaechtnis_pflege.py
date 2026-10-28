@@ -26,6 +26,7 @@ log = logging.getLogger("jarvis.gedaechtnis")
 
 LOKALES_MODELL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MAX_FAKTEN = 8
+ZUSAMMENFASSUNG_MAX = 600
 #: Fakten mit solchen Wörtern werden nie automatisch gemerkt (Zugangsdaten gehören in den Schlüsselbund)
 _GEHEIM = re.compile(r"passw|kennwort|token|api[-_ ]?key|secret|geheimnis", re.I)
 _JSON_ZAUN = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
@@ -144,6 +145,18 @@ def json_block(text: str) -> dict[str, Any] | None:
     return None
 
 
+def kuerzen(text: str, maximum: int) -> str:
+    """Kürzt an einem Satzende (sonst Wortgrenze) mit „…“ – Modelle halten Längenvorgaben nicht immer ein."""
+    if len(text) <= maximum:
+        return text
+    kurz = text[:maximum]
+    satz = max(kurz.rfind(". "), kurz.rfind("! "), kurz.rfind("? "))
+    if satz >= maximum // 2:
+        return kurz[: satz + 1]
+    wort = kurz.rfind(" ")
+    return (kurz[:wort] if wort > 0 else kurz).rstrip(" ,;:") + " …"
+
+
 def titel_bereinigen(text: str) -> str:
     t = text.strip().splitlines()[0] if text.strip() else ""
     t = re.sub(r"^\W*(titel|title)\s*:\s*", "", t, flags=re.I)
@@ -165,7 +178,7 @@ TITEL_SYSTEM = (
 NACHBEREITUNG_SYSTEM = (
     "Du fasst eine Unterhaltung zwischen einem Nutzer und seinem Assistenten nach und pflegst das "
     "Langzeitgedächtnis des Assistenten. Antworte ausschließlich mit einem JSON-Objekt:\n"
-    '{"zusammenfassung": "zwei bis drei Sätze, was besprochen und erreicht wurde", '
+    '{"zusammenfassung": "zwei bis drei Sätze (höchstens 400 Zeichen), was besprochen und erreicht wurde", '
     '"fakten": ["dauerhafter Fakt über den Nutzer", "..."]}\n'
     "Regeln für fakten: nur dauerhaft Gültiges über den Nutzer (Vorlieben, Lebensumstände, Arbeit, "
     "Projekte, Beziehungen, Absprachen mit dem Assistenten), als ganze deutsche Sätze in der dritten "
@@ -256,7 +269,7 @@ class Nachbereiter:
         if not daten:
             log.info("Nachbereitung: keine verwertbare Antwort für Unterhaltung %s", kennung)
             return None
-        zusammenfassung = " ".join(str(daten.get("zusammenfassung") or "").split())
+        zusammenfassung = kuerzen(" ".join(str(daten.get("zusammenfassung") or "").split()), ZUSAMMENFASSUNG_MAX)
         if zusammenfassung:
             self.gedaechtnis.zusammenfassung_setzen(kennung, zusammenfassung)
         neu = aktualisiert = 0
