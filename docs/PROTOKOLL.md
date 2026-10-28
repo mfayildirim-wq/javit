@@ -377,3 +377,4 @@ mit pwsh geparst (nicht ausgeführt).
   Erweitert → „Weitere Schlüssel“); „Verzeichnisse“ nach Erweitert verschoben; „Audio im Browser“ als Schalter im
   Reiter Stimme (zusätzlich zum Knopf im Composer).
 - Tests klicken jetzt zuerst den Reiter; Anbieterwahl über `combobox`; neuer Test `versionsZahl`.
+- Kopfzeile kompakt (44 px statt 56): Reiter Konsole/Integrationen/Einstellungen als Symbole rechts neben „Neu“, „Befehle“ und Verbindungsstatus; Titel der Unterhaltung mittig. Der Orb bekommt dadurch mehr Platz nach oben.

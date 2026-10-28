@@ -1,11 +1,12 @@
-import { Command, MessageSquarePlus } from 'lucide-react';
+import type { JSX } from 'react';
+import { Command, LayoutGrid, MessageSquarePlus, Plug, Settings } from 'lucide-react';
 import { useJarvis, useName, type Ansicht } from '../state/store';
 import { neueUnterhaltung } from '../state/verbindung';
 
-const TABS: { id: Ansicht; titel: string }[] = [
-  { id: 'konsole', titel: 'Konsole' },
-  { id: 'integrationen', titel: 'Integrationen' },
-  { id: 'einstellungen', titel: 'Einstellungen' },
+const TABS: { id: Ansicht; titel: string; icon: JSX.Element }[] = [
+  { id: 'konsole', titel: 'Konsole', icon: <LayoutGrid size={17} aria-hidden="true" /> },
+  { id: 'integrationen', titel: 'Integrationen', icon: <Plug size={17} aria-hidden="true" /> },
+  { id: 'einstellungen', titel: 'Einstellungen', icon: <Settings size={17} aria-hidden="true" /> },
 ];
 
 export function TopBar() {
@@ -30,24 +31,28 @@ export function TopBar() {
         <span className="marke-wort">{name}</span>
       </div>
 
-      <nav className="reiter" role="tablist" aria-label="Ansicht">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={ansicht === t.id}
-            className="reiter-knopf"
-            onClick={() => setAnsicht(t.id)}
-          >
-            {t.titel}
-          </button>
-        ))}
-      </nav>
-
-      <div className="kopf-rechts">
+      <div className="kopf-mitte">
         {unterhaltung && ansicht === 'konsole' && (
           <span className="unterhaltung-titel" title="Aktuelle Unterhaltung">{unterhaltung.titel}</span>
         )}
+      </div>
+
+      <div className="kopf-rechts">
+        <nav className="reiter reiter-icons" role="tablist" aria-label="Ansicht">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={ansicht === t.id}
+              aria-label={t.titel}
+              title={t.titel}
+              className="reiter-knopf icon"
+              onClick={() => setAnsicht(t.id)}
+            >
+              {t.icon}
+            </button>
+          ))}
+        </nav>
         <button className="palette-knopf neu-knopf" onClick={() => void neueUnterhaltung()} aria-label="Neue Unterhaltung" title="Neue Unterhaltung (Alt+N)">
           <MessageSquarePlus size={14} aria-hidden="true" />
           <span>Neu</span>

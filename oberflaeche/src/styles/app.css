@@ -34,7 +34,7 @@
   --t-xl: 1.5rem; /* 24 */
   --t-xxl: 2.125rem; /* 34 */
 
-  --kopf-h: 56px;
+  --kopf-h: 44px;
   --links-b: 284px;
   --rechts-b: 356px;
   --schnitt: 10px;
@@ -264,18 +264,42 @@ kbd {
   transform: scaleX(1);
 }
 
+.kopf-mitte {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
 .kopf-rechts {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-right: 20px;
+  gap: 10px;
+  padding-right: 14px;
+}
+.reiter-icons {
+  justify-self: end;
+  gap: 2px;
+  margin-right: 6px;
+  padding-right: 10px;
+  border-right: 1px solid var(--linie);
+}
+.reiter-knopf.icon {
+  width: 36px;
+  height: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.reiter-knopf.icon::after {
+  left: 9px;
+  right: 9px;
 }
 .palette-knopf {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 32px;
-  padding: 0 8px 0 12px;
+  height: 30px;
+  padding: 0 8px 0 10px;
   background: rgba(127, 232, 255, 0.03);
   border: 1px solid var(--linie);
   border-radius: 4px;
