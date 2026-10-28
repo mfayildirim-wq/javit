@@ -91,6 +91,7 @@ class Agent:
         sprach_freigabe: Callable[[str], Awaitable[bool | None]] | None = None,
         nach_antwort: Callable[[], Awaitable[None]] | None = None,
         sprecher: Callable[[], Awaitable[Any]] | None = None,
+        prompt_zusatz: Callable[[], str] | None = None,
     ):
         self._einstellungen = einstellungen
         self.llm = llm
@@ -106,6 +107,8 @@ class Agent:
         # Streaming-Sprachausgabe: Fabrik liefert eine Sprechsitzung (einspeisen/abschliessen/stoppen/gesprochen)
         # oder None; bei ``sprechen=True`` gehen Text-Deltas sofort an die Sitzung
         self.sprecher = sprecher
+        # Zusätzlicher Abschnitt im Systemprompt (z. B. Bühne: Vorlagen und offene Flächen)
+        self.prompt_zusatz = prompt_zusatz
         #: True, wenn die letzte Antwort bereits während der Anfrage gesprochen wurde
         self.antwort_gesprochen = False
         self.freigaben: dict[str, asyncio.Future[bool]] = {}
@@ -185,6 +188,13 @@ class Agent:
                 "## Letzte Unterhaltungen\n"
                 + "\n".join(f"- {z['aktualisiert'][:10]} „{z['titel']}“: {z['zusammenfassung']}" for z in letzte)
             )
+        if self.prompt_zusatz:
+            try:
+                zusatz = self.prompt_zusatz()
+            except Exception:  # noqa: BLE001
+                zusatz = ""
+            if zusatz:
+                teile.append(zusatz)
         teile.append(
             "## Regeln\n"
             "- Erledige Aufgaben direkt mit den passenden Werkzeugen; erfinde keine Ergebnisse.\n"
@@ -438,6 +448,11 @@ class Agent:
             {"typ": "werkzeug_ende", "id": aufruf.id, "ok": ok, "ergebnis": ergebnis_als_text(text, MAX_EREIGNIS_ERGEBNIS)}
         )
         return text if ok else f"FEHLER: {text}"
+
+    async def werkzeug_ausfuehren_extern(self, name: str, argumente: dict[str, Any]) -> str:
+        """Werkzeug außerhalb der Modellschleife ausführen (Bühne): gleiche Freigaberegeln und Ereignisse."""
+        aufruf = WerkzeugAufruf(id=f"buehne_{uuid.uuid4().hex[:12]}", name=name, argumente=dict(argumente or {}))
+        return await self._werkzeug_ausfuehren(aufruf, sprechen=False)
 
     async def _freigabe_anfordern(
         self, aufruf: WerkzeugAufruf, grund: str, sprechen: bool, risiko: str = "kritisch", bereich: str = "technisch"

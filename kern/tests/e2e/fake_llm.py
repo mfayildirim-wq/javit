@@ -6,6 +6,10 @@ POST /v1/chat/completions (mit und ohne Streaming). Regeln anhand der letzten Na
 - „merke …“                                      → Werkzeug erinnern(text=…)
 - „lösche Datei <pfad>“                          → Werkzeug datei_loeschen (kritisch → Freigabe)
 - „echo <text>“                                  → MCP-Werkzeug *__echo der Mini-Integration
+- Systemprompt „Du entwirfst Oberflächen …“      → JSON-Vorlage für die Bühne (Tabelle aus /items)
+- Systemprompt „Du änderst eine bestehende …“    → JSON mit Komponenten (nur Titel + Hinweistext)
+- „zeig … <pfad>“                                → Werkzeug buehne_zeigen(werkzeug=datei_lesen, …)
+- „Auf der Bühne … Aktion „…“ ausgelöst“         → Werkzeug buehne_rezept_anlegen (art werkzeug → uhrzeit_datum)
 - sonst                                          → Text „Verstanden: <nachricht>“
 
 Start: python3 fake_llm.py <port>
@@ -34,9 +38,34 @@ def _text_von(nachricht: dict[str, Any]) -> str:
     return str(inhalt)
 
 
+BUEHNE_VORLAGE = {
+    "name": "Immobilien E2E",
+    "zweck": "Tabelle der Objekte",
+    "abbildung": {"/eintraege": "/items", "/anzahl": "/total"},
+    "datenschema": {"type": "object"},
+    "komponenten": [
+        {"id": "root", "component": "Column", "children": ["titel", "tabelle"], "gap": 12},
+        {"id": "titel", "component": "Text", "text": "Immobilien", "variant": "h2"},
+        {"id": "tabelle", "component": "Tabelle", "zeilen": {"path": "/eintraege"}, "spalten": [
+            {"titel": "Objekt", "path": "titel"}, {"titel": "Preis", "path": "preis", "format": "waehrung"}]},
+        {"id": "notiz", "component": "Button", "text": "Notiz", "action": {"event": {"name": "notiz_anlegen", "context": {"objekt_id": {"path": "/eintraege/0/id"}}}}},
+    ],
+}
+BUEHNE_GEAENDERT = {"komponenten": [
+    {"id": "root", "component": "Column", "children": ["titel", "hinweis"]},
+    {"id": "titel", "component": "Text", "text": "Immobilien", "variant": "h2"},
+    {"id": "hinweis", "component": "Text", "text": "Vorlage geändert (E2E)"},
+]}
+
+
 def entscheiden(nachrichten: list[dict[str, Any]], werkzeuge: list[dict[str, Any]]) -> dict[str, Any]:
     """→ {"text": str} oder {"werkzeug": name, "argumente": {...}, "text": optionaler Vorspann}."""
     letzte = nachrichten[-1] if nachrichten else {"role": "user", "content": ""}
+    system = _text_von(nachrichten[0]) if nachrichten and nachrichten[0].get("role") == "system" else ""
+    if system.startswith("Du entwirfst Oberflächen"):
+        return {"text": json.dumps(BUEHNE_VORLAGE, ensure_ascii=False)}
+    if system.startswith("Du änderst eine bestehende Vorlage"):
+        return {"text": json.dumps(BUEHNE_GEAENDERT, ensure_ascii=False)}
     if letzte.get("role") == "tool":
         return {"text": f"Erledigt. Ergebnis: {_text_von(letzte)[:300]}"}
     text = _text_von(letzte).strip()
@@ -50,6 +79,15 @@ def entscheiden(nachrichten: list[dict[str, Any]], werkzeuge: list[dict[str, Any
     m = re.match(r"lösche (die )?datei\s+(.+)$", text, flags=re.I)
     if m:
         return {"werkzeug": "datei_loeschen", "argumente": {"pfad": m.group(2).strip()}}
+    m = re.match(r"zeig(?:e)?\s+(?:mir\s+)?(?:die\s+)?(.+?)\s+aus\s+(\S+)$", text, flags=re.I)
+    if m:
+        return {"werkzeug": "buehne_zeigen", "argumente": {"werkzeug": "datei_lesen", "argumente": {"pfad": m.group(2)}, "titel": m.group(1).strip().capitalize()}, "text": "Ich zeige das auf der Bühne."}
+    m = re.match(r"baue? (?:die )?vorlage\s+(\S+)\s+um[:\s]+(.+)$", text, flags=re.I)
+    if m:
+        return {"werkzeug": "buehne_vorlage_aendern", "argumente": {"vorlage": m.group(1), "wunsch": m.group(2).strip()}}
+    m = re.search(r"Aktion „(\w+)“ ausgelöst \(Vorlage „([^“]+)“\)", text)
+    if m:
+        return {"werkzeug": "buehne_rezept_anlegen", "argumente": {"vorlage": m.group(2), "aktion": m.group(1), "art": "werkzeug", "werkzeug": "uhrzeit_datum", "argument_abbildung": {}}}
     m = re.match(r"echo\s+(.+)$", text, flags=re.I)
     if m:
         name = next((n for n in namen if n.endswith("__echo")), "echo")

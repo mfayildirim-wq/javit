@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
 from .anwendung import Jarvis
+from .buehne.manager import BuehnenFehler
 from .integrationen.einrichtung import Ausfuehrer, EinrichtungsFehler, datei_ablegen, einrichtung_stand
 from .integrationen.manager import FehlendeWerte, IntegrationsFehler
 from .integrationen.verzeichnisse import VerzeichnisFehler
@@ -487,6 +488,132 @@ def create_app(
         return {"geloescht": j_(request).gedaechtnis.erinnerung_loeschen(id)}
 
     # ------------------------------------------------------------------ WebSocket
+    # ------------------------------------------------------------------ Bühne
+    def buehne_fehler(e: Exception) -> HTTPException:
+        if isinstance(e, KeyError):
+            return HTTPException(404, f"Unbekannt: {e.args[0] if e.args else e}")
+        if isinstance(e, LLMFehler):
+            return HTTPException(502, str(e))
+        return HTTPException(400, str(e))
+
+    @app.get("/api/buehne")
+    async def buehne_zustand(request: Request) -> dict[str, Any]:
+        return j_(request).buehne.zustand()
+
+    @app.get("/api/buehne/vorlagen")
+    async def buehne_vorlagen(request: Request) -> list[dict[str, Any]]:
+        return j_(request).buehne.speicher.vorlagen()
+
+    @app.get("/api/buehne/vorlagen/{kennung}")
+    async def buehne_vorlage(kennung: str, request: Request) -> dict[str, Any]:
+        v = j_(request).buehne.speicher.vorlage(kennung)
+        if v is None:
+            raise HTTPException(404, f"Vorlage „{kennung}“ gibt es nicht")
+        return v
+
+    @app.put("/api/buehne/vorlagen/{kennung}")
+    async def buehne_vorlage_aendern(kennung: str, request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        j = j_(request)
+        try:
+            v = j.buehne.speicher.vorlage_aendern(kennung, name=daten.get("name"))
+            if "stil" in daten:
+                v = await j.buehne.stil_der_vorlage(kennung, daten.get("stil"))
+            return v
+        except (KeyError, BuehnenFehler, ValueError) as e:
+            raise buehne_fehler(e) from e
+
+    @app.delete("/api/buehne/vorlagen/{kennung}")
+    async def buehne_vorlage_loeschen(kennung: str, request: Request) -> dict[str, Any]:
+        j = j_(request)
+        await j.buehne.schliessen(kennung)
+        return {"geloescht": j.buehne.speicher.vorlage_loeschen(kennung)}
+
+    @app.post("/api/buehne/vorlagen/{kennung}/zurueck")
+    async def buehne_vorlage_zurueck(kennung: str, request: Request) -> dict[str, Any]:
+        j = j_(request)
+        try:
+            await j.buehne.zurueck(kennung)
+        except (KeyError, BuehnenFehler) as e:
+            raise buehne_fehler(e) from e
+        return j.buehne.speicher.vorlage(kennung) or {}
+
+    @app.get("/api/buehne/rezepte")
+    async def buehne_rezepte(request: Request) -> list[dict[str, Any]]:
+        return j_(request).buehne.speicher.rezepte()
+
+    @app.delete("/api/buehne/rezepte/{kennung}")
+    async def buehne_rezept_loeschen(kennung: str, request: Request) -> dict[str, Any]:
+        speicher = j_(request).buehne.speicher
+        for v in speicher.vorlagen():
+            for aktion, rezept_id in (v.get("aktionen") or {}).items():
+                if rezept_id == kennung:
+                    speicher.aktion_setzen(v["id"], aktion, None)
+        return {"geloescht": speicher.rezept_loeschen(kennung)}
+
+    @app.get("/api/buehne/stile")
+    async def buehne_stile(request: Request) -> list[dict[str, Any]]:
+        return j_(request).buehne.speicher.stile()
+
+    @app.post("/api/buehne/stile")
+    async def buehne_stil_anlegen(request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        j = j_(request)
+        name = str(daten.get("name") or "").strip()
+        quelle = daten.get("quelle") if isinstance(daten.get("quelle"), dict) else {}
+        art = str(quelle.get("art") or "werte")
+        if not name:
+            raise HTTPException(400, "name fehlt")
+        try:
+            if art == "werte":
+                vorlage = j.buehne.speicher.stil(str(daten.get("basis") or "javit-dunkel")) or j.buehne.speicher.stil("javit-dunkel") or {}
+                neu = json.loads(json.dumps(vorlage))
+                neu.update({"id": None, "name": name, "quelle": {"art": "werte"}, "beschreibung": str(daten.get("beschreibung") or "eigener Stil")})
+                neu.pop("id")
+                neu.pop("eigen", None)
+                gespeichert = j.buehne.speicher.stil_speichern(neu)
+                return j.buehne.stil_aendern(gespeichert["id"], {"werte": quelle.get("werte") or daten.get("werte") or {}, "vorlieben": daten.get("vorlieben") or {}})
+            if art == "datei":
+                import base64  # noqa: PLC0415
+
+                inhalt = base64.b64decode(str(quelle.get("inhalt_base64") or "")).decode("utf-8", "replace") if quelle.get("inhalt_base64") else str(quelle.get("inhalt") or "")
+                return await j.buehne.stil_ableiten(name, {"art": "datei", "inhalt": inhalt, "wert": str(quelle.get("wert") or "")})
+            if art in ("url", "klassen"):
+                return await j.buehne.stil_ableiten(name, {"art": art, "wert": str(quelle.get("wert") or "")})
+        except (BuehnenFehler, ValueError, LLMFehler) as e:
+            raise buehne_fehler(e) from e
+        except Exception as e:  # noqa: BLE001 - Netzfehler beim Laden der Quelle
+            raise HTTPException(400, f"Quelle konnte nicht gelesen werden: {e}") from e
+        raise HTTPException(400, f"Unbekannte Quellenart „{art}“")
+
+    @app.put("/api/buehne/stile/{kennung}")
+    async def buehne_stil_aendern(kennung: str, request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        try:
+            return j_(request).buehne.stil_aendern(kennung, daten, name=daten.get("name"))
+        except (BuehnenFehler, ValueError) as e:
+            raise buehne_fehler(e) from e
+
+    @app.delete("/api/buehne/stile/{kennung}")
+    async def buehne_stil_loeschen(kennung: str, request: Request) -> dict[str, Any]:
+        return {"geloescht": j_(request).buehne.speicher.stil_loeschen(kennung)}
+
+    @app.put("/api/buehne/zuordnung")
+    async def buehne_zuordnung(request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, str]:
+        j = j_(request)
+        for integration, stil in daten.items():
+            if stil and j.buehne.speicher.stil(str(stil)) is None:
+                raise HTTPException(400, f"Stil „{stil}“ gibt es nicht")
+        return j.buehne.speicher.zuordnung_setzen({str(k): str(v) for k, v in daten.items() if v})
+
+    @app.post("/api/buehne/aktion")
+    async def buehne_aktion(request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        try:
+            return await j_(request).buehne.aktion(daten)
+        except (BuehnenFehler, LLMFehler) as e:
+            raise buehne_fehler(e) from e
+
+    @app.delete("/api/buehne/flaechen/{surface_id}")
+    async def buehne_flaeche_schliessen(surface_id: str, request: Request) -> dict[str, Any]:
+        return {"geschlossen": await j_(request).buehne.schliessen(surface_id)}
+
     @app.websocket("/ws")
     async def ws_endpunkt(ws: WebSocket) -> None:
         j = j_(ws)
@@ -509,6 +636,15 @@ def create_app(
                 await ws.send_bytes(bytes(daten))
             else:
                 await ws.send_json(daten)
+
+        async def buehne_aktion_bearbeiten(daten: dict[str, Any]) -> None:
+            try:
+                await j.buehne.aktion(daten)
+            except BuehnenFehler as e:
+                await ws.send_json({"typ": "fehler", "text": str(e)})
+            except Exception as e:  # noqa: BLE001
+                log.exception("Fehler bei einer Bühnen-Aktion")
+                await verteiler.senden({"typ": "fehler", "text": f"Interner Fehler: {e}"})
 
         async def nachricht_bearbeiten(text: str, sprechen: bool) -> None:
             try:
@@ -556,6 +692,17 @@ def create_app(
                     await j.browser_audio_start(sender, rate)
                 elif typ == "audio_stop":
                     await j.browser_audio_stop(sender)
+                elif typ == "buehne_aktion":
+                    aufgabe = asyncio.create_task(buehne_aktion_bearbeiten(daten))
+                    aufgaben.add(aufgabe)
+                    aufgabe.add_done_callback(aufgaben.discard)
+                elif typ == "buehne_daten":
+                    try:
+                        await j.buehne.daten_setzen(
+                            str(daten.get("surfaceId") or ""), path=str(daten.get("path") or "/"), value=daten.get("value"), melden=False
+                        )
+                    except BuehnenFehler as e:
+                        await ws.send_json({"typ": "fehler", "text": str(e)})
                 else:
                     await ws.send_json({"typ": "fehler", "text": f"Unbekannter Nachrichtentyp: {typ}"})
         except WebSocketDisconnect:

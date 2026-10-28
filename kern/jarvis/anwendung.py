@@ -16,6 +16,10 @@ import httpx
 
 from . import __version__
 from .agent import Agent, freigabe_antwort_erkennen, fuer_sprache
+from .buehne import werkzeuge as buehne_werkzeuge
+from .buehne.erzeuger import Erzeuger
+from .buehne.manager import BuehnenManager
+from .buehne.speicher import BuehnenSpeicher
 from .gedaechtnis import Gedaechtnis
 from .gedaechtnis_pflege import BenannterEinbetter, EinbetterKette, LokaleEinbettung, Nachbereiter
 from .geheimnisse import Geheimnisspeicher
@@ -79,7 +83,18 @@ class Jarvis:
             sprach_freigabe=self._sprach_freigabe,
             nach_antwort=self._nach_antwort,
             sprecher=self._sprechsitzung,
+            prompt_zusatz=self._buehne_prompt,
         )
+        # Bühne: generative Oberfläche über dem Chat (A2UI); Werkzeuge laufen über den Agenten (Freigaben)
+        self.buehne = BuehnenManager(
+            BuehnenSpeicher(),
+            Erzeuger(self.llm, http_client_fabrik=http_client_fabrik),
+            self.senden,
+            self.agent.werkzeug_ausfuehren_extern,
+            anfrage=lambda text: self.anfrage(text, quelle="buehne"),
+            aktiv=lambda: self.einstellungen.buehne.aktiv,
+        )
+        self.buehne.laden()
         self.stimme: Any = None
         self.stimme_fehler: str | None = None
         self._timer: set[asyncio.Task[None]] = set()
@@ -92,6 +107,7 @@ class Jarvis:
         for modul in (dateien, shell, web):
             self.register.alle_registrieren(modul.werkzeuge())
         self.register.alle_registrieren(system.werkzeuge(self))
+        self.register.alle_registrieren(buehne_werkzeuge.werkzeuge(self.buehne))
 
     @property
     def einstellungen(self) -> Einstellungen:
@@ -101,6 +117,9 @@ class Jarvis:
     def name(self) -> str:
         """Eingestellter Name des Assistenten (Standard „Javit“)."""
         return self.einstellungen.name
+
+    def _buehne_prompt(self) -> str:
+        return self.buehne.prompt_abschnitt() if self.einstellungen.buehne.aktiv else ""
 
     # ---------- Ereignisse ----------
     def hoerer_hinzufuegen(self, hoerer: Hoerer) -> None:

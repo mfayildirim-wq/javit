@@ -192,13 +192,17 @@ class BuehnenSpeicher:
         pfad.unlink()
         return True
 
-    def vorlage_fuer_signatur(self, werkzeug: str, schluessel: list[str]) -> dict[str, Any] | None:
+    def vorlage_fuer_signatur(self, werkzeug: str, schluessel: list[str], eintrag: list[str] | None = None) -> dict[str, Any] | None:
+        """Vorlage mit gleichem Werkzeug und gleichen Schlüsseln; bei mehreren entscheidet der Listeneintrag."""
         gesucht = sorted(schluessel)
-        for v in self.vorlagen():
-            sig = v.get("signatur") or {}
-            if sig.get("werkzeug") == werkzeug and sorted(sig.get("schluessel") or []) == gesucht:
-                return self.vorlage(v["id"])
-        return None
+        treffer = [v for v in self.vorlagen() if (v.get("signatur") or {}).get("werkzeug") == werkzeug and sorted((v.get("signatur") or {}).get("schluessel") or []) == gesucht]
+        if not treffer:
+            return None
+        if eintrag is not None:
+            for v in treffer:
+                if sorted((v.get("signatur") or {}).get("eintrag") or []) == sorted(eintrag):
+                    return self.vorlage(v["id"])
+        return self.vorlage(treffer[0]["id"])
 
     # ------------------------------------------------------------------ Rezepte
     def rezepte(self) -> list[dict[str, Any]]:

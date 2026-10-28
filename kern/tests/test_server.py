@@ -356,3 +356,73 @@ def test_stimme_probe_und_modelle(monkeypatch):
         assert [t["id"] for t in m["tts"]] == ["elevenlabs/eleven-flash-v2.5", "microsoft/mai-voice-2.1-flash"]
         assert m["tts"][0] == {"id": "elevenlabs/eleven-flash-v2.5", "name": "ElevenLabs: Flash v2.5", "stimmen": ["daniel", "sarah"], "preis_je_1m_zeichen": 40.0, "standard_stimme": "daniel"}
         assert m["stt"][0]["id"] == "openai/whisper-large-v3" and m["fehler"] is None
+
+
+def test_buehne_rest_und_websocket():
+    from jarvis.werkzeuge import FunktionsWerkzeug, schema
+    from tests.buehne.test_erzeuger import ERGEBNIS, GUELTIG
+
+    client, j, skript = _client([
+        tool_chunks("c1", "buehne_zeigen", {"werkzeug": "immo__read", "argumente": {}, "titel": "Immobilien"}),
+        text_chunks("Zwei Objekte auf der Bühne."),  # (Vorlage wird dazwischen gebaut)
+    ])
+    skript.antworten.insert(1, text_chunks(json.dumps(GUELTIG)))
+
+    async def read() -> str:
+        return json.dumps(ERGEBNIS)
+
+    j.register.alle_registrieren([FunktionsWerkzeug(read, "immo__read", "liest", schema({}), "lesen", integration="immo")])
+    with client as c, c.websocket_connect(WS) as ws:
+        assert ws.receive_json() == {"typ": "zustand", "zustand": "bereit"}
+        z = c.get("/api/buehne").json()
+        assert z["flaechen"] == [] and len(z["stile"]) >= 8 and z["zuordnung"] == {}
+        # Stile: Kopie eines vordefinierten, eigener aus Werten, Zuordnung, Löschen
+        kopie = c.put("/api/buehne/stile/neutral", json={"name": "Neutral eigen", "werte": {"farben": {"primaer": "#112233"}}}).json()
+        assert kopie["id"] == "neutral-eigen" and kopie["eigen"] and kopie["werte"]["farben"]["primaer"] == "#112233"
+        eigen = c.post("/api/buehne/stile", json={"name": "Werte-Stil", "quelle": {"art": "werte", "werte": {"farben": {"akzent": "#abcdef"}, "schema": "hell"}}}).json()
+        assert eigen["id"] == "werte-stil" and eigen["werte"]["farben"]["akzent"] == "#abcdef" and eigen["werte"]["schema"] == "hell"
+        assert c.put("/api/buehne/zuordnung", json={"immo": "neutral-eigen"}).json() == {"immo": "neutral-eigen"}
+        assert c.put("/api/buehne/zuordnung", json={"immo": "fehlt"}).status_code == 400
+        assert c.post("/api/buehne/stile", json={"name": "x", "quelle": {"art": "url", "wert": "http://unsicher"}}).status_code == 400
+        assert c.delete("/api/buehne/stile/werte-stil").json() == {"geloescht": True}
+        assert c.delete("/api/buehne/stile/neutral").json() == {"geloescht": False}
+        # Zeigen über das Modell (Werkzeug buehne_zeigen), Stil aus der Zuordnung der Integration
+        ws.send_json({"typ": "nachricht", "text": "Zeig die Immobilien"})
+        ende, gesehen = _bis(ws, "antwort_ende")
+        while ende["text"] != "Zwei Objekte auf der Bühne.":
+            ende, mehr = _bis(ws, "antwort_ende")
+            gesehen += mehr
+        buehne = [e["nachricht"] for e in gesehen if e["typ"] == "buehne"]
+        assert [next(k for k in n if k != "version") for n in buehne] == ["stil", "createSurface", "updateComponents", "updateDataModel"]
+        assert buehne[0]["stil"]["id"] == "neutral-eigen" and buehne[1]["createSurface"]["theme"] == {"stil": "neutral-eigen"}
+        _bis(ws, "zustand")
+        ws.send_json({"typ": "buehne_daten", "surfaceId": "immobilienliste", "path": "/suche", "value": "Hafen"})
+        ws.send_json({"typ": "buehne_daten", "surfaceId": "fehlt", "path": "/x", "value": 1})
+        fehler, _ = _bis(ws, "fehler")
+        assert "nicht offen" in fehler["text"]
+        assert c.get("/api/buehne").json()["flaechen"][0]["daten"]["suche"] == "Hafen"
+        # Vorlagen-REST
+        liste = c.get("/api/buehne/vorlagen").json()
+        assert [v["id"] for v in liste] == ["immobilienliste"] and "komponenten" not in liste[0] and liste[0]["versionen"] == 1
+        assert c.get("/api/buehne/vorlagen/immobilienliste").json()["komponenten"][0]["id"] == "root"
+        assert c.get("/api/buehne/vorlagen/fehlt").status_code == 404
+        assert c.put("/api/buehne/vorlagen/immobilienliste", json={"name": "Objekte", "stil": "papier"}).json()["name"] == "Objekte"
+        stil_nachricht, _ = _bis(ws, "buehne")
+        assert stil_nachricht["nachricht"]["stil"]["id"] == "papier"
+        neu_erzeugt, _ = _bis(ws, "buehne")
+        assert neu_erzeugt["nachricht"]["createSurface"]["theme"] == {"stil": "papier"}
+        assert c.post("/api/buehne/vorlagen/immobilienliste/zurueck").json()["version"] == 1
+        assert c.post("/api/buehne/vorlagen/fehlt/zurueck").status_code == 404
+        # Rezept per REST löschen entfernt auch die Zuordnung in der Vorlage
+        j.buehne.rezept_anlegen("immobilienliste", "notiz_anlegen", "agent", auftrag="Notiz für {objekt_id}")
+        assert c.get("/api/buehne/rezepte").json()[0]["id"] == "notiz-anlegen"
+        assert c.delete("/api/buehne/rezepte/notiz-anlegen").json() == {"geloescht": True}
+        assert c.get("/api/buehne/vorlagen/immobilienliste").json()["aktionen"] == {}
+        assert c.post("/api/buehne/aktion", json={"name": "x", "surfaceId": "fehlt"}).status_code == 400
+        assert c.delete("/api/buehne/flaechen/immobilienliste").json() == {"geschlossen": ["immobilienliste"]}
+        geloescht, dazwischen = _bis(ws, "buehne")
+        while "deleteSurface" not in geloescht["nachricht"]:  # davor: updateComponents/updateDataModel vom Zurücksetzen
+            geloescht, mehr = _bis(ws, "buehne")
+        assert geloescht["nachricht"]["deleteSurface"] == {"surfaceId": "immobilienliste"}
+        assert c.delete("/api/buehne/vorlagen/immobilienliste").json() == {"geloescht": True}
+        assert c.get("/api/buehne/vorlagen").json() == []

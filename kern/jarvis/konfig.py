@@ -165,6 +165,14 @@ class StimmEinstellungen(BaseModel):
         return str(wert or "").strip()
 
 
+class BuehnenEinstellungen(BaseModel):
+    """Bühne (generative Oberfläche über dem Chat)."""
+
+    aktiv: bool = True
+    # Anteil der Konsolenhöhe in Prozent, den die Bühne einnimmt (die Oberfläche merkt sich Nutzeranpassungen)
+    hoehe: int = Field(default=45, ge=15, le=85)
+
+
 class Einstellungen(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -205,6 +213,7 @@ class Einstellungen(BaseModel):
     # Unterhaltungen beim Verlassen zusammenfassen, dauerhafte Fakten merken, Titel erzeugen
     gedaechtnis_automatisch: bool = True
     stimme: StimmEinstellungen = Field(default_factory=StimmEinstellungen)
+    buehne: BuehnenEinstellungen = Field(default_factory=BuehnenEinstellungen)
 
     @model_validator(mode="before")
     @classmethod

@@ -166,3 +166,52 @@ def test_kaputte_integration_blockiert_nichts(umgebung):
         text, _ = _antwort(ws, "Noch da?")
         assert text == "Verstanden: Noch da?"
     httpx.delete(f"{umgebung.url}/api/integrationen/kaputt")
+
+
+def test_buehne_immobilien(umgebung):
+    datei = umgebung.basis / "immobilien.json"
+    datei.write_text(json.dumps({"items": [{"id": "h3", "titel": "Hafenweg 3", "preis": 450000}, {"id": "k7", "titel": "Kirchgasse 7", "preis": 320000}], "total": 2}), encoding="utf-8")
+    with connect(umgebung.ws_url, open_timeout=10) as ws:
+        assert json.loads(ws.recv(timeout=10))["typ"] == "zustand"
+        text, ereignisse = _antwort(ws, f"Zeig mir die Immobilien aus {datei}")
+        assert text.startswith("Erledigt. Ergebnis:") and "neue Vorlage gebaut" in text
+        buehne = [e["nachricht"] for e in ereignisse if e["typ"] == "buehne"]
+        assert [next(k for k in n if k != "version") for n in buehne] == ["stil", "createSurface", "updateComponents", "updateDataModel"]
+        assert buehne[1]["createSurface"]["surfaceId"] == "immobilien-e2e" and buehne[1]["createSurface"]["titel"] == "Immobilien"
+        assert buehne[3]["updateDataModel"]["value"]["eintraege"][1]["titel"] == "Kirchgasse 7" and buehne[3]["updateDataModel"]["value"]["anzahl"] == 2
+        # Werkzeugaufruf des Datenwerkzeugs ist als Aktivität sichtbar (innerhalb von buehne_zeigen)
+        assert [e["name"] for e in ereignisse if e["typ"] == "werkzeug_start"] == ["buehne_zeigen", "datei_lesen"]
+
+        # zweiter Aufruf: Vorlage wird wiederverwendet (keine neue Vorlage, gleiche Fläche)
+        text, ereignisse = _antwort(ws, f"Zeig mir die Immobilien aus {datei}")
+        assert "vorhandene Vorlage befüllt" in text
+
+        # Eingabe aus der Oberfläche landet im Datenmodell
+        ws.send(json.dumps({"typ": "buehne_daten", "surfaceId": "immobilien-e2e", "path": "/filter", "value": "Hafen"}))
+
+        # Aktion ohne Rezept → Agent legt ein Rezept an; zweiter Klick läuft direkt
+        ws.send(json.dumps({"typ": "buehne_aktion", "name": "notiz_anlegen", "surfaceId": "immobilien-e2e", "sourceComponentId": "notiz", "timestamp": "2026-10-28T12:00:00Z", "context": {"objekt_id": "h3"}}))
+        _, ereignisse = _bis(ws, lambda e: e["typ"] == "zustand" and e["zustand"] == "bereit")
+        assert any(e["typ"] == "werkzeug_start" and e["name"] == "buehne_rezept_anlegen" for e in ereignisse)
+        rezepte = httpx.get(f"{umgebung.url}/api/buehne/rezepte").json()
+        assert len(rezepte) == 1 and rezepte[0]["werkzeug"] == "uhrzeit_datum" and rezepte[0]["vorlage"] == "immobilien-e2e"
+        ws.send(json.dumps({"typ": "buehne_aktion", "name": "notiz_anlegen", "surfaceId": "immobilien-e2e", "context": {"objekt_id": "k7"}}))
+        ende, ereignisse = _bis(ws, lambda e: e["typ"] == "antwort_ende" and e["id"].startswith("buehne_"))
+        assert "Uhr" in ende["text"]
+        assert [e["name"] for e in ereignisse if e["typ"] == "werkzeug_start"] == ["uhrzeit_datum", "datei_lesen"]  # Rezept + neu laden
+
+        # Vorlage umbauen und zurück
+        text, ereignisse = _antwort(ws, "Baue die Vorlage immobilien-e2e um: nur Titel")
+        assert "Version 2" in text
+        komponenten = [e["nachricht"]["updateComponents"]["components"] for e in ereignisse if e["typ"] == "buehne" and "updateComponents" in e["nachricht"]]
+        assert komponenten and komponenten[-1][2]["text"] == "Vorlage geändert (E2E)"
+
+    zustand = httpx.get(f"{umgebung.url}/api/buehne").json()
+    assert [f["surfaceId"] for f in zustand["flaechen"]] == ["immobilien-e2e"] and zustand["flaechen"][0]["daten"]["filter"] == "Hafen"
+    assert len(zustand["stile"]) >= 8
+    vorlage = httpx.get(f"{umgebung.url}/api/buehne/vorlagen/immobilien-e2e").json()
+    assert vorlage["version"] == 2 and vorlage["versionen"] == 2 and vorlage["aktionen"] == {"notiz_anlegen": rezepte[0]["id"]}
+    assert httpx.post(f"{umgebung.url}/api/buehne/vorlagen/immobilien-e2e/zurueck").json()["version"] == 1
+    assert httpx.put(f"{umgebung.url}/api/buehne/vorlagen/immobilien-e2e", json={"name": "Objekte", "stil": "papier"}).json()["stil"] == "papier"
+    assert httpx.delete(f"{umgebung.url}/api/buehne/flaechen/immobilien-e2e").json()["geschlossen"] == ["immobilien-e2e"]
+    assert httpx.get(f"{umgebung.url}/api/buehne").json()["flaechen"] == []
