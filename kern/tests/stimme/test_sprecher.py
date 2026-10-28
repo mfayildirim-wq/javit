@@ -234,3 +234,66 @@ def test_pcm_pegel():
     leise = struct.pack("<4h", 10, -10, 10, -10)
     laut = struct.pack("<4h", 20000, -20000, 20000, -20000)
     assert 0.0 <= pcm_pegel(leise) < pcm_pegel(laut) <= 1.0
+
+
+# ---------------------------------------------------------------- Einstellungen und Fabriken
+from jarvis.stimme.einstellungen import StimmEinstellungen
+from jarvis.stimme.stt import LokaleSTT, OpenRouterSTT, erzeuge_stt, stt_art
+from jarvis.stimme.tts import SayTTS, erzeuge_tts, openrouter_standard_stimme, tts_art
+
+
+def test_tts_art_auto_mit_und_ohne_schluessel(monkeypatch):
+    monkeypatch.setenv("JARVIS_PLATTFORM", "mac")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    assert tts_art(StimmEinstellungen.aus({})) == "say"
+    assert isinstance(erzeuge_tts(StimmEinstellungen.aus({})), SayTTS)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    assert tts_art(StimmEinstellungen.aus({})) == "openrouter"
+    tts = erzeuge_tts(StimmEinstellungen.aus({}))
+    assert isinstance(tts, OpenRouterTTS) and tts.modell == "elevenlabs/eleven-flash-v2.5" and tts.stimme == "daniel"
+    ms = erzeuge_tts(StimmEinstellungen.aus({"tts": "openrouter", "tts_openrouter_modell": "microsoft/mai-voice-2.1-flash"}))
+    assert ms.stimme == "de-DE-Klaus:MAI-Voice-2.1-Flash"
+    eigen = erzeuge_tts(StimmEinstellungen.aus({"tts": "openrouter", "tts_stimme": "sarah"}))
+    assert eigen.stimme == "sarah"
+    assert tts_art(StimmEinstellungen.aus({"tts": "say"})) == "say"  # ausdrücklich gewählt bleibt
+    assert openrouter_standard_stimme("google/gemini-3.8-flash-tts") == "Kore"
+    assert openrouter_standard_stimme("unbekannt/x") == ""
+
+
+def test_stt_art_und_stoppwort(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    e = StimmEinstellungen.aus({"stoppwort": [" Stopp", "halt "]})
+    assert e.stt == "auto" and stt_art(e) == "lokal" and isinstance(erzeuge_stt(e), LokaleSTT)
+    assert e.stoppwort == "Stopp, halt"
+    assert StimmEinstellungen.aus({"stoppwort": ""}).stoppwort == ""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    stt = erzeuge_stt(StimmEinstellungen.aus({}))
+    assert isinstance(stt, OpenRouterSTT) and stt.modell == "openai/whisper-large-v3"
+    assert isinstance(erzeuge_stt(StimmEinstellungen.aus({"stt": "lokal"})), LokaleSTT)
+
+
+async def test_openrouter_stt():
+    anfragen: list = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        anfragen.append((request.headers["authorization"], json.loads(request.content)))
+        return httpx.Response(200, json={"text": " Hallo  Welt. ", "usage": {"seconds": 1}})
+
+    def fabrik(**kwargs):
+        return httpx.AsyncClient(transport=httpx.MockTransport(handler), **kwargs)
+
+    stt = OpenRouterSTT("openai/whisper-large-v3", "de", schluessel=lambda: "or-test", http_client_fabrik=fabrik)
+    audio = np.zeros(1600, dtype=np.int16)
+    assert await stt.transkribieren(audio) == "Hallo Welt."
+    auth, daten = anfragen[0]
+    assert auth == "Bearer or-test" and daten["model"] == "openai/whisper-large-v3" and daten["language"] == "de"
+    assert daten["input_audio"]["format"] == "wav" and len(daten["input_audio"]["data"]) > 100
+
+    def kaputt(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(402, json={"error": {"message": "Guthaben"}})
+
+    stt2 = OpenRouterSTT(schluessel=lambda: "or-test", http_client_fabrik=lambda **kw: httpx.AsyncClient(transport=httpx.MockTransport(kaputt), **kw))
+    with pytest.raises(StimmFehler, match="402"):
+        await stt2.transkribieren(audio)
+    with pytest.raises(StimmFehler, match="OPENROUTER_API_KEY"):
+        await OpenRouterSTT(schluessel=lambda: None).transkribieren(audio)

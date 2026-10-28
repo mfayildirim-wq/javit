@@ -129,6 +129,12 @@ class StimmEinstellungen(BaseModel):
     weckwort_varianten: list[str] = Field(default_factory=list)
     #: eigenes openWakeWord-Modell (.onnx), z. B. ~/.jarvis/modelle/openwakeword/javit.onnx
     weckwort_modell_pfad: str = ""
+    #: Stoppwörter (Komma-getrennt): beenden die laufende Sprachausgabe; leer = aus
+    stoppwort: str = "stopp"
+    #: Sprachausgabe über OpenRouter (``tts: openrouter`` bzw. ``auto`` mit OPENROUTER_API_KEY)
+    tts_openrouter_modell: str = "elevenlabs/eleven-flash-v2.5"
+    #: Spracherkennung über OpenRouter (``stt: openrouter`` bzw. ``auto`` mit OPENROUTER_API_KEY)
+    stt_openrouter_modell: str = "openai/whisper-large-v3"
 
     @field_validator("weckwort", mode="before")
     @classmethod

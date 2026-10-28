@@ -28,16 +28,19 @@ class StimmEinstellungen:
     vosk_modell_sha256: str = ""  # optional: erwartete SHA-256-Prüfsumme des Modell-ZIPs
     schwelle: float = 0.5  # openWakeWord: Score; Vosk: Ähnlichkeit (siehe weckwort_vosk.py)
     # Spracherkennung
-    stt: str = "lokal"  # "lokal" (faster-whisper) | "cloud" (LiteLLM)
+    # "auto" (openrouter mit OPENROUTER_API_KEY, sonst lokal) | "lokal" (faster-whisper) | "openrouter" | "cloud" (LiteLLM)
+    stt: str = "auto"
     stt_modell: str = "small"  # faster-whisper-Modell (tiny/base/small/medium/large-v3 …)
     stt_cloud_modell: str = "whisper-1"  # z. B. "whisper-1", "groq/whisper-large-v3"
+    stt_openrouter_modell: str = "openai/whisper-large-v3"  # OpenRouter /audio/transcriptions
     sprache: str = "de"
     # Sprachausgabe
-    # "auto" (Mac: say, Windows: sapi, Linux: piper → espeak-ng) | "say" | "sapi" | "piper" | "espeak"
-    # | "cloud" (LiteLLM) | "aus"
+    # "auto" (openrouter mit OPENROUTER_API_KEY; sonst Mac: say, Windows: sapi, Linux: piper → espeak-ng)
+    # | "openrouter" (PCM-Strom) | "say" | "sapi" | "piper" | "espeak" | "cloud" (LiteLLM) | "aus"
     tts: str = "auto"
-    tts_stimme: str = ""  # leer = automatisch (say/sapi: beste deutsche Stimme, piper: de_DE-thorsten-medium, cloud: "onyx")
+    tts_stimme: str = ""  # leer = automatisch (say/sapi: beste deutsche Stimme, piper: de_DE-thorsten-medium, cloud: "onyx", openrouter: je Modell)
     tts_cloud_modell: str = "openai/tts-1"
+    tts_openrouter_modell: str = "elevenlabs/eleven-flash-v2.5"  # OpenRouter /audio/speech (ElevenLabs, Microsoft MAI, Google …)
     tts_tempo: int = 0  # Wörter/Minute (say, espeak; SAPI/Piper umgerechnet; 0 = Standard)
     # Ablauf
     bestaetigungston: bool = True
@@ -47,6 +50,7 @@ class StimmEinstellungen:
     warte_auf_sprache_s: float = 5.0  # nach dem Weckwort: so lange auf Sprachbeginn warten
     folgemodus_s: float = 5.0  # nach einer Antwort ohne Weckwort weiter zuhören (0 = aus)
     unterbrechen: bool = False  # „Barge-in“: Weckwort während des Sprechens stoppt die Ausgabe
+    stoppwort: str = "stopp"  # Stoppwörter (Komma-getrennt) beenden die Ausgabe sofort; leer = aus
     geraet: Any = None  # sounddevice-Eingabegerät (Name oder Index), None = Standard
     vad: str = "auto"  # "auto" (webrtcvad falls installiert) | "webrtc" | "energie"
     modell_verzeichnis: str = STANDARD_MODELL_VERZEICHNIS
@@ -83,7 +87,11 @@ class StimmEinstellungen:
         self.weckwort_modell_pfad = str(self.weckwort_modell_pfad or "").strip()
         self.vosk_modell = str(self.vosk_modell or STANDARD_VOSK_MODELL).strip()
         self.vosk_modell_sha256 = str(self.vosk_modell_sha256 or "").strip().lower()
-        self.stt = str(self.stt or "lokal").lower()
+        self.stt = str(self.stt or "auto").lower()
+        stoppwort = self.stoppwort
+        if isinstance(stoppwort, (list, tuple)):
+            stoppwort = ", ".join(str(w) for w in stoppwort)
+        self.stoppwort = ", ".join(w.strip() for w in str(stoppwort or "").replace(";", ",").split(",") if w.strip())
         self.tts = "aus" if self.tts is False else str(self.tts or "auto").lower()
         if self.tts in ("false", "none", "keine", "off"):
             self.tts = "aus"

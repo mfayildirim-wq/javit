@@ -557,8 +557,31 @@ class KetteTTS:
         raise StimmFehler(" / ".join(fehler) or "Keine Sprachausgabe verfügbar.")
 
 
+def openrouter_schluessel_vorhanden() -> bool:
+    return bool(os.environ.get("OPENROUTER_API_KEY"))
+
+
+#: Standardstimme je OpenRouter-Modell (Präfix → Stimme); Deutsch, wo das Modell es anbietet
+OPENROUTER_STANDARD_STIMMEN = (
+    ("elevenlabs/", "daniel"),
+    ("microsoft/mai-voice-2.1-flash", "de-DE-Klaus:MAI-Voice-2.1-Flash"),
+    ("microsoft/mai-voice-2.1", "de-DE-Klaus:MAI-Voice-2.1"),
+    ("microsoft/mai-voice-2-flash", "de-DE-Klaus:MAI-Voice-2"),
+    ("microsoft/mai-voice-2", "de-DE-Klaus:MAI-Voice-2"),
+    ("google/", "Kore"),
+    ("mistralai/", "en_paul_neutral"),
+)
+
+
+def openrouter_standard_stimme(modell: str) -> str:
+    for praefix, stimme in OPENROUTER_STANDARD_STIMMEN:
+        if modell.startswith(praefix):
+            return stimme
+    return ""
+
+
 def tts_art(e) -> str:
-    """Wirksame TTS-Art: ``auto``/``say`` werden je Plattform aufgelöst."""
+    """Wirksame TTS-Art: ``auto``/``say`` werden je Plattform (und OpenRouter-Schlüssel) aufgelöst."""
     art = (e.tts or "auto").lower()
     plattform = _plattform()
     if art == "say" and plattform != "mac":
@@ -567,10 +590,13 @@ def tts_art(e) -> str:
         art = "sapi"
     if art == "espeak-ng":
         art = "espeak"
-    if art not in ("aus", "cloud", "say", "sapi", "piper", "espeak"):
+    if art not in ("aus", "cloud", "openrouter", "say", "sapi", "piper", "espeak"):
         art = "auto"
     if art == "auto":
-        art = {"mac": "say", "windows": "sapi"}.get(plattform, "piper")
+        if openrouter_schluessel_vorhanden():
+            art = "openrouter"
+        else:
+            art = {"mac": "say", "windows": "sapi"}.get(plattform, "piper")
     return art
 
 
@@ -580,6 +606,11 @@ def erzeuge_tts(e) -> Sprachsynthese | None:
         return None
     if art == "cloud":
         return CloudTTS(modell=e.tts_cloud_modell, stimme=e.tts_stimme)
+    if art == "openrouter":
+        from .sprecher import OpenRouterTTS  # noqa: PLC0415 – sprecher importiert dieses Modul
+
+        modell = getattr(e, "tts_openrouter_modell", "") or "elevenlabs/eleven-flash-v2.5"
+        return OpenRouterTTS(modell, e.tts_stimme or openrouter_standard_stimme(modell))
     if art == "sapi":
         return SapiTTS(stimme=e.tts_stimme, sprache=e.sprache, tempo=e.tts_tempo)
     if art == "piper":

@@ -18,7 +18,7 @@ from jarvis.stimme.fehler import StimmFehler, mikrofon_fehlertext
 
 def test_standardwerte():
     e = StimmEinstellungen.aus({})
-    assert (e.aktiv, e.weckwort, e.schwelle, e.stt, e.stt_modell, e.sprache) == (False, "javit", 0.5, "lokal", "small", "de")
+    assert (e.aktiv, e.weckwort, e.schwelle, e.stt, e.stt_modell, e.sprache) == (False, "javit", 0.5, "auto", "small", "de")  # stt „auto“: openrouter mit Schlüssel, sonst lokal
     assert (e.tts, e.bestaetigungston, e.stille_ms, e.max_aufnahme_s, e.folgemodus_s) == ("auto", True, 900, 20.0, 5.0)
 
 

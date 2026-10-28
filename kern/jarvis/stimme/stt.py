@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import asyncio
 import logging
 import re
@@ -128,7 +130,72 @@ class CloudSTT:
         return text_bereinigen(text or "")
 
 
+OPENROUTER_TRANSCRIPTION_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
+
+
+class OpenRouterSTT:
+    """Spracherkennung über OpenRouter ``/audio/transcriptions`` (z. B. ``openai/whisper-large-v3``)."""
+
+    def __init__(
+        self,
+        modell: str = "openai/whisper-large-v3",
+        sprache: str = "de",
+        schluessel=None,
+        http_client_fabrik=None,
+    ):
+        self.modell = modell or "openai/whisper-large-v3"
+        self.sprache = sprache
+        self._schluessel = schluessel if schluessel is not None else (lambda: os.environ.get("OPENROUTER_API_KEY"))
+        self._fabrik = http_client_fabrik
+
+    async def vorbereiten(self) -> None:
+        return None
+
+    async def transkribieren(self, audio: np.ndarray) -> str:
+        import base64  # noqa: PLC0415
+
+        import httpx  # noqa: PLC0415
+
+        key = self._schluessel() if callable(self._schluessel) else self._schluessel
+        if not key:
+            raise StimmFehler("OpenRouter-Schlüssel fehlt (OPENROUTER_API_KEY) – in den Einstellungen hinterlegen.")
+        daten = {
+            "model": self.modell,
+            "input_audio": {"data": base64.b64encode(wav_bytes(audio)).decode("ascii"), "format": "wav"},
+        }
+        if self.sprache:
+            daten["language"] = self.sprache
+        kopf = {"Authorization": f"Bearer {key}", "HTTP-Referer": "https://github.com/mfayildirim-wq/javit", "X-Title": "Javit"}
+        timeout = httpx.Timeout(60.0, connect=15.0)
+        client = self._fabrik(timeout=timeout) if self._fabrik is not None else httpx.AsyncClient(timeout=timeout)
+        try:
+            async with client:
+                antwort = await client.post(OPENROUTER_TRANSCRIPTION_URL, headers=kopf, json=daten)
+        except Exception as exc:  # noqa: BLE001
+            raise StimmFehler(f"OpenRouter-Spracherkennung ({self.modell}) fehlgeschlagen: {kurz(exc)}") from exc
+        if antwort.status_code != 200:
+            raise StimmFehler(
+                f"OpenRouter-Spracherkennung ({self.modell}): HTTP {antwort.status_code} {antwort.text[:200]}"
+            )
+        try:
+            text = antwort.json().get("text", "")
+        except ValueError:
+            text = ""
+        return text_bereinigen(str(text or ""))
+
+
+def stt_art(e) -> str:
+    """Wirksame STT-Art: ``auto`` → ``openrouter`` mit OPENROUTER_API_KEY, sonst ``lokal``."""
+    art = str(getattr(e, "stt", "auto") or "auto").lower()
+    if art not in ("lokal", "cloud", "openrouter"):
+        art = "openrouter" if os.environ.get("OPENROUTER_API_KEY") else "lokal"
+    return art
+
+
 def erzeuge_stt(e) -> Spracherkennung:
-    if e.stt == "cloud":
+    art = stt_art(e)
+    if art == "cloud":
         return CloudSTT(modell=e.stt_cloud_modell, sprache=e.sprache)
+    if art == "openrouter":
+        return OpenRouterSTT(modell=getattr(e, "stt_openrouter_modell", "") or "openai/whisper-large-v3", sprache=e.sprache)
     return LokaleSTT(modell=e.stt_modell, sprache=e.sprache)
