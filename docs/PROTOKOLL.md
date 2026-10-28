@@ -364,3 +364,16 @@ mit pwsh geparst (nicht ausgeführt).
   einer Rückfrage; `getByLabelText('Stimme')` kollidiert mit dem gleichnamigen Abschnitt (Selector eingrenzen).
 - Live am Mac (Port 8766, echte Schlüssel): Audio-Sitzung per WebSocket, Antwort als PCM-Binärframes (7 s,
   erster Frame 0,9 s nach dem ersten Text), per Whisper gegengeprüft; Probe über Lautsprecher ok.
+
+## 28.10.2026 – Einstellungen mit Reitern
+
+- Nutzerwunsch: Bereiche als Reiter, Anbieter- und Modellwahl übersichtlicher, Unnötiges weg. Umgesetzt in
+  `Settings.tsx`: fünf Reiter Modell / Stimme / Freigaben / Gedächtnis / Erweitert (Wahl in `localStorage`
+  `jarvis.einstellungen.reiter`), nur der aktive Reiter wird gerendert.
+- Modell: Anbieter als Auswahlliste mit Statuszeile (Schlüssel hinterlegt / fehlt, Ollama erreichbar) statt
+  Chip-Wolke; Modelle sortiert nach `versionsZahl()` (neueste zuerst, Datumsanhänge ignoriert), ab neun Einträgen
+  nur die acht neuesten plus das aktive, Rest hinter „n ältere Modelle anzeigen“.
+- Entfernt: eigener Abschnitt „API-Schlüssel“ (der Anbieter-Schlüssel steht beim Anbieter; eigene Schlüssel unter
+  Erweitert → „Weitere Schlüssel“); „Verzeichnisse“ nach Erweitert verschoben; „Audio im Browser“ als Schalter im
+  Reiter Stimme (zusätzlich zum Knopf im Composer).
+- Tests klicken jetzt zuerst den Reiter; Anbieterwahl über `combobox`; neuer Test `versionsZahl`.

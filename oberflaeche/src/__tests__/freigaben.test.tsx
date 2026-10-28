@@ -48,6 +48,7 @@ describe('Freigaben nach Bereich', () => {
   it('Einstellungen: technische Freigaben einschalten und fachliche Stufe wählen', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Freigaben' }));
     const schalter = await screen.findByRole('switch', { name: /Technische Aktionen bestätigen/ });
     expect(schalter).not.toBeChecked();
     await u.click(schalter);

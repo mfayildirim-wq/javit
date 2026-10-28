@@ -102,6 +102,7 @@ describe('Unterhaltungen – Oberfläche', () => {
     const u = userEvent.setup();
     useJarvis.setState({ ansicht: 'einstellungen' });
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Gedächtnis' }));
     const liste = await screen.findByRole('list', { name: 'Unterhaltungen' });
     const rom = within(liste).getByRole('button', { name: 'Reise nach Rom öffnen' });
     expect(rom).toHaveTextContent('8 Nachrichten');
@@ -130,6 +131,7 @@ describe('Unterhaltungen – Oberfläche', () => {
   it('Gedächtnis: Herkunft, einzeln löschen, automatisch merken umschalten', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Gedächtnis' }));
     const eintrag = (await screen.findByText('Der Nutzer mag Italien.')).closest('li')!;
     expect(within(eintrag).getByText('automatisch')).toBeInTheDocument();
     expect(screen.getByText('Trinkt Espresso.').closest('li')!).toHaveTextContent('von Ihnen');

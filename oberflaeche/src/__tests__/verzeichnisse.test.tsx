@@ -138,6 +138,7 @@ describe('Verzeichnissuche', () => {
   it('Einstellungen: eigene Registry anlegen und entfernen', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Erweitert' }));
     const liste = await screen.findByRole('list', { name: 'Eigene Verzeichnisse' });
     expect(within(liste).getAllByText('eingebaut')).toHaveLength(2);
     await u.click(screen.getByRole('button', { name: 'Registry hinzufügen' }));

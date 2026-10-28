@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EinstellungenAnsicht, ttsOptionen } from '../views/Settings';
+import { EinstellungenAnsicht, ttsOptionen, versionsZahl } from '../views/Settings';
 
 interface Aufruf { methode: string; pfad: string; body: unknown }
 
@@ -54,6 +54,7 @@ describe('Einstellungen speichern', () => {
   it('Stimme und Persona per PUT /api/einstellungen als Teilupdate', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Stimme' }));
     const speichern = await screen.findByRole('button', { name: 'Einstellungen speichern' });
     expect(speichern).toBeDisabled();
 
@@ -86,14 +87,16 @@ describe('Einstellungen speichern', () => {
   it('Modell wechseln per PUT /api/modelle (Liste und freie ID)', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Modell' }));
     // Anbieter des aktiven Modells (Ollama) ist vorausgewählt und zeigt nur seine Modelle
-    const leiste = await screen.findByRole('radiogroup', { name: 'Anbieter' });
-    expect(within(leiste).getByRole('radio', { name: /Ollama/ })).toHaveAttribute('aria-checked', 'true');
+    const wahl = await screen.findByRole('combobox', { name: 'Anbieter' });
+    await waitFor(() => expect(wahl).toHaveValue('ollama'));
     expect(await screen.findByText('Qwen 2.5 7B')).toBeInTheDocument();
     expect(screen.queryByText('GPT-4o')).not.toBeInTheDocument();
     expect(screen.getByText('Qwen 2.5 7B').closest('button')).toHaveTextContent('lokal');
+    expect(screen.getByRole('status')).toHaveTextContent('Ollama erreichbar');
 
-    await u.click(within(leiste).getByRole('radio', { name: /OpenAI/ }));
+    await u.selectOptions(wahl, 'openai');
     await waitFor(() => expect(aufrufe.some((a) => a.pfad === '/api/modelle?anbieter=openai')).toBe(true));
     await u.click(await screen.findByRole('radio', { name: /GPT-4o/ }));
     await waitFor(() => expect(aufrufe).toContainEqual({ methode: 'PUT', pfad: '/api/modelle', body: { modell: 'openai/gpt-4o' } }));
@@ -105,10 +108,12 @@ describe('Einstellungen speichern', () => {
   it('Anbieterwahl: Schlüsselstatus, kostenlose Modelle, Schlüssel speichern lädt Liste neu', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
-    const leiste = await screen.findByRole('radiogroup', { name: 'Anbieter' });
-    const openrouter = within(leiste).getByRole('radio', { name: /OpenRouter/ });
-    expect(openrouter).toHaveAttribute('title', 'Schlüssel fehlt');
-    await u.click(openrouter);
+    await u.click(await screen.findByRole('tab', { name: 'Modell' }));
+    const wahl = await screen.findByRole('combobox', { name: 'Anbieter' });
+    await waitFor(() => expect(wahl).toHaveValue('ollama'));
+    expect(within(wahl).getByRole('option', { name: /OpenRouter/ })).toHaveTextContent('Schlüssel fehlt');
+    await u.selectOptions(wahl, 'openrouter');
+    expect(screen.getByRole('status')).toHaveTextContent('Schlüssel fehlt');
     const gemma = await screen.findByRole('radio', { name: /Gemma 4/ });
     expect(gemma).toHaveTextContent('kostenlos');
     expect(gemma).toHaveTextContent('Werkzeuge');
@@ -131,7 +136,8 @@ describe('Einstellungen speichern', () => {
   it('Eigenen Anbieter anlegen (PUT /api/einstellungen + Schlüssel) und entfernen', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
-    await screen.findByRole('radiogroup', { name: 'Anbieter' });
+    await u.click(await screen.findByRole('tab', { name: 'Modell' }));
+    await screen.findByRole('combobox', { name: 'Anbieter' });
     await u.click(screen.getByRole('button', { name: /Anbieter hinzufügen/ }));
     await u.type(screen.getByLabelText('Name'), 'LM Studio');
     expect(screen.getByText('lm-studio')).toBeInTheDocument();
@@ -146,26 +152,28 @@ describe('Einstellungen speichern', () => {
       }),
     );
     await waitFor(() => expect(aufrufe).toContainEqual({ methode: 'PUT', pfad: '/api/geheimnisse/LM_STUDIO_API_KEY', body: { wert: 'geheim' } }));
-    const leiste = screen.getByRole('radiogroup', { name: 'Anbieter' });
-    const chip = await within(leiste).findByRole('radio', { name: /LM Studio/ });
-    await waitFor(() => expect(chip).toHaveAttribute('aria-checked', 'true'));
+    const wahl = screen.getByRole('combobox', { name: 'Anbieter' });
+    await waitFor(() => expect(wahl).toHaveValue('lm-studio'));
     expect(await screen.findByRole('radio', { name: /lm-studio\/llama/ })).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /Anbieter entfernen/ }));
     await u.click(screen.getByRole('button', { name: 'Ja, entfernen' }));
     await waitFor(() => expect(aufrufe).toContainEqual({ methode: 'PUT', pfad: '/api/einstellungen', body: { anbieter_eigene: [] } }));
-    await waitFor(() => expect(within(leiste).queryByRole('radio', { name: /LM Studio/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(within(wahl).queryByRole('option', { name: /LM Studio/ })).not.toBeInTheDocument());
   });
 
   it('API-Schlüssel per PUT /api/geheimnisse/{name}', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
-    const feld = await screen.findByLabelText(/Anthropic \(Claude\)/);
+    await u.click(await screen.findByRole('tab', { name: 'Modell' }));
+    const wahl = await screen.findByRole('combobox', { name: 'Anbieter' });
+    await u.selectOptions(wahl, 'openai');
+    const feld = await screen.findByLabelText(/OpenAI/, { selector: 'input' });
     expect(feld).toHaveAttribute('type', 'password');
     await u.type(feld, 'sk-ant-123');
     const zeile = feld.closest('form')!;
     await u.click(within(zeile).getByRole('button', { name: /Speichern/ }));
     await waitFor(() =>
-      expect(aufrufe).toContainEqual({ methode: 'PUT', pfad: '/api/geheimnisse/ANTHROPIC_API_KEY', body: { wert: 'sk-ant-123' } }),
+      expect(aufrufe).toContainEqual({ methode: 'PUT', pfad: '/api/geheimnisse/OPENAI_API_KEY', body: { wert: 'sk-ant-123' } }),
     );
     expect(await within(zeile).findByRole('button', { name: /Gespeichert/ })).toBeInTheDocument();
     expect(feld).toHaveValue('');
@@ -174,6 +182,7 @@ describe('Einstellungen speichern', () => {
   it('Gedächtnis ansehen und löschen (mit Bestätigung)', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Gedächtnis' }));
     expect(await screen.findByText('Mag Jazz')).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /Gedächtnis löschen/ }));
     await u.click(screen.getByRole('button', { name: 'Ja, löschen' }));
@@ -189,5 +198,18 @@ describe('ttsOptionen', () => {
     expect(ttsOptionen(undefined, 'say').map(([w]) => w)).toEqual(['auto', 'openrouter', 'say', 'cloud', 'aus']);
     // gespeicherter Wert, der nicht zur Plattform passt, bleibt sichtbar
     expect(ttsOptionen('linux', 'espeak').map(([w]) => w)).toEqual(['auto', 'openrouter', 'piper', 'espeak', 'cloud', 'aus']);
+  });
+});
+
+describe('versionsZahl', () => {
+  it('liest Versionen aus Modell-IDs, ignoriert Datumsanhänge', () => {
+    expect(versionsZahl('anthropic/claude-sonnet-4-5-20250929')).toBe(4.5);
+    expect(versionsZahl('anthropic/claude-opus-5')).toBe(5);
+    expect(versionsZahl('openrouter/deepseek/deepseek-v4.1-flash')).toBe(4.1);
+    expect(versionsZahl('ollama/llama3.1:8b')).toBe(3.1);
+    expect(versionsZahl('openai/gpt-4o')).toBe(4);
+    expect(versionsZahl('ollama/qwen2.5:7b')).toBe(2.5);
+    expect(versionsZahl('mistral/mistral-large')).toBe(0);
+    expect(versionsZahl('anthropic/claude-sonnet-5-5')).toBeGreaterThan(versionsZahl('anthropic/claude-opus-4-8'));
   });
 });

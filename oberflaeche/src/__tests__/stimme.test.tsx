@@ -121,6 +121,7 @@ describe('Einstellungen → Stimme (OpenRouter, Stoppwort, Probe)', () => {
     const u = userEvent.setup();
     const { EinstellungenAnsicht } = await import('../views/Settings');
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Stimme' }));
     const modell = await screen.findByLabelText('Stimme (OpenRouter)');
     await waitFor(() => expect(within(modell).getAllByRole('option')).toHaveLength(2));
     expect(screen.getByText(/ca\. 3,6 Cent je Minute/)).toBeInTheDocument();

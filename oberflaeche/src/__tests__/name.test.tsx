@@ -110,11 +110,11 @@ describe('Einstellungen: Name und Weckwort', () => {
   it('speichert name, stimme.weckwort und weckwort_engine', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Stimme' }));
     const name = await screen.findByLabelText('Name des Assistenten');
     expect(name).toHaveValue('Javit');
     expect(screen.getByLabelText('Weckwort')).toHaveValue('javit');
     expect(screen.getByText('Weckwort „Javit“, Spracherkennung und Sprachausgabe.')).toBeInTheDocument();
-    expect(screen.getByText('Was Javit sich über Sie gemerkt hat.')).toBeInTheDocument();
 
     await u.clear(name);
     await u.type(name, 'Friday');
@@ -134,6 +134,7 @@ describe('Einstellungen: Name und Weckwort', () => {
   it('leerer Name wird als Standard „Javit“ gespeichert', async () => {
     const u = userEvent.setup();
     render(<EinstellungenAnsicht />);
+    await u.click(await screen.findByRole('tab', { name: 'Stimme' }));
     await u.clear(await screen.findByLabelText('Name des Assistenten'));
     await u.click(screen.getByRole('button', { name: 'Einstellungen speichern' }));
     await screen.findByText('Einstellungen gespeichert.');

@@ -7,6 +7,38 @@ import { STANDARD_NAME, weckwortAnzeige } from '../lib/name';
 import { neueUnterhaltung, statusLaden, unterhaltungOeffnen } from '../state/verbindung';
 import { modellAnbieter } from '../lib/format';
 
+export type Reiter = 'modell' | 'stimme' | 'freigaben' | 'gedaechtnis' | 'erweitert';
+export const REITER: { id: Reiter; titel: string }[] = [
+  { id: 'modell', titel: 'Modell' },
+  { id: 'stimme', titel: 'Stimme' },
+  { id: 'freigaben', titel: 'Freigaben' },
+  { id: 'gedaechtnis', titel: 'Gedächtnis' },
+  { id: 'erweitert', titel: 'Erweitert' },
+];
+
+function reiterLaden(): Reiter {
+  try {
+    const r = localStorage.getItem('jarvis.einstellungen.reiter');
+    if (r && REITER.some((x) => x.id === r)) return r as Reiter;
+  } catch {
+    /* egal */
+  }
+  return 'modell';
+}
+
+/** Versionszahl einer Modell-ID für die Sortierung (neueste zuerst): „claude-sonnet-4-5-20250929“ → 4.5,
+ * „deepseek-v4.1-flash“ → 4.1, „llama3.1:8b“ → 3.1, „gpt-4o“ → 4; Datumsanhänge (6+ Ziffern) zählen nicht. */
+export function versionsZahl(id: string): number {
+  const ohneDatum = id.replace(/\d{6,}/g, '');
+  const m = ohneDatum.match(/(?<!\d)(\d{1,3})(?:[.-](\d{1,3}))?(?!\d)/);
+  if (!m) return 0;
+  const major = Number(m[1]);
+  const minor = m[2] ? Number(m[2]) : 0;
+  return major + (minor < 10 ? minor / 10 : minor / 100);
+}
+
+export const MODELLE_SICHTBAR = 8;
+
 export const SCHLUESSEL = [
   { name: 'ANTHROPIC_API_KEY', titel: 'Anthropic (Claude)' },
   { name: 'OPENAI_API_KEY', titel: 'OpenAI (GPT)' },
@@ -175,6 +207,7 @@ function ModellWahl() {
   const [entfernen, setEntfernen] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [nurKostenlos, setNurKostenlos] = useState(false);
+  const [alleZeigen, setAlleZeigen] = useState(false);
 
   const uebersichtLaden = async (): Promise<Modelle | null> => {
     try {
@@ -206,6 +239,7 @@ function ModellWahl() {
     setGewaehlt(anbieter);
     setFilter('');
     setNurKostenlos(false);
+    setAlleZeigen(false);
     void listeLaden(anbieter, neu);
   };
 
@@ -254,28 +288,35 @@ function ModellWahl() {
   const live = (liste ?? []).some((m) => m.live);
   const hatKostenlose = (liste ?? []).some((m) => m.kostenlos === true);
   const suchtext = filter.trim().toLowerCase();
-  const gefiltert = (liste ?? []).filter(
-    (m) => (!nurKostenlos || m.kostenlos === true) && (!suchtext || `${m.name} ${m.id}`.toLowerCase().includes(suchtext)),
-  );
+  const gefiltert = (liste ?? [])
+    .filter((m) => (!nurKostenlos || m.kostenlos === true) && (!suchtext || `${m.name} ${m.id}`.toLowerCase().includes(suchtext)))
+    .sort((a, b) => versionsZahl(b.id) - versionsZahl(a.id) || a.name.localeCompare(b.name, 'de'));
+  // Neueste zuerst; ältere Versionen eingeklappt (das aktive Modell bleibt immer sichtbar)
+  const eingeklappt = !alleZeigen && !suchtext && !nurKostenlos && gefiltert.length > MODELLE_SICHTBAR;
+  const sichtbar = eingeklappt ? gefiltert.filter((m, i) => i < MODELLE_SICHTBAR || m.id === aktuell) : gefiltert;
+  const versteckt = gefiltert.length - sichtbar.length;
 
   return (
-    <Abschnitt id="s-modell" titel="Modell" text="Oben den Anbieter wählen, darunter das Modell. Lokale Modelle laufen über Ollama, Cloud-Modelle brauchen einen API-Schlüssel.">
-      <div className="anbieter-leiste" role="radiogroup" aria-label="Anbieter">
-        {anbieter.map((a) => (
-          <button
-            type="button"
-            key={a.id}
-            role="radio"
-            aria-checked={gewaehlt === a.id}
-            className={`anbieter-chip ${gewaehlt === a.id ? 'an' : ''} ${a.eigen ? 'eigen' : ''}`}
-            onClick={() => waehlen(a.id)}
-            title={a.lokal ? (a.verfuegbar ? 'Ollama erreichbar' : 'Ollama nicht erreichbar') : a.verfuegbar ? 'Schlüssel hinterlegt' : 'Schlüssel fehlt'}
-          >
-            <span className={`led ${a.verfuegbar ? 'an' : ''}`} aria-hidden="true" />
-            {a.name}
-          </button>
-        ))}
-        {!uebersicht && !fehler && <span className="gedaempft">Lade Anbieter …</span>}
+    <Abschnitt id="s-modell" titel="Modell" text="Anbieter wählen, Schlüssel daneben eintragen, darunter das Modell. Neueste Modelle stehen oben, ältere sind eingeklappt.">
+      <div className="feld-reihe anbieter-wahl">
+        <div className="feld">
+          <label htmlFor="anbieter-wahl">Anbieter</label>
+          <select id="anbieter-wahl" value={gewaehlt ?? ''} onChange={(e) => waehlen(e.target.value)} disabled={!uebersicht}>
+            {!uebersicht && <option value="">Lade Anbieter …</option>}
+            {anbieter.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+                {a.verfuegbar ? '' : a.lokal ? ' – nicht erreichbar' : ' – Schlüssel fehlt'}
+              </option>
+            ))}
+          </select>
+        </div>
+        {aktiv && (
+          <span className={`anbieter-status ${aktiv.verfuegbar ? 'an' : ''}`} role="status">
+            <span className={`led ${aktiv.verfuegbar ? 'an' : ''}`} aria-hidden="true" />
+            {aktiv.lokal ? (aktiv.verfuegbar ? 'Ollama erreichbar' : 'Ollama nicht erreichbar') : aktiv.verfuegbar ? 'Schlüssel hinterlegt' : 'Schlüssel fehlt'}
+          </span>
+        )}
       </div>
 
       {aktiv && aktiv.lokal && (
@@ -333,7 +374,7 @@ function ModellWahl() {
         </div>
       )}
       <ul className="modell-liste" role="radiogroup" aria-label="Modell">
-        {gefiltert.map((m) => {
+        {sichtbar.map((m) => {
           const an = aktuell === m.id;
           return (
             <li key={m.id}>
@@ -359,6 +400,11 @@ function ModellWahl() {
         })}
         {liste && gefiltert.length === 0 && !laedt && <li className="gedaempft">Keine Modelle gefunden. Eigene Modell-ID unten eintragen.</li>}
       </ul>
+      {(eingeklappt || (alleZeigen && gefiltert.length > MODELLE_SICHTBAR)) && (
+        <button type="button" className="knopf klein leise modell-mehr" onClick={() => setAlleZeigen(!alleZeigen)}>
+          {eingeklappt ? `${versteckt} ältere Modelle anzeigen` : 'Nur die neuesten anzeigen'}
+        </button>
+      )}
       <form
         className="feld-reihe frei"
         onSubmit={(e) => {
@@ -431,14 +477,12 @@ function SchluesselZeile({ name, titel, idPraefix = 'k', onGespeichert }: { name
   );
 }
 
-function Schluessel() {
+function WeitereSchluessel() {
   const [eigener, setEigener] = useState('');
   const [extra, setExtra] = useState<string[]>([]);
   return (
-    <Abschnitt id="s-schluessel" titel="API-Schlüssel" text="Werden im macOS-Schlüsselbund abgelegt und nie wieder angezeigt.">
-      {SCHLUESSEL.map((s) => (
-        <SchluesselZeile key={s.name} name={s.name} titel={s.titel} />
-      ))}
+    <Abschnitt id="s-schluessel" titel="Weitere Schlüssel" text="Für Integrationen und Werkzeuge, z. B. TAVILY_API_KEY. Anbieter-Schlüssel für Modelle stehen unter „Modell“, Sprach-Schlüssel laufen über OpenRouter. Alles landet im Schlüsselbund und wird nie wieder angezeigt.">
+      {extra.length === 0 && <p className="gedaempft">Noch keine weiteren Schlüssel in dieser Sitzung angelegt.</p>}
       {extra.map((n) => (
         <SchluesselZeile key={n} name={n} titel="Eigener Schlüssel" />
       ))}
@@ -732,6 +776,16 @@ function StimmePersona() {
         </button>
       </div>
     </form>
+  );
+}
+
+function AudioImBrowser() {
+  const an = useJarvis((s) => s.audioBrowser);
+  const setzen = useJarvis((s) => s.setAudioBrowser);
+  return (
+    <Abschnitt id="s-audio-browser" titel="Audio im Browser" text="Mikrofon und Lautsprecher dieses Geräts statt des Rechners, auf dem der Kern läuft – für Handy, Tablet oder einen entfernten Kern.">
+      <Schalter label="Audio im Browser" beschreibung="Der Mikrofon-Knopf nimmt dann hier auf; Antworten werden hier abgespielt. Auf Handy und Tablet ist das Standard." an={an} onChange={setzen} />
+    </Abschnitt>
   );
 }
 
@@ -1076,22 +1130,51 @@ function Verzeichnisse() {
 
 export function EinstellungenAnsicht() {
   const verbindung = useJarvis((s) => s.verbindung);
+  const [reiter, setReiter] = useState<Reiter>(() => reiterLaden());
+  const waehlen = (r: Reiter) => {
+    setReiter(r);
+    try {
+      localStorage.setItem('jarvis.einstellungen.reiter', r);
+    } catch {
+      /* egal */
+    }
+  };
   return (
     <section className="ansicht" aria-labelledby="einst-titel">
       <header className="ansicht-kopf">
         <div>
           <h1 id="einst-titel">Einstellungen</h1>
-          <p>Modell, Schlüssel, Stimme, Unterhaltungen und Gedächtnis. Änderungen gelten sofort.</p>
+          <p>Modell, Stimme, Freigaben, Gedächtnis. Änderungen gelten sofort.</p>
         </div>
       </header>
-      <div className="ansicht-inhalt einstellungen" key={verbindung === 'offen' ? 'on' : 'off'}>
-        <ModellWahl />
-        <Schluessel />
-        <Freigaben />
-        <Verzeichnisse />
-        <StimmePersona />
-        <Unterhaltungen />
-        <Gedaechtnis />
+      <nav className="reiter einstellungen-reiter" role="tablist" aria-label="Einstellungsbereiche">
+        {REITER.map((r) => (
+          <button key={r.id} type="button" role="tab" aria-selected={reiter === r.id} className="reiter-knopf" onClick={() => waehlen(r.id)}>
+            {r.titel}
+          </button>
+        ))}
+      </nav>
+      <div className="ansicht-inhalt einstellungen" key={`${reiter}-${verbindung === 'offen' ? 'on' : 'off'}`} role="tabpanel">
+        {reiter === 'modell' && <ModellWahl />}
+        {reiter === 'stimme' && (
+          <>
+            <StimmePersona />
+            <AudioImBrowser />
+          </>
+        )}
+        {reiter === 'freigaben' && <Freigaben />}
+        {reiter === 'gedaechtnis' && (
+          <>
+            <Unterhaltungen />
+            <Gedaechtnis />
+          </>
+        )}
+        {reiter === 'erweitert' && (
+          <>
+            <WeitereSchluessel />
+            <Verzeichnisse />
+          </>
+        )}
       </div>
     </section>
   );

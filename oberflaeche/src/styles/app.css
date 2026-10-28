@@ -3021,3 +3021,37 @@ input[type='range'] {
 .rund-knopf.klein.an {
   opacity: 1;
 }
+
+/* ---------- Einstellungen: Reiter, Anbieterwahl ---------- */
+.einstellungen-reiter {
+  justify-self: start;
+  height: auto;
+  margin: 0 0 20px;
+  border-bottom: 1px solid var(--linie);
+  width: 100%;
+  overflow-x: auto;
+}
+.einstellungen-reiter .reiter-knopf {
+  padding: 10px 14px;
+}
+.anbieter-wahl {
+  align-items: flex-end;
+  gap: 14px;
+}
+.anbieter-wahl select {
+  min-width: 240px;
+}
+.anbieter-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-s);
+  padding-bottom: 10px;
+  color: var(--gedaempft, inherit);
+}
+.anbieter-status.an {
+  color: inherit;
+}
+.modell-mehr {
+  align-self: flex-start;
+}
