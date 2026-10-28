@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from jarvis.buehne.manager import BuehnenFehler, BuehnenManager
+from jarvis.buehne.manager import BuehnenFehler, BuehnenManager, titel_passt
 from jarvis.werkzeuge import FunktionsWerkzeug, schema
 from tests.buehne.test_erzeuger import ERGEBNIS, GUELTIG
 from tests.conftest import text_chunks, tool_chunks
@@ -65,6 +65,42 @@ async def test_zeigen_baut_vorlage_und_verwendet_sie_wieder():
     neu = BuehnenManager(j.buehne.speicher, j.buehne.erzeuger, j.senden, j.agent.werkzeug_ausfuehren_extern)
     neu.laden()
     assert list(neu.flaechen) == ["immobilienliste"] and neu.flaechen["immobilienliste"]["daten"]["anzahl"] == 1
+
+
+async def test_anderer_zweck_bekommt_eigene_vorlage_und_flaeche():
+    makler = {**GUELTIG, "name": "Makler", "zweck": "Makler, die ich kontaktieren soll"}
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(GUELTIG)), text_chunks(json.dumps(makler))])
+    await j.buehne.zeigen("immo__read", {"collection": "immobilien"}, titel="Immobilien")
+    # gleiche Signatur, aber anderer Titel → neue Vorlage, eigene Fläche; die erste bleibt unberührt (kein Umbau, kein neuer Titel)
+    ereignisse.clear()
+    e = await j.buehne.zeigen("immo__read", {"collection": "immobilien"}, titel="Makler, die ich kontaktieren soll", wunsch="nur Makler mit Fälligkeit")
+    assert e["neu"] is True and e["vorlage"] == "makler" and e["surfaceId"] == "makler" and e["umgebaut"] is False
+    assert [f["titel"] for f in j.buehne.zustand()["flaechen"]] == ["Immobilien", "Makler, die ich kontaktieren soll"]
+    assert j.buehne.speicher.vorlage("immobilienliste")["version"] == 1 and len(skript.aufrufe) == 2
+    assert "nur Makler mit Fälligkeit" in skript.aufrufe[1]["messages"][1]["content"]
+    # ähnlicher Titel → vorhandene Vorlage; explizite Vorlage → genau diese, auch mit abweichendem Titel
+    e = await j.buehne.zeigen("immo__read", {}, titel="Aktuelle Immobilien")
+    assert e["neu"] is False and e["vorlage"] == "immobilienliste"
+    e = await j.buehne.zeigen("immo__read", {}, titel="Meine Objekte", vorlage="immobilienliste")
+    assert e["neu"] is False and e["vorlage"] == "immobilienliste" and len(skript.aufrufe) == 2
+    with pytest.raises(BuehnenFehler):
+        await j.buehne.zeigen("immo__read", {}, vorlage="gibt-es-nicht")
+
+
+async def test_grosse_ergebnisse_kommen_ungekuerzt_auf_die_buehne():
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(GUELTIG))])
+    viele = {"items": [{"id": f"h{i}", "titel": f"Hafenweg {i}", "preis": 1000 * i, "bild_url": "https://gg.example/x.jpg"} for i in range(1500)], "total": 1500}
+
+    async def gross(collection: str = "immobilien") -> str:
+        return json.dumps(viele)
+
+    j.register.alle_registrieren([FunktionsWerkzeug(gross, "immo__gross", "liest viel", schema({"collection": {"type": "string"}}), "lesen", integration="immo")])
+    assert len(json.dumps(viele)) > 100_000
+    e = await j.buehne.zeigen("immo__gross", {}, titel="Alle Objekte")
+    assert e["anzahl"] == 1500
+    # in der Modellschleife bleibt die Kürzung
+    ok, text = await j.register.ausfuehren("immo__gross", {})
+    assert ok and "gekürzt" in text
 
 
 async def test_aktion_ohne_rezept_geht_an_den_agenten_mit_rezept_an_das_werkzeug():
@@ -164,3 +200,10 @@ async def test_werkzeuge_und_prompt():
     assert ok and "neutral-dunkel" in text and j.buehne.speicher.stil("neutral-dunkel")["werte"]["schema"] == "dunkel"
     ok, text = await j.register.ausfuehren("buehne_schliessen", {})
     assert ok and "immobilienliste" in text
+
+
+def test_titel_passt():
+    assert titel_passt("Immobilien", "Immobilienliste") and titel_passt("Aktuelle Immobilien-Deals", "Immobilien")
+    assert titel_passt("Ungelesene Mails", "Mails") and titel_passt("Makler", "Makler, die ich kontaktieren soll")
+    assert not titel_passt("Makler, die ich kontaktieren soll", "Immobilien-Deals")
+    assert not titel_passt("Makler-Liste", "Immobilien-Liste") and not titel_passt("", "Immobilien")

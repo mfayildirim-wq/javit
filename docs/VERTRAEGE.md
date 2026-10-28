@@ -125,9 +125,13 @@ https/data-URL); die Oberfläche rendert den Katalog mit eigenen React-Komponent
   komponenten, datenschema, datenquelle: {werkzeug, argumente, abbildung}, aktionen: {aktion: rezeptId}, stil,
   signatur: {werkzeug, schluessel[], eintrag[]}, erstellt, geaendert, modell, versionen}`; bis zu 10 Versionen,
   `zurueck` verwirft die neueste. Vorlagen gelten global (nicht je Unterhaltung) und werden über die Signatur
-  (Werkzeug + Schlüssel des Ergebnisses) wiedergefunden.
+  (Werkzeug + Schlüssel des Ergebnisses) wiedergefunden – aber nur, wenn der Titel der Anfrage zur Vorlage passt
+  (gemeinsames tragendes Wort, z. B. „Immobilien“ ↔ „Immobilienliste“); ein anderer Titel („Makler“) ergibt eine
+  eigene Vorlage mit eigener Fläche. `buehne_zeigen` kann die Vorlage auch explizit angeben (`vorlage`). Ergebnisse
+  für die Bühne werden nicht auf Modellmaß gekürzt (`Agent.werkzeug_ausfuehren_extern`, bis 4 Mio. Zeichen).
 * **Abbildung** `{"/ziel": "/quelle|formatierer"}` – Ziel-JSON-Pointer im Datenmodell ← Quell-Pointer im
-  Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`. Ergebnisse ohne JSON: Markdown-Tabellen →
+  Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`. Ergebnisse ohne JSON: Markdown-Tabellen und
+  listenartiger Text (Aufzählung/Blöcke mit `Schlüssel: Wert`-Zeilen, mehrere Paare je Zeile durch `|`) →
   `eintraege`, sonst `text`. Fehlt `anzahl`, ergänzt der Manager sie aus `eintraege`/der einzigen Liste.
 * **Rezept** (`rezepte/<id>.json`): `{id, name, art: werkzeug|agent, vorlage, aktion, werkzeug?, argumentAbbildung?:
   {"arg": "context.feld"}, auftrag? (mit `{feld}`-Platzhaltern), risiko, bestaetigung?}`.

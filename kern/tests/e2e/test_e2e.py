@@ -184,7 +184,7 @@ def test_buehne_immobilien(umgebung):
 
         # zweiter Aufruf: Vorlage wird wiederverwendet (keine neue Vorlage, gleiche Fläche)
         text, ereignisse = _antwort(ws, f"Zeig mir die Immobilien aus {datei}")
-        assert "vorhandene Vorlage befüllt" in text
+        assert "vorhandene Vorlage mit den aktuellen Daten befüllt" in text
 
         # Eingabe aus der Oberfläche landet im Datenmodell
         ws.send(json.dumps({"typ": "buehne_daten", "surfaceId": "immobilien-e2e", "path": "/filter", "value": "Hafen"}))

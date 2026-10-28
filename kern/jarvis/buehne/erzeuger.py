@@ -39,6 +39,7 @@ Regeln:
 - Erfinde keine Daten, Bilder oder URLs; nutze nur Felder, die im Ergebnis vorkommen. Bilder nur, wenn das Ergebnis https-URLs enthält.
 - Aktionen auf Knöpfen: {"action": {"event": {"name": "kleinschrift_mit_unterstrich", "context": {"id": {"path": "id"}}}}}; gib jedem sinnvollen Eintrag 1–3 Aktionen (öffnen, bearbeiten, kontaktieren …).
 - Oben ein Titel (Text h2) und eine Zeile mit Anzahl oder Stand; Listen als Kacheln (Grid+Card) oder Tabelle je nach Stilvorliebe; wichtige Zahlen als Kennzahl.
+- Unter dem Titel ein Aktionsbereich (Row mit Buttons) für Aktionen auf die ganze Sicht (z. B. neu laden, neu anlegen, alle kontaktieren), sofern für die Daten sinnvoll; die Knöpfe je Eintrag stehen in der Kachel bzw. Zeile.
 - Nur Komponenten und Eigenschaften aus dem Katalog. Keine HTML- oder CSS-Angaben. Sprache: Deutsch.
 """
 

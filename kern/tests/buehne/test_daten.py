@@ -53,6 +53,26 @@ def test_ergebnis_parsen():
     assert ergebnis_parsen(zaun) == {"x": [1]}
 
 
+def test_ergebnis_parsen_textlisten():
+    # nummerierte Einträge mit Schlüssel: Wert-Zeilen (typisch für Mail-/Suchwerkzeuge)
+    mails = "Gefunden: 2 Mails\n\n1. **Von:** Anna <a@x.de>\n   Betreff: Angebot\n   Datum: 2026-10-27\n2. Von: Bernd\n   Betreff: Rückfrage\n   Datum: 2026-10-26\n"
+    d = ergebnis_parsen(mails)
+    assert d["eintraege"] == [
+        {"Von": "Anna <a@x.de>", "Betreff": "Angebot", "Datum": "2026-10-27"},
+        {"Von": "Bernd", "Betreff": "Rückfrage", "Datum": "2026-10-26"},
+    ] and d["text"] == mails
+    # Blöcke durch Leerzeilen, Paare in einer Zeile mit |
+    bloecke = "Name: A | Ort: Köln\nPreis: 1\n\nName: B | Ort: Bonn\nPreis: 2\n"
+    assert ergebnis_parsen(bloecke)["eintraege"] == [{"Name": "A", "Ort": "Köln", "Preis": "1"}, {"Name": "B", "Ort": "Bonn", "Preis": "2"}]
+    # Aufzählung mit Titelzeile
+    punkte = "- Hafenweg 3\n  Preis: 450000\n  Status: offen\n- Seeweg 1\n  Preis: 300000\n  Status: verkauft\n"
+    assert ergebnis_parsen(punkte)["eintraege"][1] == {"titel": "Seeweg 1", "Preis": "300000", "Status": "verkauft"}
+    # Fließtext mit einem Doppelpunkt bleibt Text; ein einzelner Datensatz auch
+    assert ergebnis_parsen("Hinweis: alles gut.\nMehr gibt es nicht.") == {"text": "Hinweis: alles gut.\nMehr gibt es nicht."}
+    assert ergebnis_parsen("Name: A\nPreis: 1\n") == {"text": "Name: A\nPreis: 1\n"}
+    assert signatur("gmail__search", mails)["eintrag"] == ["Betreff", "Datum", "Von"]
+
+
 def test_signatur():
     assert signatur("gg__read", {"items": [{"b": 1, "a": 2}], "total": 1}) == {"werkzeug": "gg__read", "schluessel": ["items", "total"], "eintrag": ["a", "b"]}
     assert signatur("w", [{"z": 1, "y": 2}]) == {"werkzeug": "w", "schluessel": [], "eintrag": ["y", "z"]}

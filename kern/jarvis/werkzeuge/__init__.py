@@ -280,11 +280,12 @@ class WerkzeugRegister:
         return [w.als_info() for w in self._werkzeuge.values()]
 
     async def ausfuehren(
-        self, name: str, argumente: dict[str, Any], timeout: float | None = None
+        self, name: str, argumente: dict[str, Any], timeout: float | None = None, max_zeichen: int = MAX_ERGEBNIS_ZEICHEN
     ) -> tuple[bool, str]:
         """Führt ein Werkzeug aus; gibt (ok, Ergebnistext) zurück, wirft nie (außer bei Abbruch).
 
-        `timeout` (Sekunden) ist eine Obergrenze für hängende Werkzeuge.
+        `timeout` (Sekunden) ist eine Obergrenze für hängende Werkzeuge; `max_zeichen` kürzt den Ergebnistext
+        (Standard für das Modell; die Bühne braucht das vollständige Ergebnis).
         """
         w = self.holen(name)
         if w is None:
@@ -294,7 +295,7 @@ class WerkzeugRegister:
                 ergebnis = await asyncio.wait_for(w.ausfuehren(**(argumente or {})), timeout)
             else:
                 ergebnis = await w.ausfuehren(**(argumente or {}))
-            return True, ergebnis_als_text(ergebnis)
+            return True, ergebnis_als_text(ergebnis, max_zeichen)
         except asyncio.TimeoutError:
             return False, f"Zeitüberschreitung: {name} hat nicht innerhalb von {timeout:.0f} s geantwortet."
         except WerkzeugFehler as e:

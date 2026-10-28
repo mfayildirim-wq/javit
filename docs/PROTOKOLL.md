@@ -431,3 +431,15 @@ mit pwsh geparst (nicht ausgeführt).
 - Rückmeldung nach dem ersten Test: Der Orb (Kreis) soll oben bleiben. Die Bühne liegt jetzt zwischen Orb und
   Gespräch statt über dem Orb (`Konsole.tsx`); der Orb wird bei offener Bühne weiterhin verkleinert. Test prüft
   die Reihenfolge Orb → Bühne → Gespräch.
+- Rückmeldung nach dem Test mit GG („zeige Immobilien“, dann „zeige Makler“ → gemischte Liste): drei Ursachen
+  behoben. (1) Werkzeugergebnisse wurden auch für die Bühne auf 12 000 Zeichen gekürzt – das Makler-JSON zerbrach
+  und landete als Fließtext in einer Standardvorlage; `Register.ausfuehren(max_zeichen=…)`,
+  `Agent.werkzeug_ausfuehren_extern` liefert bis 4 Mio. Zeichen, ein trotzdem gekürztes Ergebnis ist ein klarer
+  Fehler. (2) Gleiche Signatur (gleiches Werkzeug, gleiche Schlüssel) wählte die Immobilien-Vorlage auch für die
+  Makler-Sicht und baute sie nach dem Wunsch um; jetzt entscheidet zusätzlich der Titel (`titel_passt`: tragendes
+  Wort gemeinsam, Füllwörter wie „Liste“ zählen nicht), sonst entsteht eine eigene Vorlage mit eigener Fläche;
+  `buehne_zeigen` bekam `vorlage` für die explizite Wahl, Werkzeugtext und Promptabschnitt erklären die Regel.
+  (3) Textergebnisse (Mail-Suche) kamen nur als Fließtext an: `ergebnis_parsen` erkennt jetzt listenartigen Text
+  (Aufzählung/Blöcke mit `Schlüssel: Wert`) als Einträge, damit das Modell Tabellen bauen kann. Dazu verlangt der
+  Vorlagen-Prompt einen Aktionsbereich (Row mit Buttons) unter dem Titel. Nicht geändert: die beim Nutzer bereits
+  umgebaute Vorlage `immobilien-deals` (Version 2) – mit „rückgängig“ oder in Einstellungen → Bühne zurückzusetzen.

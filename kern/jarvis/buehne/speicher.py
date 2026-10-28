@@ -192,17 +192,18 @@ class BuehnenSpeicher:
         pfad.unlink()
         return True
 
-    def vorlage_fuer_signatur(self, werkzeug: str, schluessel: list[str], eintrag: list[str] | None = None) -> dict[str, Any] | None:
-        """Vorlage mit gleichem Werkzeug und gleichen Schlüsseln; bei mehreren entscheidet der Listeneintrag."""
+    def vorlagen_fuer_signatur(self, werkzeug: str, schluessel: list[str], eintrag: list[str] | None = None) -> list[dict[str, Any]]:
+        """Vollständige Vorlagen mit gleichem Werkzeug und gleichen Ergebnisschlüsseln; passender Listeneintrag zuerst."""
         gesucht = sorted(schluessel)
         treffer = [v for v in self.vorlagen() if (v.get("signatur") or {}).get("werkzeug") == werkzeug and sorted((v.get("signatur") or {}).get("schluessel") or []) == gesucht]
-        if not treffer:
-            return None
         if eintrag is not None:
-            for v in treffer:
-                if sorted((v.get("signatur") or {}).get("eintrag") or []) == sorted(eintrag):
-                    return self.vorlage(v["id"])
-        return self.vorlage(treffer[0]["id"])
+            treffer.sort(key=lambda v: sorted((v.get("signatur") or {}).get("eintrag") or []) != sorted(eintrag))
+        return [v for v in (self.vorlage(t["id"]) for t in treffer) if v is not None]
+
+    def vorlage_fuer_signatur(self, werkzeug: str, schluessel: list[str], eintrag: list[str] | None = None) -> dict[str, Any] | None:
+        """Erste passende Vorlage (siehe ``vorlagen_fuer_signatur``) oder None."""
+        kandidaten = self.vorlagen_fuer_signatur(werkzeug, schluessel, eintrag)
+        return kandidaten[0] if kandidaten else None
 
     # ------------------------------------------------------------------ Rezepte
     def rezepte(self) -> list[dict[str, Any]]:

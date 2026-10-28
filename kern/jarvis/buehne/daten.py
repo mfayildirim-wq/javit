@@ -155,8 +155,57 @@ def _markdown_tabelle(text: str) -> list[dict[str, str]] | None:
     return eintraege
 
 
+_PUNKT = re.compile(r"^\s*(?:\d+[.)]|[-*•])\s+(.*)$")
+_PAAR = re.compile(r"^\s*([A-Za-zÄÖÜäöüß][\w ÄÖÜäöüß/().-]{0,40}?)\s*:\s+(.+?)\s*$")
+
+
+def _text_eintraege(text: str) -> list[dict[str, str]] | None:
+    """Listenartiger Text → Einträge: Blöcke (Aufzählung/Nummerierung oder Leerzeilen) mit ``Schlüssel: Wert``-Zeilen
+    (mehrere Paare je Zeile durch ``|`` getrennt; eine erste Zeile ohne Paar wird ``titel``). Erst ab zwei Einträgen
+    mit mindestens zwei Feldern und gemeinsamen Schlüsseln; sonst bleibt es Text."""
+    bloecke: list[list[str]] = []
+    aktuell: list[str] = []
+    for zeile in text.strip().splitlines():
+        if not zeile.strip():
+            if aktuell:
+                bloecke.append(aktuell)
+            aktuell = []
+            continue
+        punkt = _PUNKT.match(zeile)
+        if punkt:
+            if aktuell:
+                bloecke.append(aktuell)
+            aktuell = [punkt.group(1)]
+        else:
+            aktuell.append(zeile)
+    if aktuell:
+        bloecke.append(aktuell)
+    eintraege: list[dict[str, str]] = []
+    for block in bloecke:
+        eintrag: dict[str, str] = {}
+        for i, zeile in enumerate(block):
+            teile = [t.replace("**", "").replace("__", "") for t in zeile.split(" | ")]
+            paare = [m for m in (_PAAR.match(t) for t in teile) if m]
+            for m in paare:
+                eintrag.setdefault(m.group(1).strip(), m.group(2).strip())
+            if not paare and i == 0 and zeile.strip():
+                eintrag.setdefault("titel", zeile.strip().strip("*_"))
+        if len(eintrag) >= 2:
+            eintraege.append(eintrag)
+    if len(eintraege) < 2:
+        return None
+    haeufigkeit: dict[str, int] = {}
+    for e in eintraege:
+        for k in e:
+            haeufigkeit[k] = haeufigkeit.get(k, 0) + 1
+    if not any(n >= max(2, len(eintraege) // 2) for n in haeufigkeit.values()):
+        return None
+    return eintraege
+
+
 def ergebnis_parsen(ergebnis: Any) -> Any:
-    """Werkzeugergebnis → JSON-Daten: JSON (auch in ```-Zäunen), Markdown-Tabelle → ``eintraege``, sonst ``text``."""
+    """Werkzeugergebnis → JSON-Daten: JSON (auch in ```-Zäunen), Markdown-Tabelle oder listenartiger Text
+    (Aufzählung mit ``Schlüssel: Wert``) → ``eintraege`` + ``text``, sonst ``text``."""
     if not isinstance(ergebnis, str):
         return ergebnis
     text = ergebnis.strip()
@@ -168,9 +217,9 @@ def ergebnis_parsen(ergebnis: Any) -> Any:
                 return json.loads(k)
             except ValueError:
                 continue
-    tabelle = _markdown_tabelle(text)
-    if tabelle is not None:
-        return {"eintraege": tabelle, "text": ergebnis}
+    eintraege = _markdown_tabelle(text) or _text_eintraege(text)
+    if eintraege is not None:
+        return {"eintraege": eintraege, "text": ergebnis}
     return {"text": ergebnis}
 
 

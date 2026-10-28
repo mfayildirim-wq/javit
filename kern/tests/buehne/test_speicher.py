@@ -87,3 +87,15 @@ def test_flaechen(tmp_path):
     assert s.flaechen_laden() == []
     s.flaechen_speichern([{"surfaceId": "immobilien", "titel": "Immobilien", "catalogId": "jarvis:buehne/1", "stil": "gg-immo", "components": KOMP, "daten": {"titel": "x"}, "vorlage": "immobilien-liste"}])
     assert BuehnenSpeicher(tmp_path).flaechen_laden()[0]["daten"] == {"titel": "x"}
+
+
+def test_vorlagen_fuer_signatur_liste(tmp_path):
+    sp = BuehnenSpeicher(tmp_path)
+    a = sp.vorlage_anlegen("Immobilien", "", [], None, {"werkzeug": "w"}, signatur={"werkzeug": "w", "schluessel": ["zeilen"], "eintrag": ["id", "objekt"]})
+    b = sp.vorlage_anlegen("Makler", "", [], None, {"werkzeug": "w"}, signatur={"werkzeug": "w", "schluessel": ["zeilen"], "eintrag": ["id", "name"]})
+    sp.vorlage_anlegen("Andere", "", [], None, {"werkzeug": "x"}, signatur={"werkzeug": "x", "schluessel": ["zeilen"], "eintrag": ["id"]})
+    # passender Listeneintrag zuerst, dann die übrigen mit gleichen Schlüsseln; vollständige Vorlagen (mit Komponenten)
+    kandidaten = sp.vorlagen_fuer_signatur("w", ["zeilen"], ["name", "id"])
+    assert [k["id"] for k in kandidaten] == [b["id"], a["id"]] and "komponenten" in kandidaten[0]
+    assert sp.vorlage_fuer_signatur("w", ["zeilen"], ["id", "objekt"])["id"] == a["id"]
+    assert sp.vorlagen_fuer_signatur("w", ["anders"]) == []

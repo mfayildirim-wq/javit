@@ -16,12 +16,22 @@ def _text(daten: Any) -> str:
 
 def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
     async def buehne_zeigen(
-        werkzeug: str, argumente: dict[str, Any] | None = None, titel: str | None = None, wunsch: str = "", integration: str | None = None
+        werkzeug: str,
+        argumente: dict[str, Any] | None = None,
+        titel: str | None = None,
+        wunsch: str = "",
+        integration: str | None = None,
+        vorlage: str | None = None,
     ) -> str:
         if str(werkzeug).startswith("buehne_"):
             raise BuehnenFehler("buehne_zeigen führt Datenwerkzeuge aus, keine Bühnen-Werkzeuge.")
-        e = await manager.zeigen(str(werkzeug), argumente or {}, titel=titel, wunsch=wunsch or "", integration=integration)
-        hinweis = "neue Vorlage gebaut" if e["neu"] else "vorhandene Vorlage befüllt"
+        e = await manager.zeigen(str(werkzeug), argumente or {}, titel=titel, wunsch=wunsch or "", integration=integration, vorlage=vorlage or None)
+        if e["neu"]:
+            hinweis = "neue Vorlage gebaut" + (" nach deinem Wunsch" if wunsch else "")
+        elif e.get("umgebaut"):
+            hinweis = "vorhandene Vorlage nach deinem Wunsch umgebaut (neue Version)"
+        else:
+            hinweis = "vorhandene Vorlage mit den aktuellen Daten befüllt"
         anzahl = f", {e['anzahl']} Einträge" if e.get("anzahl") is not None else ""
         return f"Auf der Bühne gezeigt: „{e['titel']}“ (Fläche {e['surfaceId']}, Vorlage {e['vorlage']}, {hinweis}{anzahl}). Fasse das Ergebnis im Chat nur kurz zusammen."
 
@@ -110,15 +120,18 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
             buehne_zeigen,
             "buehne_zeigen",
             "Führt ein Datenwerkzeug aus und zeigt das Ergebnis strukturiert auf der Bühne über dem Chat (Listen, "
-            "Datensätze, Mails, Wetter, Vergleiche). Beim ersten Mal wird eine Vorlage gebaut, danach wiederverwendet. "
-            "Statt des Werkzeugs selbst aufrufen, wenn der Nutzer eine Übersicht/Anzeige möchte.",
+            "Datensätze, Mails, Wetter, Vergleiche). Jede Sicht (z. B. Immobilien, Makler, Mails) hat ihre eigene Vorlage "
+            "und Fläche: beim ersten Mal wird sie gebaut, danach nur mit Daten befüllt. Der Titel bestimmt die Sicht – "
+            "gleicher Titel = gleiche Vorlage, anderer Titel = neue Vorlage. Statt des Werkzeugs selbst aufrufen, wenn der "
+            "Nutzer eine Übersicht/Anzeige möchte. Filtern/Sortieren über die Argumente des Werkzeugs, nicht über den Wunsch.",
             schema(
                 {
                     "werkzeug": {"type": "string", "description": "Name des Werkzeugs, das die Daten liefert"},
                     "argumente": {"type": "object", "description": "Argumente für dieses Werkzeug"},
-                    "titel": {"type": "string", "description": "Titel der Fläche"},
-                    "wunsch": {"type": "string", "description": "Gestaltungswunsch des Nutzers (z. B. „als Kacheln mit Bild“)"},
+                    "titel": {"type": "string", "description": "Titel der Sicht/Fläche, z. B. „Immobilien“ oder „Makler“ (bestimmt die Vorlage)"},
+                    "wunsch": {"type": "string", "description": "Gestaltungswunsch (z. B. „als Kacheln mit Bild“); bei vorhandener Vorlage wird sie danach umgebaut"},
                     "integration": {"type": "string", "description": "Kennung der Integration (für den Stil)"},
+                    "vorlage": {"type": "string", "description": "Kennung einer vorhandenen Vorlage, wenn genau diese Sicht gemeint ist (sonst entscheidet der Titel)"},
                 },
                 ["werkzeug"],
             ),

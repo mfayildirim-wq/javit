@@ -17,12 +17,14 @@ from .geheimnisse import schwaerzen
 from .konfig import STANDARD_NAME, Einstellungen, name_bereinigen, persona_mit_name
 from .llm import LLMFassade, LLMFehler, WerkzeugAufruf
 from .plattform import aktuelle_plattform, desktop_umgebung, ist_wayland
-from .werkzeuge import WerkzeugRegister, ergebnis_als_text, freigabe_noetig
+from .werkzeuge import MAX_ERGEBNIS_ZEICHEN, WerkzeugRegister, ergebnis_als_text, freigabe_noetig
 from .werkzeuge.system import deutsches_datum
 
 Ereignis = Callable[[dict[str, Any]], Awaitable[None]]
 
 MAX_EREIGNIS_ERGEBNIS = 2000
+# Ergebnisse für die Bühne (Daten, nicht Modellkontext) bleiben praktisch ungekürzt
+MAX_EXTERN_ERGEBNIS = 4_000_000
 
 _NEIN = {
     "nein", "ne", "nee", "nö", "abbrechen", "abbruch", "abbreche", "stopp", "stop", "halt",
@@ -412,7 +414,7 @@ class Agent:
                 log.debug("nach_antwort fehlgeschlagen", exc_info=True)
         return endtext
 
-    async def _werkzeug_ausfuehren(self, aufruf: WerkzeugAufruf, sprechen: bool) -> str:
+    async def _werkzeug_ausfuehren(self, aufruf: WerkzeugAufruf, sprechen: bool, max_zeichen: int = MAX_ERGEBNIS_ZEICHEN) -> str:
         w = self.register.holen(aufruf.name)
         start: dict[str, Any] = {
             "typ": "werkzeug_start",
@@ -442,17 +444,18 @@ class Agent:
                     ok, text = False, f"Nicht ausgeführt: {grund}. Bitte nicht erneut versuchen, außer der Nutzer fragt danach."
             if ok:
                 ok, text = await self.register.ausfuehren(
-                    aufruf.name, aufruf.argumente, timeout=self.einstellungen.werkzeug_timeout
+                    aufruf.name, aufruf.argumente, timeout=self.einstellungen.werkzeug_timeout, max_zeichen=max_zeichen
                 )
         await self._senden(
             {"typ": "werkzeug_ende", "id": aufruf.id, "ok": ok, "ergebnis": ergebnis_als_text(text, MAX_EREIGNIS_ERGEBNIS)}
         )
         return text if ok else f"FEHLER: {text}"
 
-    async def werkzeug_ausfuehren_extern(self, name: str, argumente: dict[str, Any]) -> str:
-        """Werkzeug außerhalb der Modellschleife ausführen (Bühne): gleiche Freigaberegeln und Ereignisse."""
+    async def werkzeug_ausfuehren_extern(self, name: str, argumente: dict[str, Any], max_zeichen: int = MAX_EXTERN_ERGEBNIS) -> str:
+        """Werkzeug außerhalb der Modellschleife ausführen (Bühne): gleiche Freigaberegeln und Ereignisse,
+        aber das Ergebnis wird nicht auf Modellmaß gekürzt (die Bühne zeigt alle Einträge)."""
         aufruf = WerkzeugAufruf(id=f"buehne_{uuid.uuid4().hex[:12]}", name=name, argumente=dict(argumente or {}))
-        return await self._werkzeug_ausfuehren(aufruf, sprechen=False)
+        return await self._werkzeug_ausfuehren(aufruf, sprechen=False, max_zeichen=max_zeichen)
 
     async def _freigabe_anfordern(
         self, aufruf: WerkzeugAufruf, grund: str, sprechen: bool, risiko: str = "kritisch", bereich: str = "technisch"

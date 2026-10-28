@@ -26,6 +26,22 @@ STANDARD_STIL = "javit-dunkel"
 _PLATZHALTER = re.compile(r"\{([a-zA-Z0-9_./]+)\}")
 
 
+_FUELLWOERTER = {"liste", "uebersicht", "alle", "aktuelle", "aktuell", "meine", "neue", "anzeige", "tabelle", "kacheln", "ansicht", "sicht", "ergebnis", "daten"}
+
+
+def titel_passt(titel: str, name: str) -> bool:
+    """Gleiche Sicht? Kennungen gleich, oder ein tragendes Wort (≥ 4 Zeichen, kein Füllwort) kommt in beiden vor –
+    auch als Wortanfang („Immobilien“ ↔ „Immobilienliste“, „Aktuelle Immobilien-Deals“); „Makler“ ↔ „Immobilien“ nicht."""
+    a, b = kennung_aus(titel, ""), kennung_aus(name, "")
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    woerter_a = [w for w in a.split("-") if len(w) >= 4 and w not in _FUELLWOERTER]
+    woerter_b = [w for w in b.split("-") if len(w) >= 4 and w not in _FUELLWOERTER]
+    return any(x == y or x.startswith(y) or y.startswith(x) for x in woerter_a for y in woerter_b)
+
+
 class BuehnenFehler(RuntimeError):
     pass
 
@@ -116,8 +132,11 @@ class BuehnenManager:
         titel: str | None = None,
         wunsch: str = "",
         integration: str | None = None,
+        vorlage: str | None = None,
     ) -> dict[str, Any]:
-        """Werkzeug ausführen und das Ergebnis auf die Bühne bringen; Vorlage wiederverwenden, sonst bauen."""
+        """Werkzeug ausführen und das Ergebnis auf die Bühne bringen. Vorlage: explizit (``vorlage``), sonst per
+        Signatur – aber nur, wenn der Titel zur Vorlage passt; eine andere Sicht (anderer Titel) bekommt eine eigene
+        Vorlage und Fläche, statt die vorhandene umzubauen."""
         if not self._aktiv():
             raise BuehnenFehler("Die Bühne ist in den Einstellungen ausgeschaltet.")
         argumente = dict(argumente or {})
@@ -125,9 +144,22 @@ class BuehnenManager:
         daten = ergebnis_parsen(text)
         if isinstance(daten, dict) and set(daten) == {"text"} and str(daten["text"]).lower().startswith(("fehler", "nicht ausgeführt", "unbekanntes werkzeug")):
             raise BuehnenFehler(str(daten["text"])[:300])
+        if isinstance(daten, dict) and set(daten) == {"text"} and "Zeichen ausgelassen)" in str(daten["text"])[-60:]:
+            raise BuehnenFehler("Das Ergebnis wurde gekürzt und ist dadurch nicht auswertbar; schränke die Abfrage ein (weniger Einträge).")
         sig = signatur(werkzeug, daten)
-        vorlage = self.speicher.vorlage_fuer_signatur(werkzeug, sig["schluessel"], sig.get("eintrag"))
+        gewaehlt: dict[str, Any] | None
+        if vorlage:
+            gewaehlt = self.speicher.vorlage(vorlage)
+            if gewaehlt is None:
+                raise BuehnenFehler(f"Vorlage „{vorlage}“ gibt es nicht.")
+        else:
+            kandidaten = self.speicher.vorlagen_fuer_signatur(werkzeug, sig["schluessel"], sig.get("eintrag"))
+            if titel:
+                kandidaten = [k for k in kandidaten if titel_passt(titel, k["name"])]
+            gewaehlt = kandidaten[0] if kandidaten else None
+        vorlage = gewaehlt
         neu = vorlage is None
+        umgebaut = False
         stil_id = self.stil_fuer(vorlage, integration, werkzeug)
         if vorlage is None:
             gebaut = await self.erzeuger.vorlage_bauen(werkzeug, daten, wunsch=wunsch, stil=self.speicher.stil(stil_id), titel=titel)
@@ -141,6 +173,7 @@ class BuehnenManager:
                 modell=gebaut.get("modell"),
             )
         elif wunsch:
+            umgebaut = True
             geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
             vorlage = self.speicher.vorlage_neue_version(
                 vorlage["id"],
@@ -152,7 +185,7 @@ class BuehnenManager:
         modell = self._mischen(vorlage["id"], self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
         self._roh[vorlage["id"]] = daten
         flaeche = await self._flaeche_senden(vorlage["id"], titel or vorlage["name"], stil_id, vorlage["komponenten"], modell, vorlage["id"])
-        return {"surfaceId": flaeche["surfaceId"], "titel": flaeche["titel"], "vorlage": vorlage["id"], "neu": neu, "anzahl": modell.get("anzahl"), "stil": stil_id}
+        return {"surfaceId": flaeche["surfaceId"], "titel": flaeche["titel"], "vorlage": vorlage["id"], "neu": neu, "umgebaut": umgebaut, "anzahl": modell.get("anzahl"), "stil": stil_id}
 
     async def daten_setzen(self, surface_id: str, daten: Any = None, path: str = "/", value: Any = None, melden: bool = True) -> dict[str, Any]:
         flaeche = self.flaechen.get(surface_id)
@@ -375,7 +408,7 @@ class BuehnenManager:
     # ------------------------------------------------------------------ Prompt
     def prompt_abschnitt(self) -> str:
         vorlagen = self.speicher.vorlagen()[:20]
-        zeilen = ["## Bühne", "Ergebnisse mit Struktur (Listen, Datensätze, Mails, Wetter, Vergleiche) gehören auf die Bühne: rufe buehne_zeigen mit dem Werkzeug und seinen Argumenten auf, statt das Werkzeug selbst aufzurufen; der Chat fasst dann kurz zusammen. Vorhandene Vorlagen werden automatisch wiederverwendet; Umbauten auf Wunsch mit buehne_vorlage_aendern, Rückgängig mit buehne_vorlage_zurueck. Aktionen von der Bühne kommen als Nachricht; lege danach mit buehne_rezept_anlegen ein Rezept an. Stile: buehne_stil_ableiten (URL/Datei/Klassen), buehne_stil_aendern, buehne_stil_zuweisen."]
+        zeilen = ["## Bühne", "Ergebnisse mit Struktur (Listen, Datensätze, Mails, Wetter, Vergleiche) gehören auf die Bühne: rufe buehne_zeigen mit dem Werkzeug und seinen Argumenten auf, statt das Werkzeug selbst aufzurufen; der Chat fasst dann kurz zusammen. Jede Sicht (Immobilien, Makler, Mails …) hat ihre eigene Vorlage und Fläche: der Titel entscheidet – gleicher Titel = vorhandene Vorlage wird nur befüllt, anderer Titel = neue Vorlage (oder gib vorlage explizit an). Filtern und Sortieren über die Argumente des Werkzeugs, nicht über den Wunsch. Umbauten auf Wunsch mit buehne_vorlage_aendern, Rückgängig mit buehne_vorlage_zurueck. Aktionen von der Bühne kommen als Nachricht; lege danach mit buehne_rezept_anlegen ein Rezept an. Stile: buehne_stil_ableiten (URL/Datei/Klassen), buehne_stil_aendern, buehne_stil_zuweisen."]
         if vorlagen:
             zeilen.append("Vorlagen:")
             for v in vorlagen:
