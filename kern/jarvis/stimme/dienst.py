@@ -435,7 +435,10 @@ class StimmDienst:
         elif modus is Modus.SPRICHT:
             e = self.einstellungen
             if self._stopp_detektor is not None and await self._stoppwort_score(rahmen) >= min(e.schwelle + 0.2, 0.95):
-                log.info("Stoppwort erkannt – Ausgabe wird abgebrochen")
+                log.warning(
+                    "Stoppwort erkannt („%s“) – Ausgabe wird abgebrochen",
+                    getattr(self._stopp_detektor, "letzter_treffer_text", "?"),
+                )
                 self._stoppwort_ausgeloest = True
                 self._unterbrochen = False
                 self._ausgabe_stoppen()

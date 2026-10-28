@@ -522,7 +522,12 @@ class Sprecher:
                 log.debug("Fehlerrückruf", exc_info=True)
 
     async def _sammeln(self, satz: str) -> bytes:
-        teile = [t async for t in self.tts.strom(satz)]
+        try:
+            teile = [t async for t in self.tts.strom(satz)]
+        except StimmFehler as f:
+            log.warning("Synthese fehlgeschlagen (%s) – zweiter Versuch", f.text)
+            await asyncio.sleep(0.6)
+            teile = [t async for t in self.tts.strom(satz)]
         return b"".join(teile)
 
     async def _datei(self, satz: str, nr: int) -> str:

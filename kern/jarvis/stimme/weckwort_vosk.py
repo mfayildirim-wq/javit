@@ -420,6 +420,8 @@ class VoskWeckwortDetektor:
         self._letzter_text = ""
         self._letzter_treffer: str | None = None
         self._letzter_score = 0.0
+        #: Text des letzten Treffers (für Protokolle, bleibt nach zuruecksetzen erhalten)
+        self.letzter_treffer_text = ""
 
     # -- Laden ---------------------------------------------------------------------------
     def laden(self) -> None:
@@ -496,13 +498,16 @@ class VoskWeckwortDetektor:
             score, treffer = self.abgleich.bewerten(text)
             if self.nur_ganz and treffer is not None and not ganze_aeusserung(text, treffer):
                 score, treffer = 0.0, None
-            stabil = final or score >= 1.0 or (treffer is not None and treffer == self._letzter_treffer)
+            # nur_ganz (Stoppwort): nie beim ersten Teilergebnis auslösen – ein einzelner Rahmen der eigenen
+            # Stimme kann kurz wie „stopp“ klingen; erst wenn das Ergebnis stabil ist oder abgeschlossen wurde
+            stabil = final or (score >= 1.0 and not self.nur_ganz) or (treffer is not None and treffer == self._letzter_treffer)
             self._letzter_text, self._letzter_treffer, self._letzter_score = text, treffer, score
             if not stabil:
                 return 0.0
         if final:
             self._letzter_text, self._letzter_treffer = "", None
         if score >= self.schwelle:
+            self.letzter_treffer_text = text
             log.info("Weckwort erkannt: „%s“ (Score %.2f)", text, score)
             self.zuruecksetzen()
         return score

@@ -297,3 +297,27 @@ async def test_openrouter_stt():
         await stt2.transkribieren(audio)
     with pytest.raises(StimmFehler, match="OPENROUTER_API_KEY"):
         await OpenRouterSTT(schluessel=lambda: None).transkribieren(audio)
+
+
+async def test_sprecher_wiederholt_fehlgeschlagene_synthese_einmal():
+    class WackligeTTS:
+        rate = 24000
+
+        def __init__(self):
+            self.versuche = 0
+
+        async def strom(self, text: str):
+            self.versuche += 1
+            if self.versuche == 1:
+                raise StimmFehler("HTTP 429")
+            yield text.encode()
+
+        async def synthetisieren(self, text, ziel):
+            raise AssertionError
+
+    tts, ziel, fehler = WackligeTTS(), FakeZiel(), []
+    sp = Sprecher(tts, ziel, fehler=lambda t: fehler.append(t))
+    await sp.beginnen()
+    sp.einspeisen("Ein einziger Satz hier.")
+    await sp.abschliessen()
+    assert tts.versuche == 2 and b"".join(ziel.daten) == b"Ein einziger Satz hier." and fehler == []

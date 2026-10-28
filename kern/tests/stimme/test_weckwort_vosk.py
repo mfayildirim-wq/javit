@@ -544,4 +544,15 @@ def test_nur_ganz_erkennt_stoppwort_nur_allein(fake_vosk, modell_ordner):
     d = detektor_mit(skript, modell_ordner, weckwort="stopp", varianten=["stop", "stopp", "halt"], nur_ganz=True)
     werte = scores(d, len(skript))
     assert max(werte[:3]) == 0.0  # Stoppwort mitten in anderer Sprache zählt nicht
-    assert werte[3] == 1.0  # exakte, alleinstehende Äußerung → sofort
+    assert werte[3] == 0.0 and werte[4] == 1.0  # alleinstehend, aber erst beim zweiten gleichen Teilergebnis
+
+
+def test_nur_ganz_loest_nicht_beim_ersten_teilergebnis_aus(fake_vosk, modell_ordner):
+    fake_vosk.vokabular.update({"stopp", "stop", "halt"})
+    # ein einzelnes „stopp“-Teilergebnis zählt nicht, erst das zweite gleiche – oder ein Endergebnis
+    skript = [("p", "stopp"), ("p", "halt"), ("p", "stopp"), ("p", "stopp"), None, ("f", "stopp")]
+    d = detektor_mit(skript, modell_ordner, weckwort="stopp", varianten=["stop", "stopp", "halt"], nur_ganz=True)
+    werte = scores(d, len(skript))
+    assert werte[0] == 0.0 and werte[1] == 0.0 and werte[2] == 0.0
+    assert werte[3] == 1.0 and d.letzter_treffer_text == "stopp"
+    assert werte[5] == 1.0  # Endergebnis löst direkt aus
