@@ -601,3 +601,67 @@ class Sprecher:
             if self._verzeichnis is not None:
                 aufraeumen(self._verzeichnis)
                 self._verzeichnis = None
+
+
+# ---------------------------------------------------------------- Modellkatalog (OpenRouter)
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+_TTS_ANBIETER = ("elevenlabs/", "microsoft/mai-voice", "google/gemini", "mistralai/voxtral")
+STT_MODELLE = [
+    {"id": "openai/whisper-large-v3", "name": "Whisper large v3 (OpenAI)"},
+    {"id": "openai/gpt-4o-mini-transcribe", "name": "GPT-4o mini Transcribe (OpenAI)"},
+    {"id": "openai/gpt-4o-transcribe", "name": "GPT-4o Transcribe (OpenAI)"},
+]
+_modell_cache: dict[str, Any] = {"zeit": 0.0, "daten": None}
+
+
+def _anbieter_rang(kennung: str) -> int:
+    for i, praefix in enumerate(_TTS_ANBIETER):
+        if kennung.startswith(praefix):
+            return i
+    return len(_TTS_ANBIETER)
+
+
+async def openrouter_sprachmodelle(http_client_fabrik: Callable[..., Any] | None = None, cache_s: float = 600.0) -> dict[str, Any]:
+    """Sprachausgabe-Modelle von OpenRouter (``output_modalities=speech``), gefiltert auf bewährte Anbieter,
+    mit Stimmen und Preis je 1 Mio. Zeichen; dazu die festen Transkriptionsmodelle."""
+    import httpx  # noqa: PLC0415
+
+    jetzt = time.monotonic()
+    if _modell_cache["daten"] is not None and jetzt - _modell_cache["zeit"] < cache_s:
+        return _modell_cache["daten"]
+    tts: list[dict[str, Any]] = []
+    fehler = None
+    try:
+        client = http_client_fabrik(timeout=15.0) if http_client_fabrik is not None else httpx.AsyncClient(timeout=15.0)
+        async with client:
+            antwort = await client.get(OPENROUTER_MODELS_URL, params={"output_modalities": "speech"})
+        antwort.raise_for_status()
+        for m in antwort.json().get("data", []):
+            kennung = str(m.get("id") or "")
+            if _anbieter_rang(kennung) >= len(_TTS_ANBIETER) or kennung.endswith(":free"):
+                continue
+            preis = m.get("pricing") or {}
+            try:
+                je_1m = round(float(preis.get("prompt") or 0) * 1_000_000, 2)
+            except (TypeError, ValueError):
+                je_1m = None
+            tts.append({
+                "id": kennung,
+                "name": str(m.get("name") or kennung),
+                "stimmen": [str(v) for v in (m.get("supported_voices") or [])],
+                "preis_je_1m_zeichen": je_1m,
+                "standard_stimme": _standard_stimme(kennung),
+            })
+        tts.sort(key=lambda e: (_anbieter_rang(e["id"]), e["id"]))
+    except Exception as exc:  # noqa: BLE001
+        fehler = kurz(exc)
+    daten = {"tts": tts, "stt": list(STT_MODELLE), "fehler": fehler}
+    if fehler is None:
+        _modell_cache.update(zeit=jetzt, daten=daten)
+    return daten
+
+
+def _standard_stimme(kennung: str) -> str:
+    from .tts import openrouter_standard_stimme  # noqa: PLC0415
+
+    return openrouter_standard_stimme(kennung)

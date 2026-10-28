@@ -6,6 +6,7 @@ Liefert die Oberfläche aus oberflaeche/dist statisch aus (mit SPA-Fallback), fa
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -406,6 +407,22 @@ def create_app(
     async def verlauf(request: Request, limit: int = 50) -> list[dict[str, Any]]:
         return j_(request).gedaechtnis.verlauf(max(1, min(limit, 1000)))
 
+    # ------------------------------------------------------------------ Stimme
+    @app.post("/api/stimme/probe")
+    async def stimme_probe(request: Request, daten: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        from .stimme.fehler import StimmFehler
+
+        try:
+            return await j_(request).stimme_probe(str(daten.get("text") or ""))
+        except StimmFehler as e:
+            raise HTTPException(400, e.text) from e
+        except ImportError as e:
+            raise HTTPException(400, f"Sprachmodul nicht verfügbar: {e}") from e
+
+    @app.get("/api/stimme/modelle")
+    async def stimme_modelle(request: Request) -> dict[str, Any]:
+        return await j_(request).stimme_modelle()
+
     # ------------------------------------------------------------------ Unterhaltungen
     @app.get("/api/unterhaltungen")
     async def unterhaltungen(request: Request) -> list[dict[str, Any]]:
@@ -486,6 +503,13 @@ def create_app(
         verteiler.verbindungen.add(ws)
         aufgaben: set[asyncio.Task[Any]] = set()
 
+        async def sender(daten: Any) -> None:
+            """Audio im Browser: JSON-Ereignisse und PCM-Binärframes an genau diese Verbindung."""
+            if isinstance(daten, (bytes, bytearray, memoryview)):
+                await ws.send_bytes(bytes(daten))
+            else:
+                await ws.send_json(daten)
+
         async def nachricht_bearbeiten(text: str, sprechen: bool) -> None:
             try:
                 await j.anfrage(text, sprechen=sprechen)
@@ -496,9 +520,15 @@ def create_app(
         try:
             await ws.send_json({"typ": "zustand", "zustand": j.agent.zustand})
             while True:
+                nachricht = await ws.receive()
+                if nachricht.get("type") == "websocket.disconnect":
+                    break
+                if nachricht.get("bytes") is not None:
+                    j.browser_audio_daten(sender, nachricht["bytes"])
+                    continue
                 try:
-                    daten = await ws.receive_json()
-                except (ValueError, KeyError):
+                    daten = json.loads(nachricht.get("text") or "")
+                except (ValueError, TypeError):
                     await ws.send_json({"typ": "fehler", "text": "Ungültige Nachricht (kein JSON)"})
                     continue
                 if not isinstance(daten, dict):
@@ -518,12 +548,24 @@ def create_app(
                     await j.stimme_schalten(bool(daten.get("aktiv")))
                 elif typ == "zuhoeren":
                     await j.zuhoeren()
+                elif typ == "audio_start":
+                    try:
+                        rate = int(daten.get("rate") or 48000)
+                    except (TypeError, ValueError):
+                        rate = 48000
+                    await j.browser_audio_start(sender, rate)
+                elif typ == "audio_stop":
+                    await j.browser_audio_stop(sender)
                 else:
                     await ws.send_json({"typ": "fehler", "text": f"Unbekannter Nachrichtentyp: {typ}"})
         except WebSocketDisconnect:
             pass
         finally:
             verteiler.verbindungen.discard(ws)
+            try:
+                await j.browser_audio_stop(sender)
+            except Exception:  # noqa: BLE001
+                log.debug("Browser-Audio konnte nicht beendet werden", exc_info=True)
 
     # ------------------------------------------------------------------ Oberfläche
     dist = oberflaeche_pfad()

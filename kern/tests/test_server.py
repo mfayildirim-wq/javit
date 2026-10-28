@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from jarvis.server import create_app
-from tests.conftest import text_chunks, tool_chunks
+from tests.conftest import mock_fabrik, text_chunks, tool_chunks
 from tests.helfer import baue_jarvis
 
 
@@ -250,3 +250,109 @@ def test_oberflaeche_mime_typen_unabhaengig_vom_system(tmp_path, monkeypatch):
         assert typ("/assets/daten.json") == "application/json"
         assert typ("/") == "text/html"
         assert typ("/einstellungen") == "text/html"
+
+
+# ---------------------------------------------------------------- Audio im Browser, Stimme-Endpunkte
+import json
+
+import httpx
+
+from jarvis.stimme.sprecher import BrowserQuelle, BrowserZiel
+
+
+class FakeStimmDienst:
+    """Ersatz für StimmDienst: merkt sich Quelle/Ziel und spielt beim Start eine Ausgabe über das Ziel."""
+
+    def __init__(self):
+        self.quellen: list = []
+        self.ziele: list = []
+        self.rahmen: list = []
+        self.gesprochen: list[str] = []
+
+    def ausgabe_setzen(self, ziel):
+        self.ziele.append(ziel)
+
+    async def quelle_setzen(self, quelle, starten=None):
+        self.quellen.append((quelle, starten))
+        if quelle is not None:
+            quelle.starten(self.rahmen.append)
+            ziel = self.ziele[-1]
+            await ziel.start(24000)
+            await ziel.schreiben(b"\x01\x02" * 5000)  # 10000 Bytes → 9600 + 400
+            await ziel.ende()
+
+    async def sprechen(self, text):
+        self.gesprochen.append(text)
+
+    async def stop(self):
+        return None
+
+
+def test_websocket_browser_audio():
+    client, j, _ = _client()
+    fake = FakeStimmDienst()
+    j.stimme = fake
+    with client as c, c.websocket_connect(WS) as ws:
+        assert ws.receive_json()["typ"] == "zustand"
+        ws.send_json({"typ": "audio_start", "rate": 16000})
+        assert ws.receive_json() == {"typ": "sprachausgabe", "zustand": "start", "rate": 24000}
+        # Binärframes (9600 + 400 Bytes), dazwischen Pegel-Ereignisse, zum Schluss „ende“
+        frames, ereignisse = [], []
+        for _ in range(12):
+            roh = ws.receive()
+            if roh.get("bytes") is not None:
+                frames.append(len(roh["bytes"]))
+                continue
+            e = json.loads(roh["text"])
+            ereignisse.append(e)
+            if e["typ"] == "sprachausgabe":
+                break
+        assert frames == [9600, 400]
+        assert ereignisse[-1] == {"typ": "sprachausgabe", "zustand": "ende"}
+        assert any(e["typ"] == "pegel" for e in ereignisse)
+        assert isinstance(fake.quellen[0][0], BrowserQuelle) and fake.quellen[0][1] is True
+        assert isinstance(fake.ziele[0], BrowserZiel) and j.browser_audio_aktiv
+        # Binärframes vom Browser → 16-kHz-Rahmen (1280 Samples = 2560 Bytes bei 16 kHz)
+        ws.send_bytes(b"\x00\x10" * 2560)
+        ws.send_json({"typ": "unbekannt"})  # synchronisiert: Antwort kommt nach der Verarbeitung der Bytes
+        fehler, _ = _bis(ws, "fehler")
+        assert len(fake.rahmen) == 2 and fake.rahmen[0].shape == (1280,)
+        ws.send_json({"typ": "audio_stop"})
+        ws.send_json({"typ": "unbekannt"})
+        _bis(ws, "fehler")
+        assert fake.quellen[-1] == (None, False) and fake.ziele[-1] is None and not j.browser_audio_aktiv
+
+
+def test_stimme_probe_und_modelle(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "openrouter.ai" and request.url.path == "/api/v1/models":
+            assert request.url.params["output_modalities"] == "speech"
+            return httpx.Response(200, json={"data": [
+                {"id": "elevenlabs/eleven-flash-v2.5", "name": "ElevenLabs: Flash v2.5", "supported_voices": ["daniel", "sarah"], "pricing": {"prompt": "0.00004"}},
+                {"id": "heygen/heygen-voice-1:free", "name": "frei", "supported_voices": [], "pricing": {"prompt": "0"}},
+                {"id": "microsoft/mai-voice-2.1-flash", "name": "MAI Voice", "supported_voices": ["de-DE-Klaus:MAI-Voice-2.1-Flash"], "pricing": {"prompt": "0.000015"}},
+            ]})
+        return httpx.Response(200, json={})
+
+    client, j, _ = _client()
+    j.http_handler = handler
+    fake = FakeStimmDienst()
+    j.stimme = fake
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    j.konfig.aktualisieren({"stimme": {"tts": "openrouter"}})
+    with client as c:
+        r = c.post("/api/stimme/probe", json={"text": "Test"})
+        assert r.status_code == 400 and "OPENROUTER_API_KEY" in r.json()["detail"]
+        monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+        r = c.post("/api/stimme/probe", json={})
+        assert r.status_code == 200
+        assert r.json() == {"ok": True, "art": "openrouter", "modell": "elevenlabs/eleven-flash-v2.5", "stimme": "daniel", "ziel": "lautsprecher"}
+        assert fake.gesprochen and "Javit" in fake.gesprochen[0]
+        from jarvis.stimme import sprecher as sprecher_modul
+
+        sprecher_modul._modell_cache.update(zeit=0.0, daten=None)
+        j._http_client_fabrik = mock_fabrik(handler)
+        m = c.get("/api/stimme/modelle").json()
+        assert [t["id"] for t in m["tts"]] == ["elevenlabs/eleven-flash-v2.5", "microsoft/mai-voice-2.1-flash"]
+        assert m["tts"][0] == {"id": "elevenlabs/eleven-flash-v2.5", "name": "ElevenLabs: Flash v2.5", "stimmen": ["daniel", "sarah"], "preis_je_1m_zeichen": 40.0, "standard_stimme": "daniel"}
+        assert m["stt"][0]["id"] == "openai/whisper-large-v3" and m["fehler"] is None

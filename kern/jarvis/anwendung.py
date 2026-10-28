@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import uuid
 from datetime import datetime, timedelta
@@ -44,6 +45,9 @@ class Jarvis:
     ):
         self.konfig = konfig or KonfigSpeicher()
         self.geheimnisse = geheimnisse or Geheimnisspeicher()
+        self._http_client_fabrik = http_client_fabrik
+        # Audio im Browser: genau eine Sitzung (Sender der WebSocket-Verbindung, Quelle, Ziel)
+        self._browser_audio: dict[str, Any] | None = None
         self._hoerer: list[Hoerer] = []
         self.llm = llm or LLMFassade(lambda: self.konfig.einstellungen)
         # Einbettungen: eingestelltes Modell (Ollama/Cloud), sonst lokal über fastembed, sonst Volltext
@@ -357,6 +361,82 @@ class Jarvis:
             await self.senden({"typ": "fehler", "text": self.stimme_fehler})
             return False
         return True
+
+    # ---------- Audio im Browser ----------
+    async def browser_audio_start(self, sender: Callable[[Any], Awaitable[None]], rate: int = 48000) -> bool:
+        """Browser-Mikrofon als Audioquelle und Browser als Ausgabeziel (ersetzt eine frühere Sitzung)."""
+        from .stimme.sprecher import BrowserQuelle, BrowserZiel  # optionales Modul
+
+        try:
+            stimme = self._stimmdienst()
+        except Exception as e:  # noqa: BLE001
+            await self.senden({"typ": "fehler", "text": self._stimm_fehlertext(e)})
+            return False
+        alt = self._browser_audio
+        if alt is not None and alt["sender"] is not sender:
+            try:
+                await alt["sender"]({"typ": "sprachausgabe", "zustand": "gestoppt", "grund": "ersetzt"})
+            except Exception:  # noqa: BLE001
+                pass
+
+        async def pegel(wert: float) -> None:
+            await self.senden({"typ": "pegel", "wert": wert})
+
+        quelle = BrowserQuelle(rate=max(8000, min(int(rate or 48000), 192000)))
+        ziel = BrowserZiel(sender, pegel=pegel)
+        self._browser_audio = {"sender": sender, "quelle": quelle, "ziel": ziel}
+        stimme.ausgabe_setzen(ziel)
+        await stimme.quelle_setzen(quelle, starten=True)
+        return True
+
+    def browser_audio_daten(self, sender: Any, daten: bytes) -> None:
+        sitzung = self._browser_audio
+        if sitzung is not None and sitzung["sender"] is sender:
+            sitzung["quelle"].einspeisen(daten)
+
+    async def browser_audio_stop(self, sender: Any) -> None:
+        sitzung = self._browser_audio
+        if sitzung is None or sitzung["sender"] is not sender:
+            return
+        self._browser_audio = None
+        stimme = self.stimme
+        if stimme is None:
+            return
+        stimme.ausgabe_setzen(None)
+        await stimme.quelle_setzen(None, starten=False)
+
+    @property
+    def browser_audio_aktiv(self) -> bool:
+        return self._browser_audio is not None
+
+    async def stimme_probe(self, text: str | None = None) -> dict[str, Any]:
+        """Spricht einen Probesatz über den aktuellen Weg; wirft StimmFehler, wenn der Weg nicht geht."""
+        from .stimme.einstellungen import StimmEinstellungen
+        from .stimme.fehler import StimmFehler
+        from .stimme.tts import erzeuge_tts, tts_art
+
+        e = StimmEinstellungen.aus(self.einstellungen)
+        art = tts_art(e)
+        if art == "aus":
+            raise StimmFehler("Sprachausgabe ist ausgeschaltet.")
+        if art == "openrouter" and not self.geheimnisse.hat("OPENROUTER_API_KEY") and not os.environ.get("OPENROUTER_API_KEY"):
+            raise StimmFehler("OpenRouter-Schlüssel fehlt (OPENROUTER_API_KEY) – unter Einstellungen → Schlüssel hinterlegen.")
+        tts = erzeuge_tts(e)
+        stimme = self._stimmdienst()
+        satz = (text or "").strip() or f"Hallo, hier ist {self.name}. So klinge ich mit dieser Stimme."
+        await stimme.sprechen(satz)
+        return {
+            "ok": True,
+            "art": art,
+            "modell": getattr(tts, "modell", "") or "",
+            "stimme": getattr(tts, "stimme", "") or "",
+            "ziel": "browser" if self.browser_audio_aktiv else "lautsprecher",
+        }
+
+    async def stimme_modelle(self) -> dict[str, Any]:
+        from .stimme.sprecher import openrouter_sprachmodelle
+
+        return await openrouter_sprachmodelle(self._http_client_fabrik)
 
     async def _sprach_freigabe(self, frage: str) -> bool | None:
         """Freigabe per Sprache: fragt nach und hört auf „Ja“/„Nein“ (max. zwei Versuche)."""
