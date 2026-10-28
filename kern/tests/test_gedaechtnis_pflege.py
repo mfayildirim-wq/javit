@@ -146,8 +146,9 @@ def test_json_block_und_titel():
     assert titel_fallback("  Was   ist " + "x" * 100) == "Was ist " + "x" * 51 + "…"
 
 
-def _nachbereiter(antworten):
+def _nachbereiter(antworten, automatisch=True):
     j, skript = baue_jarvis(antworten)
+    j.konfig.aktualisieren({"gedaechtnis_automatisch": automatisch})
     return j, skript, Nachbereiter(j.llm, j.gedaechtnis, lambda: j.einstellungen)
 
 
@@ -208,8 +209,7 @@ async def test_nachbereiten_aktualisiert_statt_dublette():
 
 
 async def test_nachbereiten_abgeschaltet():
-    j, skript, n = _nachbereiter([])
-    j.konfig.aktualisieren({"gedaechtnis_automatisch": False})
+    j, skript, n = _nachbereiter([], automatisch=False)
     kennung = j.gedaechtnis.aktuelle()["id"]
     j.gedaechtnis.verlauf_hinzufuegen("nutzer", "Hallo")
     j.gedaechtnis.verlauf_hinzufuegen("jarvis", "Hallo!")

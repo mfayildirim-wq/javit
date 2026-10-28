@@ -7,6 +7,7 @@ import asyncio
 import logging
 import shutil
 import uuid
+from datetime import datetime, timedelta
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -15,6 +16,7 @@ import httpx
 from . import __version__
 from .agent import Agent, freigabe_antwort_erkennen, fuer_sprache
 from .gedaechtnis import Gedaechtnis
+from .gedaechtnis_pflege import BenannterEinbetter, EinbetterKette, LokaleEinbettung, Nachbereiter
 from .geheimnisse import Geheimnisspeicher
 from .integrationen.katalog import Katalog
 from .integrationen.manager import IntegrationsManager
@@ -44,7 +46,15 @@ class Jarvis:
         self.geheimnisse = geheimnisse or Geheimnisspeicher()
         self._hoerer: list[Hoerer] = []
         self.llm = llm or LLMFassade(lambda: self.konfig.einstellungen)
-        self.gedaechtnis = Gedaechtnis(einbetten=self.llm.einbetten)
+        # Einbettungen: eingestelltes Modell (Ollama/Cloud), sonst lokal über fastembed, sonst Volltext
+        self.gedaechtnis = Gedaechtnis(
+            einbetten=EinbetterKette(
+                BenannterEinbetter(self.llm.einbetten, lambda: self.einstellungen.einbettungs_modell),
+                LokaleEinbettung(),
+            )
+        )
+        self.nachbereiter = Nachbereiter(self.llm, self.gedaechtnis, lambda: self.konfig.einstellungen)
+        self._pflege: set[asyncio.Task[Any]] = set()
         self.register = WerkzeugRegister()
         self.katalog = katalog or Katalog()
         self.manager = IntegrationsManager(
@@ -63,6 +73,7 @@ class Jarvis:
             integrationen_info=self.manager.verbundene_beschreibungen,
             vorlesen=self.vorlesen,
             sprach_freigabe=self._sprach_freigabe,
+            nach_antwort=self._nach_antwort,
         )
         self.stimme: Any = None
         self.stimme_fehler: str | None = None
@@ -106,6 +117,7 @@ class Jarvis:
         self.geheimnisse.in_umgebung_laden()
         if integrationen:
             self._start_task = asyncio.create_task(self.manager.alle_starten())
+        self._gedaechtnis_beim_start()
         if stimme and self.einstellungen.stimme.aktiv:
             await self.stimme_schalten(True, speichern=False)
 
@@ -120,6 +132,8 @@ class Jarvis:
             self._stimm_task.cancel()
         if self._start_task and not self._start_task.done():
             self._start_task.cancel()
+        for t in list(self._pflege):
+            t.cancel()
         if self.stimme is not None:
             try:
                 await self.stimme.stop()
@@ -127,6 +141,84 @@ class Jarvis:
                 log.warning("Sprachmodul konnte nicht gestoppt werden", exc_info=True)
         await self.manager.alle_stoppen()
         self.gedaechtnis.schliessen()
+
+    # ---------- Unterhaltungen und Gedächtnis-Pflege ----------
+    def _pflege_starten(self, aufgabe: Awaitable[Any]) -> None:
+        """Hintergrundaufgabe (Titel, Nachbereitung, Nachbetten); Fehler landen nur im Protokoll."""
+        async def laufen() -> None:
+            try:
+                await aufgabe
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001
+                log.warning("Gedächtnis-Pflege fehlgeschlagen", exc_info=True)
+
+        task = asyncio.create_task(laufen())
+        self._pflege.add(task)
+        task.add_done_callback(self._pflege.discard)
+
+    async def pflege_abwarten(self) -> None:
+        """Wartet auf laufende Pflegeaufgaben (Tests, geordnetes Beenden)."""
+        # Nur offene Tasks abwarten: gather über fertige Tasks kehrt synchron zurück, der
+        # Aufräum-Callback (discard) käme sonst nie an die Reihe
+        while offen := [t for t in self._pflege if not t.done()]:
+            await asyncio.gather(*offen, return_exceptions=True)
+
+    def _gedaechtnis_beim_start(self) -> None:
+        """Alte, nie nachbereitete aktuelle Unterhaltung (> 6 h) nachbereiten; fehlende Einbettungen nachholen."""
+        try:
+            u = self.gedaechtnis.aktuelle()
+            aktualisiert = datetime.fromisoformat(u["aktualisiert"])
+        except (ValueError, KeyError, TypeError):
+            return
+        if u["nachrichten"] >= 2 and not u["nachbereitet"] and datetime.now() - aktualisiert > timedelta(hours=6):
+            self._pflege_starten(self.nachbereiter.nachbereiten(u["id"]))
+        self._pflege_starten(self.gedaechtnis.nachbetten())
+
+    async def _unterhaltung_melden(self, u: dict[str, Any], grund: str) -> None:
+        await self.senden({"typ": "unterhaltung", "id": u["id"], "titel": u["titel"], "grund": grund})
+
+    async def _nach_antwort(self) -> None:
+        """Nach der ersten vollständigen Antwort einer Unterhaltung: Titel im Hintergrund erzeugen."""
+        u = self.gedaechtnis.aktuelle()
+        if u["titel_fest"] or u["nachrichten"] != 2:
+            return
+        self._pflege_starten(self._titel_erzeugen(u["id"]))
+
+    async def _titel_erzeugen(self, kennung: int) -> None:
+        titel = await self.nachbereiter.titel_erzeugen(kennung)
+        u = self.gedaechtnis.unterhaltung(kennung)
+        if titel and u:
+            await self._unterhaltung_melden(u, "titel")
+
+    async def unterhaltung_neu(self, titel: str | None = None) -> dict[str, Any]:
+        """Neue Unterhaltung beginnen; die verlassene wird im Hintergrund nachbereitet."""
+        alt = self.gedaechtnis.aktuelle()
+        neu = self.gedaechtnis.unterhaltung_neu(titel)
+        if titel:
+            self.gedaechtnis.unterhaltung_umbenennen(neu["id"], titel)
+            neu = self.gedaechtnis.unterhaltung(neu["id"]) or neu
+        self._pflege_starten(self.nachbereiter.nachbereiten(alt["id"]))
+        await self._unterhaltung_melden(neu, "neu")
+        return neu
+
+    async def unterhaltung_aktivieren(self, kennung: int) -> dict[str, Any]:
+        alt = self.gedaechtnis.aktuelle()
+        u = self.gedaechtnis.unterhaltung_aktivieren(kennung)
+        if alt["id"] != u["id"]:
+            self._pflege_starten(self.nachbereiter.nachbereiten(alt["id"]))
+            await self._unterhaltung_melden(u, "gewechselt")
+        return u
+
+    async def unterhaltung_umbenennen(self, kennung: int, titel: str) -> dict[str, Any]:
+        u = self.gedaechtnis.unterhaltung_umbenennen(kennung, titel)
+        await self._unterhaltung_melden(u, "titel")
+        return u
+
+    async def unterhaltung_loeschen(self, kennung: int) -> dict[str, Any]:
+        ergebnis = self.gedaechtnis.unterhaltung_loeschen(kennung)
+        await self._unterhaltung_melden(ergebnis["aktuell"], "geloescht")
+        return ergebnis
 
     # ---------- Anfragen ----------
     async def anfrage(self, text: str, sprechen: bool = False, quelle: str = "text") -> str:
@@ -308,4 +400,9 @@ class Jarvis:
             "werkzeuge": len(self.register),
             "zustand": self.agent.zustand,
             "plattform": self.plattform,
+            "unterhaltung": self._unterhaltung_kurz(),
         }
+
+    def _unterhaltung_kurz(self) -> dict[str, Any]:
+        u = self.gedaechtnis.aktuelle()
+        return {"id": u["id"], "titel": u["titel"]}

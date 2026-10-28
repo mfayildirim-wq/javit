@@ -255,6 +255,10 @@ def werkzeuge(app: Jarvis) -> list[Werkzeug]:
         await app.gedaechtnis.erinnern(text)
         return f"Gemerkt: {text}"
 
+    async def unterhaltung_neu(titel: str | None = None) -> str:
+        u = await app.unterhaltung_neu((titel or "").strip() or None)
+        return f"Neue Unterhaltung begonnen („{u['titel']}“). Der bisherige Verlauf bleibt gespeichert."
+
     async def erinnerung_suchen(anfrage: str) -> str:
         treffer = await app.gedaechtnis.suchen(anfrage, anzahl=8, mindestwert=0.2)
         if not treffer:
@@ -375,6 +379,13 @@ def werkzeuge(app: Jarvis) -> list[Werkzeug]:
             "erinnern",
             "Speichert eine dauerhafte Erinnerung über den Nutzer (Vorlieben, Fakten, Absprachen).",
             schema({"text": {"type": "string"}}, ["text"]),
+            "aendern",
+        ),
+        wz(
+            unterhaltung_neu,
+            "unterhaltung_neu",
+            "Beginnt eine neue Unterhaltung (neues Thema, leerer Kontext). Erinnerungen bleiben erhalten.",
+            schema({"titel": {"type": "string", "description": "Kurzer Titel (optional)"}}),
             "aendern",
         ),
         wz(

@@ -406,6 +406,56 @@ def create_app(
     async def verlauf(request: Request, limit: int = 50) -> list[dict[str, Any]]:
         return j_(request).gedaechtnis.verlauf(max(1, min(limit, 1000)))
 
+    # ------------------------------------------------------------------ Unterhaltungen
+    @app.get("/api/unterhaltungen")
+    async def unterhaltungen(request: Request) -> list[dict[str, Any]]:
+        return j_(request).gedaechtnis.unterhaltungen()
+
+    @app.post("/api/unterhaltungen")
+    async def unterhaltung_neu(request: Request, daten: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+        titel = str(daten.get("titel") or "").strip() or None
+        try:
+            return await j_(request).unterhaltung_neu(titel)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.get("/api/unterhaltungen/{kennung}")
+    async def unterhaltung(kennung: int, request: Request) -> dict[str, Any]:
+        u = j_(request).gedaechtnis.unterhaltung(kennung)
+        if not u:
+            raise HTTPException(404, "Unterhaltung nicht gefunden")
+        return u
+
+    @app.put("/api/unterhaltungen/{kennung}")
+    async def unterhaltung_umbenennen(kennung: int, request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        try:
+            return await j_(request).unterhaltung_umbenennen(kennung, str(daten.get("titel") or ""))
+        except KeyError as e:
+            raise HTTPException(404, "Unterhaltung nicht gefunden") from e
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/api/unterhaltungen/{kennung}")
+    async def unterhaltung_loeschen(kennung: int, request: Request) -> dict[str, Any]:
+        try:
+            return await j_(request).unterhaltung_loeschen(kennung)
+        except KeyError as e:
+            raise HTTPException(404, "Unterhaltung nicht gefunden") from e
+
+    @app.post("/api/unterhaltungen/{kennung}/aktivieren")
+    async def unterhaltung_aktivieren(kennung: int, request: Request) -> dict[str, Any]:
+        try:
+            return await j_(request).unterhaltung_aktivieren(kennung)
+        except KeyError as e:
+            raise HTTPException(404, "Unterhaltung nicht gefunden") from e
+
+    @app.get("/api/unterhaltungen/{kennung}/verlauf")
+    async def unterhaltung_verlauf(kennung: int, request: Request, limit: int = 200) -> list[dict[str, Any]]:
+        j = j_(request)
+        if not j.gedaechtnis.unterhaltung(kennung):
+            raise HTTPException(404, "Unterhaltung nicht gefunden")
+        return j.gedaechtnis.verlauf(max(1, min(limit, 1000)), unterhaltung_id=kennung)
+
     @app.delete("/api/verlauf")
     async def verlauf_loeschen(request: Request) -> dict[str, Any]:
         j_(request).gedaechtnis.verlauf_loeschen()

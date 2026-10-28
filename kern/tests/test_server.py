@@ -152,7 +152,8 @@ def test_websocket_ende_zu_ende():
         assert zustand["zustand"] == "bereit"
         assert [v["rolle"] for v in c.get("/api/verlauf").json()] == ["nutzer", "jarvis"]
         ws.send_json({"typ": "unbekannt"})
-        assert ws.receive_json()["typ"] == "fehler"
+        fehler, _ = _bis(ws, "fehler")  # dazwischen kann „unterhaltung“ (automatischer Titel) kommen
+        assert "Unbekannter Nachrichtentyp" in fehler["text"]
 
 
 def test_websocket_freigabe_und_abbrechen(tmp_path):

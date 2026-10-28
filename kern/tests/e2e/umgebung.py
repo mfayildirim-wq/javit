@@ -79,6 +79,7 @@ class E2EUmgebung:
             "ollama_url": "http://127.0.0.1:9",  # kein Ollama im Test
             "port": self.jarvis_port,
             "freigabe_timeout": 60,
+            "gedaechtnis_automatisch": False,  # keine Titel-/Nachbereitungsaufrufe an das Fake-LLM
             "stimme": {"aktiv": False},
         }), encoding="utf-8")
         env = {
