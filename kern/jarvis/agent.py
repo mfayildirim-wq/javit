@@ -90,6 +90,7 @@ class Agent:
         vorlesen: Callable[[str], Awaitable[None]] | None = None,
         sprach_freigabe: Callable[[str], Awaitable[bool | None]] | None = None,
         nach_antwort: Callable[[], Awaitable[None]] | None = None,
+        sprecher: Callable[[], Awaitable[Any]] | None = None,
     ):
         self._einstellungen = einstellungen
         self.llm = llm
@@ -102,6 +103,11 @@ class Agent:
         self.sprach_freigabe = sprach_freigabe
         # Wird nach jeder vollständigen Antwort gerufen (z. B. Titel der Unterhaltung erzeugen)
         self.nach_antwort = nach_antwort
+        # Streaming-Sprachausgabe: Fabrik liefert eine Sprechsitzung (einspeisen/abschliessen/stoppen/gesprochen)
+        # oder None; bei ``sprechen=True`` gehen Text-Deltas sofort an die Sitzung
+        self.sprecher = sprecher
+        #: True, wenn die letzte Antwort bereits während der Anfrage gesprochen wurde
+        self.antwort_gesprochen = False
         self.freigaben: dict[str, asyncio.Future[bool]] = {}
         self.zustand = "bereit"
         self._sperre = asyncio.Lock()
@@ -300,7 +306,28 @@ class Agent:
     # ------------------------------------------------------------------
     # Schleife
     # ------------------------------------------------------------------
+    async def _sprechsitzung(self, sprechen: bool) -> Any:
+        if not sprechen or self.sprecher is None:
+            return None
+        try:
+            return await self.sprecher()
+        except Exception:  # noqa: BLE001 – Sprachausgabe darf die Antwort nicht verhindern
+            log.warning("Sprechsitzung konnte nicht gestartet werden", exc_info=True)
+            return None
+
     async def _schleife(self, text: str, sprechen: bool) -> str:
+        self.antwort_gesprochen = False
+        sitzung = await self._sprechsitzung(sprechen)
+        fertig = False
+        try:
+            return await self._schleife_intern(text, sprechen, sitzung)
+        finally:
+            if sitzung is not None:
+                fertig = getattr(sitzung, "_abgeschlossen", False)
+                if not fertig:
+                    sitzung.stoppen()
+
+    async def _schleife_intern(self, text: str, sprechen: bool, sitzung: Any) -> str:
         e = self.einstellungen
         await self.zustand_setzen("denkt")
         nachrichten: list[dict[str, Any]] = [
@@ -323,6 +350,8 @@ class Agent:
                         await self._senden({"typ": "antwort_start", "id": self._antwort_id})
                     self._antwort_puffer += teil["delta"]
                     await self._senden({"typ": "antwort_text", "id": self._antwort_id, "delta": teil["delta"]})
+                    if sitzung is not None:
+                        sitzung.einspeisen(teil["delta"])
                 elif teil["typ"] == "ende":
                     ende = teil
             aufrufe: list[WerkzeugAufruf] = ende.get("werkzeug_aufrufe") or []
@@ -332,6 +361,10 @@ class Agent:
                 if not begonnen:
                     await self._senden({"typ": "antwort_start", "id": self._antwort_id})
                 await self._senden({"typ": "antwort_ende", "id": self._antwort_id, "text": endtext})
+                if sitzung is not None:
+                    sitzung._abgeschlossen = True
+                    await sitzung.abschliessen()
+                    self.antwort_gesprochen = bool(getattr(sitzung, "gesprochen", False))
                 break
             if begonnen:
                 await self._senden({"typ": "antwort_ende", "id": self._antwort_id, "text": inhalt})

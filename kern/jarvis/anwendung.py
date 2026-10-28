@@ -74,6 +74,7 @@ class Jarvis:
             vorlesen=self.vorlesen,
             sprach_freigabe=self._sprach_freigabe,
             nach_antwort=self._nach_antwort,
+            sprecher=self._sprechsitzung,
         )
         self.stimme: Any = None
         self.stimme_fehler: str | None = None
@@ -223,9 +224,38 @@ class Jarvis:
     # ---------- Anfragen ----------
     async def anfrage(self, text: str, sprechen: bool = False, quelle: str = "text") -> str:
         antwort = await self.agent.verarbeiten(text, sprechen=sprechen, quelle=quelle)
-        if sprechen and quelle != "stimme" and antwort:
-            await self.vorlesen(antwort)
+        if sprechen and quelle != "stimme" and antwort and not self.agent.antwort_gesprochen:
+            await self.vorlesen(antwort)  # Fallback ohne Sprachmodul (z. B. „say“ am Mac, SAPI/Piper)
         return antwort
+
+    async def _sprechsitzung(self) -> Any:
+        """Streaming-Sprachausgabe für den Agenten: Sitzung des StimmDienstes oder None (kein Sprachmodul)."""
+        try:
+            stimme = self._stimmdienst()
+        except ImportError:
+            return None
+        sprecher = await stimme.sprecher_beginnen(antwort=True)
+        if sprecher is None:
+            return None
+
+        class Sitzung:
+            gesprochen = False
+
+            @staticmethod
+            def einspeisen(delta: str) -> None:
+                sprecher.einspeisen(delta)
+
+            @staticmethod
+            async def abschliessen() -> None:
+                await stimme.sprecher_abschliessen(sprecher)
+                Sitzung.gesprochen = sprecher.gesprochen
+
+            @staticmethod
+            def stoppen() -> None:
+                sprecher.stoppen()
+                self._im_hintergrund(stimme.sprecher_abschliessen(sprecher))
+
+        return Sitzung()
 
     async def _stimm_anfrage(self, text: str) -> str:
         return await self.agent.verarbeiten(text, sprechen=True, quelle="stimme")

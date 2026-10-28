@@ -317,3 +317,66 @@ async def test_werkzeugergebnis_kann_keine_freigabe_erteilen():
     assert len(u.von("freigabe_noetig")) == 1
     assert u.von("werkzeug_ende")[-1]["ok"] is False
     assert "keine Anweisungen" in u.skript.aufrufe[0]["messages"][0]["content"]
+
+
+# ---------------------------------------------------------------- Streaming-Sprachausgabe
+class FakeSitzung:
+    def __init__(self):
+        self.deltas: list[str] = []
+        self.abgeschlossen = 0
+        self.gestoppt = 0
+        self.gesprochen = False
+
+    def einspeisen(self, delta: str) -> None:
+        self.deltas.append(delta)
+        self.gesprochen = True
+
+    async def abschliessen(self) -> None:
+        self.abgeschlossen += 1
+
+    def stoppen(self) -> None:
+        self.gestoppt += 1
+
+
+async def test_agent_streamt_antwort_in_sprechsitzung():
+    sitzungen: list[FakeSitzung] = []
+
+    async def fabrik():
+        s = FakeSitzung()
+        sitzungen.append(s)
+        return s
+
+    u = Umgebung([tool_chunks("c1", "uhrzeit_test", {}), text_chunks("Es ist **zwölf** Uhr. Soll ich einen Timer stellen?")])
+    u.agent.sprecher = fabrik
+    antwort = await u.agent.verarbeiten("Wie spät ist es?", sprechen=True)
+    assert antwort == "Es ist zwölf Uhr. Soll ich einen Timer stellen?"
+    assert len(sitzungen) == 1 and sitzungen[0].abgeschlossen == 1 and sitzungen[0].gestoppt == 0
+    assert "".join(sitzungen[0].deltas) == "Es ist **zwölf** Uhr. Soll ich einen Timer stellen?"
+    assert u.agent.antwort_gesprochen is True
+    # Ohne sprechen: keine Sitzung
+    u.skript.antworten.append(text_chunks("Ohne Ton."))
+    await u.agent.verarbeiten("Und leise?")
+    assert len(sitzungen) == 1 and u.agent.antwort_gesprochen is False
+
+
+async def test_agent_stoppt_sprechsitzung_bei_abbruch():
+    sitzungen: list[FakeSitzung] = []
+
+    async def fabrik():
+        s = FakeSitzung()
+        sitzungen.append(s)
+        return s
+
+    @werkzeug("langsam_test", "Dauert", schema(), risiko="lesen")
+    async def langsam_test() -> str:
+        await asyncio.sleep(5)
+        return "nie"
+
+    u = Umgebung([text_chunks("Einen Moment. ") + tool_chunks("c1", "langsam_test", {})])
+    u.register.alle_registrieren([langsam_test])
+    u.agent.sprecher = fabrik
+    aufgabe = asyncio.create_task(u.agent.verarbeiten("Erzähl lange", sprechen=True))
+    await asyncio.sleep(0.05)
+    assert u.agent.abbrechen()
+    assert await aufgabe == "Abgebrochen."
+    assert sitzungen and sitzungen[0].gestoppt == 1 and sitzungen[0].abgeschlossen == 0
