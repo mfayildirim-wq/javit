@@ -428,3 +428,6 @@ mit pwsh geparst (nicht ausgeführt).
   und Stile. Werkzeugtexte danach präzisiert (Umbau/Zurück melden, dass die Fläche schon aktualisiert ist).
 - Hinweis an mich: ein Debug-Skript lief ohne `JARVIS_HOME` gegen die echten Nutzerdaten (zwei Verlaufszeilen und
   `~/.jarvis/buehne/` entstanden) – sofort entfernt. Ad-hoc-Skripte nur mit gesetztem `JARVIS_HOME`.
+- Rückmeldung nach dem ersten Test: Der Orb (Kreis) soll oben bleiben. Die Bühne liegt jetzt zwischen Orb und
+  Gespräch statt über dem Orb (`Konsole.tsx`); der Orb wird bei offener Bühne weiterhin verkleinert. Test prüft
+  die Reihenfolge Orb → Bühne → Gespräch.

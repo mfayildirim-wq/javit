@@ -89,12 +89,12 @@ export function Konsole({ aktiv }: { aktiv: boolean }) {
 
   return (
     <section className={`konsole ${buehneOffen ? 'mit-buehne' : ''}`} hidden={ansicht !== 'konsole'} aria-label="Konsole">
-      {buehneOffen && <Buehne />}
       <div className={`orb-buehne ${buehneOffen ? 'klein' : ''}`}>
         <div className="fadenkreuz" aria-hidden="true" />
         <Orb aktiv={aktiv} />
         <ZustandsAnzeige />
       </div>
+      {buehneOffen && <Buehne />}
       <div className="gespraech" ref={scrollRef} aria-live="polite">
         <div className="gespraech-spalte">
           {nachrichten.length === 0 && !transkript && (

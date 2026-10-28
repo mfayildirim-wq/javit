@@ -65,6 +65,10 @@ describe('Bühne in der Konsole', () => {
     expect(screen.queryByText('Sonnig, 21 Grad')).toBeNull();
     expect(container.querySelector('.orb-buehne')).toHaveClass('klein');
     expect(screen.getByRole('status')).toBeInTheDocument();
+    // Der Orb bleibt oben, die Bühne liegt zwischen Orb und Gespräch
+    const orb = container.querySelector('.orb-buehne')!;
+    expect(orb.compareDocumentPosition(buehne) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(buehne.compareDocumentPosition(container.querySelector('.gespraech')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('Schließen entfernt die Fläche und meldet es dem Kern', async () => {
