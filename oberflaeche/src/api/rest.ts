@@ -9,6 +9,7 @@ import type {
   SchrittStand,
   Modelle,
   Status,
+  Unterhaltung,
   VerlaufEintrag,
   VerzeichnisInstallieren,
   VerzeichnisQuelle,
@@ -125,7 +126,15 @@ export const api = {
     liste<VerlaufEintrag>(await anfrage<unknown>('GET', `/verlauf?limit=${limit}`), 'verlauf', 'nachrichten'),
   gedaechtnis: async () =>
     liste<Erinnerung>(await anfrage<unknown>('GET', '/gedaechtnis'), 'erinnerungen', 'gedaechtnis'),
-  gedaechtnisLoeschen: () => anfrage<unknown>('DELETE', '/gedaechtnis'),
+  gedaechtnisLoeschen: (id?: string | number) =>
+    anfrage<unknown>('DELETE', id === undefined ? '/gedaechtnis' : `/gedaechtnis?id=${encodeURIComponent(String(id))}`),
+  unterhaltungen: async () => liste<Unterhaltung>(await anfrage<unknown>('GET', '/unterhaltungen'), 'unterhaltungen'),
+  unterhaltungNeu: (titel?: string) => anfrage<Unterhaltung>('POST', '/unterhaltungen', titel ? { titel } : {}),
+  unterhaltungAktivieren: (id: number) => anfrage<Unterhaltung>('POST', `/unterhaltungen/${id}/aktivieren`),
+  unterhaltungUmbenennen: (id: number, titel: string) => anfrage<Unterhaltung>('PUT', `/unterhaltungen/${id}`, { titel }),
+  unterhaltungLoeschen: (id: number) => anfrage<{ geloescht: boolean; aktuell: Unterhaltung }>('DELETE', `/unterhaltungen/${id}`),
+  unterhaltungVerlauf: async (id: number, limit = 200) =>
+    liste<VerlaufEintrag>(await anfrage<unknown>('GET', `/unterhaltungen/${id}/verlauf?limit=${limit}`), 'verlauf'),
 };
 
 export type Api = typeof api;

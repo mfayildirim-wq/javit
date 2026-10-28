@@ -52,6 +52,8 @@ export interface KernZustand {
   integrationsStand: number;
   /** Laufende OAuth-Anmeldung (Browserfenster), bis die Integration verbunden ist oder der Hinweis geschlossen wird. */
   oauthAnmeldung: { integration: string; url: string; zeit: number } | null;
+  /** Aktuelle Unterhaltung (aus Status bzw. Ereignis `unterhaltung`). */
+  unterhaltung: { id: number; titel: string } | null;
 }
 
 export const MAX_NACHRICHTEN = 60;
@@ -68,6 +70,7 @@ export const anfangsZustand: KernZustand = {
   hinweise: [],
   integrationsStand: 0,
   oauthAnmeldung: null,
+  unterhaltung: null,
 };
 
 let hinweisZaehler = 0;
@@ -96,7 +99,8 @@ export type LokaleAktion =
   | { typ: 'lokal_abgebrochen' }
   | { typ: 'lokal_aktivitaet_leeren' }
   | { typ: 'lokal_oauth_weg' }
-  | { typ: 'lokal_verlauf'; nachrichten: Nachricht[] };
+  | { typ: 'lokal_verlauf'; nachrichten: Nachricht[] }
+  | { typ: 'lokal_unterhaltung'; id: number; titel: string };
 
 export type Aktion = ServerEvent | LokaleAktion;
 
@@ -264,6 +268,15 @@ export function reduzieren(s: KernZustand, a: Aktion, jetzt: number = Date.now()
 
     case 'lokal_verlauf':
       return s.nachrichten.length > 0 ? s : { ...s, nachrichten: a.nachrichten.slice(-MAX_NACHRICHTEN) };
+
+    case 'lokal_unterhaltung':
+      return { ...s, unterhaltung: { id: a.id, titel: a.titel } };
+
+    case 'unterhaltung': {
+      // Gleiche Unterhaltung: nur der Titel ändert sich. Andere: Konsole leeren, der Verlauf wird neu geladen.
+      if (s.unterhaltung && s.unterhaltung.id === a.id) return { ...s, unterhaltung: { id: a.id, titel: a.titel } };
+      return { ...s, unterhaltung: { id: a.id, titel: a.titel }, nachrichten: [], aktiveAntwort: null, transkript: '' };
+    }
 
     default: {
       const _nie: never = a;

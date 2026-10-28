@@ -37,6 +37,8 @@ export interface EvIntegrationGeaendert { typ: 'integration_geaendert'; integrat
 /** OAuth-Anmeldung im Browser gestartet (Kern: integrationen/oauth.py); `url` = Anmeldeseite. */
 export interface EvOauthAnmeldung { typ: 'oauth_anmeldung'; integration: string; url: string }
 export interface EvFehler { typ: 'fehler'; text: string }
+/** Aktuelle Unterhaltung hat gewechselt (neu, gewechselt, geloescht) oder ihren Titel geändert (titel). */
+export interface EvUnterhaltung { typ: 'unterhaltung'; id: number; titel: string; grund: 'neu' | 'gewechselt' | 'titel' | 'geloescht' | string }
 
 export type ServerEvent =
   | EvZustand
@@ -50,7 +52,8 @@ export type ServerEvent =
   | EvFreigabeNoetig
   | EvIntegrationGeaendert
   | EvOauthAnmeldung
-  | EvFehler;
+  | EvFehler
+  | EvUnterhaltung;
 
 export const SERVER_EVENT_TYPEN = [
   'zustand',
@@ -65,6 +68,7 @@ export const SERVER_EVENT_TYPEN = [
   'integration_geaendert',
   'oauth_anmeldung',
   'fehler',
+  'unterhaltung',
 ] as const satisfies readonly ServerEvent['typ'][];
 
 // ---------- Client → Server ----------
@@ -89,6 +93,8 @@ export interface Status {
   zustand?: Zustand;
   /** Betriebssystem des Kerns (optional, ab 0.2): steuert plattformabhängige Optionen. */
   plattform?: 'mac' | 'windows' | 'linux';
+  /** Aktuelle Unterhaltung (optional, ab 0.3). */
+  unterhaltung?: { id: number; titel: string };
 }
 
 export interface ModellVorschlag {
@@ -267,6 +273,8 @@ export interface Einstellungen {
   freigabe_technisch?: boolean;
   /** Fachliche Werkzeuge: ab „aendern“ (Standard), nur „kritisch“ oder „nie“ bestätigen. */
   freigabe_fachlich?: 'aendern' | 'kritisch' | 'nie' | string;
+  /** Unterhaltungen beim Verlassen zusammenfassen und Fakten automatisch merken (Standard an). */
+  gedaechtnis_automatisch?: boolean;
   /** Anrede, z. B. „Sir“. */
   anrede?: string;
   /** Persona „Sir“ an/aus. */
@@ -291,6 +299,24 @@ export interface Einstellungen {
   [schluessel: string]: unknown;
 }
 
-export interface Erinnerung { id: string | number; text: string; zeit?: string }
+export interface Erinnerung {
+  id: string | number;
+  text: string;
+  zeit?: string;
+  /** „nutzer“ (ausdrücklich gemerkt) oder „auto“ (aus der Nachbereitung einer Unterhaltung). */
+  quelle?: 'nutzer' | 'auto' | string;
+  aktualisiert?: string | null;
+}
+export interface Unterhaltung {
+  id: number;
+  titel: string;
+  titel_fest: boolean;
+  erstellt: string;
+  aktualisiert: string;
+  zusammenfassung: string | null;
+  nachbereitet: string | null;
+  nachrichten: number;
+  aktuell: boolean;
+}
 /** Kern liefert `{id, zeit, rolle, inhalt}`; `text` wird ebenfalls akzeptiert. */
 export interface VerlaufEintrag { rolle: string; inhalt?: string; text?: string; zeit?: string }

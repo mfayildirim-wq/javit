@@ -137,6 +137,7 @@ describe('Event-Reducer', () => {
       integration_geaendert: { typ: 'integration_geaendert', integration: {} },
       oauth_anmeldung: { typ: 'oauth_anmeldung', integration: 'notion', url: 'https://as.example/authorize?state=x' },
       fehler: { typ: 'fehler', text: 'x' },
+      unterhaltung: { typ: 'unterhaltung', id: 2, titel: 'Neu', grund: 'neu' },
     };
     for (const typ of SERVER_EVENT_TYPEN) {
       const vorher = anfangsZustand;

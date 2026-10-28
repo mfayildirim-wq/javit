@@ -1,5 +1,6 @@
-import { Command } from 'lucide-react';
+import { Command, MessageSquarePlus } from 'lucide-react';
 import { useJarvis, useName, type Ansicht } from '../state/store';
+import { neueUnterhaltung } from '../state/verbindung';
 
 const TABS: { id: Ansicht; titel: string }[] = [
   { id: 'konsole', titel: 'Konsole' },
@@ -12,6 +13,7 @@ export function TopBar() {
   const setAnsicht = useJarvis((s) => s.setAnsicht);
   const setPalette = useJarvis((s) => s.setPalette);
   const verbindung = useJarvis((s) => s.verbindung);
+  const unterhaltung = useJarvis((s) => s.unterhaltung);
   const name = useName();
   const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -43,6 +45,13 @@ export function TopBar() {
       </nav>
 
       <div className="kopf-rechts">
+        {unterhaltung && ansicht === 'konsole' && (
+          <span className="unterhaltung-titel" title="Aktuelle Unterhaltung">{unterhaltung.titel}</span>
+        )}
+        <button className="palette-knopf neu-knopf" onClick={() => void neueUnterhaltung()} aria-label="Neue Unterhaltung" title="Neue Unterhaltung (Alt+N)">
+          <MessageSquarePlus size={14} aria-hidden="true" />
+          <span>Neu</span>
+        </button>
         <button className="palette-knopf" onClick={() => setPalette(true)} aria-label="Befehlspalette öffnen">
           <Command size={14} aria-hidden="true" />
           <span>Befehle</span>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { istBeschaeftigt, useJarvis } from '../state/store';
+import { neueUnterhaltung } from '../state/verbindung';
 
 export function istEingabeElement(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -17,6 +18,7 @@ export function istEingabeElement(el: EventTarget | null): boolean {
 /**
  * Globale Tastenkürzel:
  * - Cmd/Ctrl+K: Befehlspalette
+ * - Alt+N: neue Unterhaltung
  * - Esc: Freigabe ablehnen / Arbeit abbrechen / zurück zur Konsole
  * - Leertaste (außerhalb von Eingaben): Push-to-talk – sendet `zuhoeren` (einmal zuhören ohne Weckwort)
  */
@@ -29,6 +31,11 @@ export function useTastenkuerzel(): void {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         s.setPalette(!s.paletteOffen);
+        return;
+      }
+      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyN') {
+        e.preventDefault();
+        void neueUnterhaltung();
         return;
       }
       if (e.key === 'Escape') {

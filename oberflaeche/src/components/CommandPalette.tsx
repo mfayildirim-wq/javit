@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Cpu, LayoutGrid, MessageSquare, Mic, Plug, Settings, Square, Volume2 } from 'lucide-react';
+import { MessageSquarePlus, Cpu, LayoutGrid, MessageSquare, Mic, Plug, Settings, Square, Volume2 } from 'lucide-react';
 import { api } from '../api/rest';
+import { neueUnterhaltung } from '../state/verbindung';
 import type { ModellVorschlag } from '../api/types';
 import { useJarvis, useName } from '../state/store';
 import { statusLaden } from '../state/verbindung';
@@ -56,6 +57,17 @@ export function CommandPalette() {
         stichworte: 'api schlüssel stimme persona gedächtnis',
         icon: <Settings size={15} />,
         ausfuehren: () => s().setAnsicht('einstellungen'),
+      },
+      {
+        id: 'neue-unterhaltung',
+        gruppe: 'Steuerung',
+        titel: 'Neue Unterhaltung beginnen',
+        stichworte: 'thema chat verlauf neu',
+        icon: <MessageSquarePlus size={15} />,
+        ausfuehren: () => {
+          s().setPalette(false);
+          void neueUnterhaltung();
+        },
       },
       {
         id: 'mikro',

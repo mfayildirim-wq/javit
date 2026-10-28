@@ -2928,3 +2928,75 @@ input[type='range'] {
 .bereich-wahl .seg-gruppe {
   margin-bottom: 0.5rem;
 }
+
+/* ---------- Unterhaltungen (Kopfzeile + Einstellungen) ---------- */
+.unterhaltung-titel {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-xs);
+  color: var(--gedaempft, inherit);
+  opacity: 0.8;
+}
+.unterhaltungen-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.unterhaltungen-liste li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  font-size: var(--t-s);
+}
+.unterhaltungen-liste li.aktuell {
+  border-color: var(--linie-stark);
+}
+.unterhaltung-oeffnen {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.unterhaltung-oeffnen:hover .unterhaltung-name {
+  text-decoration: underline;
+}
+.unterhaltung-zusammenfassung {
+  font-size: 12px;
+}
+.unterhaltung-aktionen {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.unterhaltung-umbenennen {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  align-items: center;
+}
+.unterhaltung-umbenennen input {
+  flex: 1;
+  min-width: 0;
+}
+.erinnerungen li {
+  align-items: center;
+}
+.erinnerung-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}

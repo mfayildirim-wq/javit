@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Check, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, KeyRound, MessageSquarePlus, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../api/rest';
-import type { AnbieterInfo, EigenerAnbieter, EigenesVerzeichnis, Einstellungen, Erinnerung, Modelle, ModellVorschlag } from '../api/types';
+import type { AnbieterInfo, EigenerAnbieter, EigenesVerzeichnis, Einstellungen, Erinnerung, Modelle, ModellVorschlag, Unterhaltung } from '../api/types';
 import { useJarvis, useName } from '../state/store';
 import { STANDARD_NAME, weckwortAnzeige } from '../lib/name';
-import { statusLaden } from '../state/verbindung';
+import { neueUnterhaltung, statusLaden, unterhaltungOeffnen } from '../state/verbindung';
 import { modellAnbieter } from '../lib/format';
 
 export const SCHLUESSEL = [
@@ -636,9 +636,124 @@ function StimmePersona() {
   );
 }
 
+function datumKurz(wert?: string | null): string {
+  if (!wert) return '';
+  const d = new Date(wert);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function Unterhaltungen() {
+  const aktuelle = useJarvis((s) => s.unterhaltung);
+  const [liste, setListe] = useState<Unterhaltung[] | null>(null);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [bearbeitet, setBearbeitet] = useState<number | null>(null);
+  const [titel, setTitel] = useState('');
+  const [loeschen, setLoeschen] = useState<number | null>(null);
+  const laden = () =>
+    api
+      .unterhaltungen()
+      .then((l) => {
+        setListe(l);
+        setFehler(null);
+      })
+      .catch((e: Error) => setFehler(e.message));
+  useEffect(() => {
+    void laden();
+  }, [aktuelle?.id, aktuelle?.titel]);
+
+  const umbenennen = async (id: number) => {
+    const t = titel.trim();
+    if (!t) return;
+    try {
+      await api.unterhaltungUmbenennen(id, t);
+      setBearbeitet(null);
+      await laden();
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  };
+  const entfernen = async (id: number) => {
+    try {
+      const ergebnis = await api.unterhaltungLoeschen(id);
+      setLoeschen(null);
+      useJarvis.getState().verarbeiten({ typ: 'unterhaltung', id: ergebnis.aktuell.id, titel: ergebnis.aktuell.titel, grund: 'geloescht' });
+      await laden();
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  };
+
+  return (
+    <Abschnitt id="s-unterhaltungen" titel="Unterhaltungen" text="Frühere Unterhaltungen öffnen, umbenennen oder löschen. Erinnerungen bleiben davon unberührt.">
+      <div className="speichern-leiste links">
+        <button className="knopf klein" onClick={() => void neueUnterhaltung()}>
+          <MessageSquarePlus size={14} aria-hidden="true" /> Neue Unterhaltung
+        </button>
+      </div>
+      {liste === null && !fehler && <p className="gedaempft">Lade …</p>}
+      {liste && liste.length > 0 && (
+        <ul className="unterhaltungen-liste" aria-label="Unterhaltungen">
+          {liste.map((u) => (
+            <li key={u.id} className={u.aktuell ? 'aktuell' : undefined}>
+              {bearbeitet === u.id ? (
+                <form
+                  className="unterhaltung-umbenennen"
+                  onSubmit={(e: FormEvent) => {
+                    e.preventDefault();
+                    void umbenennen(u.id);
+                  }}
+                >
+                  <input aria-label="Neuer Titel" value={titel} maxLength={80} onChange={(e) => setTitel(e.target.value)} autoFocus />
+                  <button className="knopf klein" type="submit">Speichern</button>
+                  <button className="knopf klein leise" type="button" onClick={() => setBearbeitet(null)}>Abbrechen</button>
+                </form>
+              ) : (
+                <>
+                  <button className="unterhaltung-oeffnen" onClick={() => void unterhaltungOeffnen(u.id)} aria-label={`${u.titel} öffnen`}>
+                    <span className="unterhaltung-name">{u.titel}</span>
+                    <span className="gedaempft">
+                      {datumKurz(u.aktualisiert)} · {u.nachrichten} {u.nachrichten === 1 ? 'Nachricht' : 'Nachrichten'}
+                      {u.aktuell && ' · aktuell'}
+                    </span>
+                    {u.zusammenfassung && <span className="unterhaltung-zusammenfassung gedaempft">{u.zusammenfassung}</span>}
+                  </button>
+                  <span className="unterhaltung-aktionen">
+                    <button
+                      className="knopf klein leise"
+                      aria-label={`${u.titel} umbenennen`}
+                      onClick={() => {
+                        setBearbeitet(u.id);
+                        setTitel(u.titel);
+                      }}
+                    >
+                      <Pencil size={13} aria-hidden="true" />
+                    </button>
+                    {loeschen === u.id ? (
+                      <>
+                        <button className="knopf gefahr klein" onClick={() => void entfernen(u.id)}>Ja, löschen</button>
+                        <button className="knopf klein leise" onClick={() => setLoeschen(null)}>Behalten</button>
+                      </>
+                    ) : (
+                      <button className="knopf klein leise" aria-label={`${u.titel} löschen`} onClick={() => setLoeschen(u.id)}>
+                        <Trash2 size={13} aria-hidden="true" />
+                      </button>
+                    )}
+                  </span>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {fehler && <p className="formular-fehler">{fehler}</p>}
+    </Abschnitt>
+  );
+}
+
 function Gedaechtnis() {
   const name = useName();
   const [liste, setListe] = useState<Erinnerung[] | null>(null);
+  const [automatisch, setAutomatisch] = useState<boolean | null>(null);
   const [bestaetigen, setBestaetigen] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const laden = () =>
@@ -648,18 +763,38 @@ function Gedaechtnis() {
       .catch((e: Error) => setFehler(e.message));
   useEffect(() => {
     void laden();
+    api
+      .einstellungen()
+      .then((e) => setAutomatisch(e.gedaechtnis_automatisch !== false))
+      .catch(() => setAutomatisch(true));
   }, []);
-  const loeschen = async () => {
+  const loeschen = async (id?: string | number) => {
     try {
-      await api.gedaechtnisLoeschen();
+      await api.gedaechtnisLoeschen(id);
       setBestaetigen(false);
       await laden();
     } catch (e) {
       setFehler((e as Error).message);
     }
   };
+  const automatischSetzen = async (an: boolean) => {
+    setAutomatisch(an);
+    try {
+      await api.einstellungenSpeichern({ gedaechtnis_automatisch: an });
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  };
   return (
     <Abschnitt id="s-gedaechtnis" titel="Gedächtnis" text={`Was ${name} sich über Sie gemerkt hat.`}>
+      {automatisch !== null && (
+        <Schalter
+          an={automatisch}
+          onChange={(v) => void automatischSetzen(v)}
+          label="Automatisch merken"
+          beschreibung={`${name} fasst jede Unterhaltung beim Verlassen zusammen und merkt sich dauerhafte Fakten über Sie.`}
+        />
+      )}
       {liste === null && !fehler && <p className="gedaempft">Lade …</p>}
       {liste?.length === 0 && <p className="gedaempft">Noch keine Erinnerungen gespeichert.</p>}
       {liste && liste.length > 0 && (
@@ -667,7 +802,13 @@ function Gedaechtnis() {
           {liste.map((e, i) => (
             <li key={e.id ?? i}>
               <span>{e.text}</span>
-              {e.zeit && <time className="gedaempft">{new Date(e.zeit).toLocaleDateString('de-DE')}</time>}
+              <span className="erinnerung-meta">
+                <span className={`marke-chip ${e.quelle === 'auto' ? 'quelle' : ''}`}>{e.quelle === 'auto' ? 'automatisch' : 'von Ihnen'}</span>
+                {e.zeit && <time className="gedaempft">{datumKurz(e.zeit)}</time>}
+                <button className="knopf klein leise" aria-label={`Erinnerung löschen: ${e.text}`} onClick={() => void loeschen(e.id)}>
+                  <Trash2 size={13} aria-hidden="true" />
+                </button>
+              </span>
             </li>
           ))}
         </ul>
@@ -678,7 +819,7 @@ function Gedaechtnis() {
           {bestaetigen ? (
             <>
               <span>Alle {liste.length} Erinnerungen endgültig löschen?</span>
-              <button className="knopf gefahr klein" onClick={loeschen}>
+              <button className="knopf gefahr klein" onClick={() => void loeschen()}>
                 Ja, löschen
               </button>
               <button className="knopf klein leise" onClick={() => setBestaetigen(false)}>
@@ -841,7 +982,7 @@ export function EinstellungenAnsicht() {
       <header className="ansicht-kopf">
         <div>
           <h1 id="einst-titel">Einstellungen</h1>
-          <p>Modell, Schlüssel, Stimme und Gedächtnis. Änderungen gelten sofort.</p>
+          <p>Modell, Schlüssel, Stimme, Unterhaltungen und Gedächtnis. Änderungen gelten sofort.</p>
         </div>
       </header>
       <div className="ansicht-inhalt einstellungen" key={verbindung === 'offen' ? 'on' : 'off'}>
@@ -850,6 +991,7 @@ export function EinstellungenAnsicht() {
         <Freigaben />
         <Verzeichnisse />
         <StimmePersona />
+        <Unterhaltungen />
         <Gedaechtnis />
       </div>
     </section>
