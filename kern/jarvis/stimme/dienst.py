@@ -499,6 +499,7 @@ class StimmDienst:
                 modell=e.vosk_modell,
                 schwelle=e.schwelle,
                 sha256=e.vosk_modell_sha256,
+                nur_ganz=True,
             )
             await asyncio.to_thread(detektor.laden)
             self._stopp_detektor = detektor

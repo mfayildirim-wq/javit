@@ -532,3 +532,16 @@ def test_modelle_laden_fuer_installer(fake_vosk, fake_oww, modell_ordner, capsys
     args.alle = False
     assert modelle_laden(args) == 1
     assert "Downloads sind abgeschaltet" in capsys.readouterr().out
+
+
+def test_nur_ganz_erkennt_stoppwort_nur_allein(fake_vosk, modell_ordner):
+    from jarvis.stimme.weckwort_vosk import ganze_aeusserung
+
+    assert ganze_aeusserung("stopp", "stopp") and ganze_aeusserung("[unk] stopp [unk]", "stopp")
+    assert not ganze_aeusserung("das ist stopp und so", "stopp") and not ganze_aeusserung("stopp halt", "stopp")
+    fake_vosk.vokabular.update({"stopp", "stop", "halt"})
+    skript = [("p", "stopp halt"), ("p", "das ist stopp"), ("f", "halt mal stopp"), ("p", "stopp"), ("p", "stopp")]
+    d = detektor_mit(skript, modell_ordner, weckwort="stopp", varianten=["stop", "stopp", "halt"], nur_ganz=True)
+    werte = scores(d, len(skript))
+    assert max(werte[:3]) == 0.0  # Stoppwort mitten in anderer Sprache zählt nicht
+    assert werte[3] == 1.0  # exakte, alleinstehende Äußerung → sofort

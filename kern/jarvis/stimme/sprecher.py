@@ -230,7 +230,9 @@ class LautsprecherZiel:
         self._letzter_pegel = 0.0
         self._lock = __import__("threading").Lock()
 
-    def _callback(self, outdata: Any, frames: int, _zeit: Any, _status: Any) -> None:
+    def _callback(self, outdata: Any, frames: int, _zeit: Any, status: Any) -> None:
+        if status:
+            log.debug("Lautsprecher-Status: %s", status)
         noetig = frames * 2
         with self._lock:
             daten = bytearray(self._rest)
@@ -282,8 +284,12 @@ class LautsprecherZiel:
             await asyncio.sleep(0.05)
 
     async def leer(self) -> None:
-        """Wartet, bis der Puffer abgespielt ist (Strom bleibt offen)."""
+        """Wartet, bis der Puffer abgespielt ist (Strom bleibt offen) – höchstens Pufferdauer + 2 s."""
+        frist = asyncio.get_running_loop().time() + self._offen / (self._rate * 2) + 2.0
         while self._offen > 0 and not self._gestoppt:
+            if asyncio.get_running_loop().time() > frist or self._strom is None:
+                log.warning("Lautsprecher: Puffer wurde nicht geleert (Gerät gestoppt?) – breche Warten ab")
+                break
             await asyncio.sleep(0.02)
 
     async def ende(self) -> None:

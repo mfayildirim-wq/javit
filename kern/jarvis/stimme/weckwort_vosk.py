@@ -400,8 +400,12 @@ class VoskWeckwortDetektor:
         modell: str = STANDARD_VOSK_MODELL,
         schwelle: float = 0.5,
         sha256: str = "",
+        nur_ganz: bool = False,
     ):
         self.weckwort = (weckwort or "javit").strip()
+        #: Treffer nur, wenn die ganze Äußerung das Wort ist (Stoppwort während der eigenen Ausgabe:
+        #: das Mikrofon hört Javit selbst, und eine kleine Grammatik bildet fremde Sprache auf ihre Wörter ab)
+        self.nur_ganz = nur_ganz
         self.woerter = weckwoerter(self.weckwort) or ["javit"]
         self.abgleich = WeckwortAbgleich(self.woerter, varianten)
         self.verzeichnis = Path(verzeichnis or Path.home() / ".jarvis" / "modelle" / "vosk")
@@ -490,6 +494,8 @@ class VoskWeckwortDetektor:
             score = self._letzter_score  # unverändertes Teilergebnis gilt jetzt als stabil
         else:
             score, treffer = self.abgleich.bewerten(text)
+            if self.nur_ganz and treffer is not None and not ganze_aeusserung(text, treffer):
+                score, treffer = 0.0, None
             stabil = final or score >= 1.0 or (treffer is not None and treffer == self._letzter_treffer)
             self._letzter_text, self._letzter_treffer, self._letzter_score = text, treffer, score
             if not stabil:
@@ -508,6 +514,12 @@ class VoskWeckwortDetektor:
                 self._erkenner.Reset()
             except Exception:  # noqa: BLE001
                 log.debug("Vosk-Reset fehlgeschlagen", exc_info=True)
+
+
+def ganze_aeusserung(text: str, treffer: str) -> bool:
+    """True, wenn ``text`` (ohne ``[unk]``) nur aus dem Treffer besteht – nichts davor, nichts danach."""
+    woerter = [w for w in woerter_normalisieren(text) if w != "[unk]"]
+    return " ".join(woerter) == " ".join(woerter_normalisieren(treffer))
 
 
 def _json_feld(roh: str, feld: str) -> str:
