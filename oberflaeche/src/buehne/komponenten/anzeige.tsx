@@ -6,7 +6,7 @@ import { alsText, alsZahl, istSichereBildUrl } from '../binder';
 import { klassen, tonKlasse, wahl } from './hilfen';
 import { Symbolbild } from './symbole';
 
-const BILD_VARIANTEN = ['icon', 'avatar', 'smallFeature', 'mediumFeature', 'largeFeature', 'header'] as const;
+const BILD_VARIANTEN = ['icon', 'avatar', 'smallFeature', 'mediumFeature', 'largeFeature', 'header', 'screen'] as const;
 
 export function Image({ k, basis, tiefe }: BausteinProps) {
   const h = useBaustein(k, basis, tiefe);

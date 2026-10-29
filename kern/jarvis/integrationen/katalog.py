@@ -61,6 +61,29 @@ class Schritt(BaseModel):
         return {"titel": self.titel, "text": self.text, "link": self.link, "datei": self.datei, "befehl": self.befehl}
 
 
+class BuehnenBlock(BaseModel):
+    """Werkzeugfläche der Bühne für diese Integration (nur auf Kommando des Nutzers geöffnet)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: live = Schritte + Bild (z. B. Browser-Screenshot), schritte = nur Schrittliste, terminal = Schritte + Befehlszeile
+    art: Literal["live", "schritte", "terminal"] = "schritte"
+    titel: str | None = None
+    #: lucide-Symbolname für den Reiter (sonst icon des Eintrags)
+    symbol: str | None = None
+    #: Werkzeug (ohne Präfix), das ein Bild liefert
+    bild: str | None = None
+    #: Argumentname, der die Adresse trägt (wird in der Fläche angezeigt)
+    adresse: str | None = None
+    #: Werkzeug zum Öffnen einer Adresse (Knopf „Öffnen“) und zum Zurückgehen
+    navigieren: str | None = None
+    zurueck: str | None = None
+    #: Werkzeuge, nach denen das Bild neu geholt wird
+    veraendernd: list[str] = Field(default_factory=list)
+    #: Kommandozeilenschalter, der den unsichtbaren Betrieb einschaltet (Modus „Bühne“ ⇄ „Fenster“)
+    unsichtbar_schalter: str | None = None
+
+
 class KatalogEintrag(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -94,6 +117,8 @@ class KatalogEintrag(BaseModel):
     quelle: str | None = None
     #: Einträge, die zusammengehören (z. B. google-workspace: ein OAuth-Client für alle)
     gruppe: str | None = None
+    #: Werkzeugfläche auf der Bühne (siehe BuehnenBlock); None = keine
+    buehne: BuehnenBlock | None = None
 
     @field_validator("id")
     @classmethod
@@ -144,6 +169,7 @@ class KatalogEintrag(BaseModel):
             "quelle": self.quelle,
             "gruppe": self.gruppe,
             "bereich": self.bereich,
+            "buehne": self.buehne.model_dump() if self.buehne else None,
         }
 
 

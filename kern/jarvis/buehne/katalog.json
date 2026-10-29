@@ -4,38 +4,594 @@
   "catalogId": "jarvis:buehne/1",
   "title": "Javit-Bühne – Katalog 1",
   "beschreibung": "Bausteine der Bühne. Werte sind Literale oder Bindungen {\"path\": \"/pfad\"} (im Listen-Template relativ, z. B. {\"path\": \"name\"}). Komponenten bilden eine flache Liste, Verweise über IDs; genau eine Komponente hat die id \"root\".",
-  "limits": { "komponenten": 300, "tiefe": 12, "listenEintraege": 500, "nachrichtBytes": 524288 },
+  "limits": {
+    "komponenten": 300,
+    "tiefe": 12,
+    "listenEintraege": 500,
+    "nachrichtBytes": 524288
+  },
   "gemeinsam": {
-    "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$" },
-    "wert": { "description": "Literal oder Bindung", "oneOf": [ { "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "$ref": "#/gemeinsam/bindung" }, { "$ref": "#/gemeinsam/aufruf" } ] },
-    "bindung": { "type": "object", "properties": { "path": { "type": "string" } }, "required": ["path"], "additionalProperties": false },
-    "aufruf": { "type": "object", "properties": { "call": { "enum": ["formatString", "formatNumber", "formatCurrency", "formatDate", "pluralize"] }, "args": { "type": "object" } }, "required": ["call", "args"], "additionalProperties": false },
-    "kinder": { "oneOf": [ { "type": "array", "items": { "$ref": "#/gemeinsam/id" } }, { "type": "object", "properties": { "path": { "type": "string" }, "componentId": { "$ref": "#/gemeinsam/id" } }, "required": ["path", "componentId"], "additionalProperties": false } ] },
-    "aktion": { "type": "object", "properties": { "event": { "type": "object", "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }, "context": { "type": "object", "additionalProperties": { "$ref": "#/gemeinsam/wert" } } }, "required": ["name"], "additionalProperties": false }, "functionCall": { "type": "object", "properties": { "call": { "enum": ["openUrl"] }, "args": { "type": "object", "properties": { "url": { "$ref": "#/gemeinsam/wert" } }, "required": ["url"] } }, "required": ["call", "args"], "additionalProperties": false } }, "minProperties": 1, "maxProperties": 1 }
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"
+    },
+    "wert": {
+      "description": "Literal oder Bindung",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/gemeinsam/bindung"
+        },
+        {
+          "$ref": "#/gemeinsam/aufruf"
+        }
+      ]
+    },
+    "bindung": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "aufruf": {
+      "type": "object",
+      "properties": {
+        "call": {
+          "enum": [
+            "formatString",
+            "formatNumber",
+            "formatCurrency",
+            "formatDate",
+            "pluralize"
+          ]
+        },
+        "args": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "call",
+        "args"
+      ],
+      "additionalProperties": false
+    },
+    "kinder": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/gemeinsam/id"
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "componentId": {
+              "$ref": "#/gemeinsam/id"
+            }
+          },
+          "required": [
+            "path",
+            "componentId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "aktion": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "context": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/gemeinsam/wert"
+              }
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "functionCall": {
+          "type": "object",
+          "properties": {
+            "call": {
+              "enum": [
+                "openUrl"
+              ]
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "$ref": "#/gemeinsam/wert"
+                }
+              },
+              "required": [
+                "url"
+              ]
+            }
+          },
+          "required": [
+            "call",
+            "args"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "minProperties": 1,
+      "maxProperties": 1
+    }
   },
   "komponenten": {
-    "Column": { "gruppe": "layout", "beschreibung": "Vertikale Anordnung", "eigenschaften": { "children": "kinder", "justify": "start|center|end|spaceBetween", "align": "start|center|end|stretch", "gap": "number" }, "beispiel": { "id": "root", "component": "Column", "children": ["kopf", "liste"], "gap": 12 } },
-    "Row": { "gruppe": "layout", "beschreibung": "Horizontale Anordnung", "eigenschaften": { "children": "kinder", "justify": "start|center|end|spaceBetween", "align": "start|center|end|stretch", "gap": "number", "wrap": "boolean" }, "beispiel": { "id": "kopf", "component": "Row", "children": ["titel", "neu"], "justify": "spaceBetween", "align": "center" } },
-    "Grid": { "gruppe": "layout", "beschreibung": "Raster mit 1–4 Spalten (auf schmalen Bildschirmen weniger)", "eigenschaften": { "children": "kinder", "spalten": "1|2|3|4", "gap": "number" }, "beispiel": { "id": "kacheln", "component": "Grid", "spalten": 3, "children": { "path": "/immobilien", "componentId": "kachel" } } },
-    "Card": { "gruppe": "layout", "beschreibung": "Karte mit genau einem Kind", "eigenschaften": { "child": "id", "action": "aktion (Klick auf die Karte)" }, "beispiel": { "id": "kachel", "component": "Card", "child": "kachel_inhalt" } },
-    "List": { "gruppe": "layout", "beschreibung": "Liste, meist mit Template über ein Array", "eigenschaften": { "children": "kinder", "direction": "vertical|horizontal", "gap": "number" }, "beispiel": { "id": "liste", "component": "List", "children": { "path": "/mails", "componentId": "mail_zeile" } } },
-    "Tabs": { "gruppe": "layout", "beschreibung": "Reiter; titles und children gleich lang", "eigenschaften": { "titles": "string[]", "children": "id[]" }, "beispiel": { "id": "reiter", "component": "Tabs", "titles": ["Aktiv", "Archiv"], "children": ["aktiv", "archiv"] } },
-    "Divider": { "gruppe": "layout", "beschreibung": "Trennlinie", "eigenschaften": { "axis": "horizontal|vertical" }, "beispiel": { "id": "trenner", "component": "Divider" } },
-    "Text": { "gruppe": "anzeige", "beschreibung": "Text, Markdown ohne HTML", "eigenschaften": { "text": "wert", "variant": "h1|h2|h3|h4|h5|body|caption", "ton": "normal|dezent|ok|warn|fehler" }, "beispiel": { "id": "titel", "component": "Text", "text": "Immobilien", "variant": "h2" } },
-    "Image": { "gruppe": "anzeige", "beschreibung": "Bild (nur https oder data:image)", "eigenschaften": { "url": "wert", "alt": "wert", "fit": "cover|contain", "variant": "icon|avatar|smallFeature|mediumFeature|largeFeature|header" }, "beispiel": { "id": "bild", "component": "Image", "url": { "path": "bild_url" }, "alt": { "path": "titel" }, "variant": "mediumFeature" } },
-    "Icon": { "gruppe": "anzeige", "beschreibung": "Symbol (Material-Symbols-Name, z. B. home, mail, cloud, star)", "eigenschaften": { "name": "wert", "ton": "normal|dezent|ok|warn|fehler" }, "beispiel": { "id": "symbol", "component": "Icon", "name": "home" } },
-    "Badge": { "gruppe": "anzeige", "beschreibung": "Kleines Etikett", "eigenschaften": { "text": "wert", "ton": "neutral|ok|warn|fehler|info" }, "beispiel": { "id": "status", "component": "Badge", "text": { "path": "status" }, "ton": "info" } },
-    "Kennzahl": { "gruppe": "anzeige", "beschreibung": "Große Zahl mit Beschriftung", "eigenschaften": { "wert": "wert", "label": "wert", "einheit": "wert", "trend": "wert (Zahl, +/−)" }, "beispiel": { "id": "preis", "component": "Kennzahl", "wert": { "call": "formatCurrency", "args": { "value": { "path": "preis" }, "currency": "EUR" } }, "label": "Kaufpreis" } },
-    "Fortschritt": { "gruppe": "anzeige", "beschreibung": "Balken 0–1", "eigenschaften": { "wert": "wert", "label": "wert" }, "beispiel": { "id": "fortschritt", "component": "Fortschritt", "wert": { "path": "fortschritt" }, "label": "Erledigt" } },
-    "Tabelle": { "gruppe": "anzeige", "beschreibung": "Tabelle über ein Array; spalten: [{titel, path, format?: text|zahl|waehrung|datum|badge}]", "eigenschaften": { "zeilen": "bindung (Array)", "spalten": "object[]", "zeilenAktion": "aktion (Klick auf eine Zeile, context erhält die Zeile als /zeile)" }, "beispiel": { "id": "tabelle", "component": "Tabelle", "zeilen": { "path": "/mails" }, "spalten": [ { "titel": "Von", "path": "von" }, { "titel": "Betreff", "path": "betreff" }, { "titel": "Zeit", "path": "zeit", "format": "datum" } ], "zeilenAktion": { "event": { "name": "mail_oeffnen", "context": { "id": { "path": "id" } } } } } },
-    "Karte": { "gruppe": "anzeige", "beschreibung": "Ort: Adresse oder Koordinaten, zeigt Adresse und Link auf eine Karte", "eigenschaften": { "adresse": "wert", "lat": "wert", "lon": "wert" }, "beispiel": { "id": "ort", "component": "Karte", "adresse": { "path": "adresse" } } },
-    "Diagramm": { "gruppe": "anzeige", "beschreibung": "Balken-, Linien- oder Kreisdiagramm; serien: [{name, path (Array von {x, y})}]", "eigenschaften": { "typ": "balken|linie|kreis", "serien": "object[]", "titel": "wert" }, "beispiel": { "id": "verlauf", "component": "Diagramm", "typ": "linie", "serien": [ { "name": "Temperatur", "path": "/vorhersage" } ] } },
-    "Button": { "gruppe": "aktion", "beschreibung": "Knopf mit Aktion", "eigenschaften": { "text": "wert", "icon": "string", "variant": "default|primary|borderless|gefahr", "action": "aktion" }, "beispiel": { "id": "notiz", "component": "Button", "text": "Notiz", "icon": "edit", "action": { "event": { "name": "notiz_anlegen", "context": { "objekt_id": { "path": "id" } } } } } },
-    "TextField": { "gruppe": "eingabe", "beschreibung": "Textfeld, zweiseitig an das Datenmodell gebunden", "eigenschaften": { "label": "wert", "value": "bindung", "variant": "shortText|longText|number|obscured" }, "beispiel": { "id": "suche", "component": "TextField", "label": "Suche", "value": { "path": "/filter/suche" } } },
-    "CheckBox": { "gruppe": "eingabe", "beschreibung": "Schalter mit Beschriftung", "eigenschaften": { "label": "wert", "value": "bindung" }, "beispiel": { "id": "nur_aktive", "component": "CheckBox", "label": "Nur aktive", "value": { "path": "/filter/aktiv" } } },
-    "ChoicePicker": { "gruppe": "eingabe", "beschreibung": "Auswahl aus Optionen [{label, value}]", "eigenschaften": { "label": "wert", "options": "object[]", "value": "bindung", "displayStyle": "chips|dropdown|checkbox" }, "beispiel": { "id": "stadt", "component": "ChoicePicker", "label": "Stadt", "options": [ { "label": "Hamburg", "value": "HH" } ], "value": { "path": "/filter/stadt" } } },
-    "DateTimeInput": { "gruppe": "eingabe", "beschreibung": "Datum und/oder Zeit (ISO 8601)", "eigenschaften": { "label": "wert", "value": "bindung", "enableDate": "boolean", "enableTime": "boolean" }, "beispiel": { "id": "ab", "component": "DateTimeInput", "label": "Ab", "value": { "path": "/filter/ab" }, "enableDate": true } },
-    "Formular": { "gruppe": "eingabe", "beschreibung": "Felder aus einem JSON-Schema; Absenden löst action aus, context erhält die Werte unter /werte", "eigenschaften": { "schema": "object (JSON-Schema, nur Objekt mit string/number/boolean/enum)", "value": "bindung (Objekt)", "absenden": "string (Knopftext)", "action": "aktion" }, "beispiel": { "id": "notiz_formular", "component": "Formular", "schema": { "type": "object", "properties": { "text": { "type": "string", "title": "Notiz" } }, "required": ["text"] }, "value": { "path": "/notiz" }, "absenden": "Speichern", "action": { "event": { "name": "notiz_speichern", "context": { "objekt_id": { "path": "/auswahl/id" } } } } } }
+    "Column": {
+      "gruppe": "layout",
+      "beschreibung": "Vertikale Anordnung",
+      "eigenschaften": {
+        "children": "kinder",
+        "justify": "start|center|end|spaceBetween",
+        "align": "start|center|end|stretch",
+        "gap": "number"
+      },
+      "beispiel": {
+        "id": "root",
+        "component": "Column",
+        "children": [
+          "kopf",
+          "liste"
+        ],
+        "gap": 12
+      }
+    },
+    "Row": {
+      "gruppe": "layout",
+      "beschreibung": "Horizontale Anordnung",
+      "eigenschaften": {
+        "children": "kinder",
+        "justify": "start|center|end|spaceBetween",
+        "align": "start|center|end|stretch",
+        "gap": "number",
+        "wrap": "boolean"
+      },
+      "beispiel": {
+        "id": "kopf",
+        "component": "Row",
+        "children": [
+          "titel",
+          "neu"
+        ],
+        "justify": "spaceBetween",
+        "align": "center"
+      }
+    },
+    "Grid": {
+      "gruppe": "layout",
+      "beschreibung": "Raster mit 1–4 Spalten (auf schmalen Bildschirmen weniger)",
+      "eigenschaften": {
+        "children": "kinder",
+        "spalten": "1|2|3|4",
+        "gap": "number"
+      },
+      "beispiel": {
+        "id": "kacheln",
+        "component": "Grid",
+        "spalten": 3,
+        "children": {
+          "path": "/immobilien",
+          "componentId": "kachel"
+        }
+      }
+    },
+    "Card": {
+      "gruppe": "layout",
+      "beschreibung": "Karte mit genau einem Kind",
+      "eigenschaften": {
+        "child": "id",
+        "action": "aktion (Klick auf die Karte)"
+      },
+      "beispiel": {
+        "id": "kachel",
+        "component": "Card",
+        "child": "kachel_inhalt"
+      }
+    },
+    "List": {
+      "gruppe": "layout",
+      "beschreibung": "Liste, meist mit Template über ein Array",
+      "eigenschaften": {
+        "children": "kinder",
+        "direction": "vertical|horizontal",
+        "gap": "number"
+      },
+      "beispiel": {
+        "id": "liste",
+        "component": "List",
+        "children": {
+          "path": "/mails",
+          "componentId": "mail_zeile"
+        }
+      }
+    },
+    "Tabs": {
+      "gruppe": "layout",
+      "beschreibung": "Reiter; titles und children gleich lang",
+      "eigenschaften": {
+        "titles": "string[]",
+        "children": "id[]"
+      },
+      "beispiel": {
+        "id": "reiter",
+        "component": "Tabs",
+        "titles": [
+          "Aktiv",
+          "Archiv"
+        ],
+        "children": [
+          "aktiv",
+          "archiv"
+        ]
+      }
+    },
+    "Divider": {
+      "gruppe": "layout",
+      "beschreibung": "Trennlinie",
+      "eigenschaften": {
+        "axis": "horizontal|vertical"
+      },
+      "beispiel": {
+        "id": "trenner",
+        "component": "Divider"
+      }
+    },
+    "Text": {
+      "gruppe": "anzeige",
+      "beschreibung": "Text, Markdown ohne HTML",
+      "eigenschaften": {
+        "text": "wert",
+        "variant": "h1|h2|h3|h4|h5|body|caption",
+        "ton": "normal|dezent|ok|warn|fehler"
+      },
+      "beispiel": {
+        "id": "titel",
+        "component": "Text",
+        "text": "Immobilien",
+        "variant": "h2"
+      }
+    },
+    "Image": {
+      "gruppe": "anzeige",
+      "beschreibung": "Bild (nur https oder data:image)",
+      "eigenschaften": {
+        "url": "wert",
+        "alt": "wert",
+        "fit": "cover|contain",
+        "variant": "icon|avatar|smallFeature|mediumFeature|largeFeature|header|screen"
+      },
+      "beispiel": {
+        "id": "bild",
+        "component": "Image",
+        "url": {
+          "path": "bild_url"
+        },
+        "alt": {
+          "path": "titel"
+        },
+        "variant": "mediumFeature"
+      }
+    },
+    "Icon": {
+      "gruppe": "anzeige",
+      "beschreibung": "Symbol (Material-Symbols-Name, z. B. home, mail, cloud, star)",
+      "eigenschaften": {
+        "name": "wert",
+        "ton": "normal|dezent|ok|warn|fehler"
+      },
+      "beispiel": {
+        "id": "symbol",
+        "component": "Icon",
+        "name": "home"
+      }
+    },
+    "Badge": {
+      "gruppe": "anzeige",
+      "beschreibung": "Kleines Etikett",
+      "eigenschaften": {
+        "text": "wert",
+        "ton": "neutral|ok|warn|fehler|info"
+      },
+      "beispiel": {
+        "id": "status",
+        "component": "Badge",
+        "text": {
+          "path": "status"
+        },
+        "ton": "info"
+      }
+    },
+    "Kennzahl": {
+      "gruppe": "anzeige",
+      "beschreibung": "Große Zahl mit Beschriftung",
+      "eigenschaften": {
+        "wert": "wert",
+        "label": "wert",
+        "einheit": "wert",
+        "trend": "wert (Zahl, +/−)"
+      },
+      "beispiel": {
+        "id": "preis",
+        "component": "Kennzahl",
+        "wert": {
+          "call": "formatCurrency",
+          "args": {
+            "value": {
+              "path": "preis"
+            },
+            "currency": "EUR"
+          }
+        },
+        "label": "Kaufpreis"
+      }
+    },
+    "Fortschritt": {
+      "gruppe": "anzeige",
+      "beschreibung": "Balken 0–1",
+      "eigenschaften": {
+        "wert": "wert",
+        "label": "wert"
+      },
+      "beispiel": {
+        "id": "fortschritt",
+        "component": "Fortschritt",
+        "wert": {
+          "path": "fortschritt"
+        },
+        "label": "Erledigt"
+      }
+    },
+    "Tabelle": {
+      "gruppe": "anzeige",
+      "beschreibung": "Tabelle über ein Array; spalten: [{titel, path, format?: text|zahl|waehrung|datum|badge}]",
+      "eigenschaften": {
+        "zeilen": "bindung (Array)",
+        "spalten": "object[]",
+        "zeilenAktion": "aktion (Klick auf eine Zeile, context erhält die Zeile als /zeile)"
+      },
+      "beispiel": {
+        "id": "tabelle",
+        "component": "Tabelle",
+        "zeilen": {
+          "path": "/mails"
+        },
+        "spalten": [
+          {
+            "titel": "Von",
+            "path": "von"
+          },
+          {
+            "titel": "Betreff",
+            "path": "betreff"
+          },
+          {
+            "titel": "Zeit",
+            "path": "zeit",
+            "format": "datum"
+          }
+        ],
+        "zeilenAktion": {
+          "event": {
+            "name": "mail_oeffnen",
+            "context": {
+              "id": {
+                "path": "id"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Karte": {
+      "gruppe": "anzeige",
+      "beschreibung": "Ort: Adresse oder Koordinaten, zeigt Adresse und Link auf eine Karte",
+      "eigenschaften": {
+        "adresse": "wert",
+        "lat": "wert",
+        "lon": "wert"
+      },
+      "beispiel": {
+        "id": "ort",
+        "component": "Karte",
+        "adresse": {
+          "path": "adresse"
+        }
+      }
+    },
+    "Diagramm": {
+      "gruppe": "anzeige",
+      "beschreibung": "Balken-, Linien- oder Kreisdiagramm; serien: [{name, path (Array von {x, y})}]",
+      "eigenschaften": {
+        "typ": "balken|linie|kreis",
+        "serien": "object[]",
+        "titel": "wert"
+      },
+      "beispiel": {
+        "id": "verlauf",
+        "component": "Diagramm",
+        "typ": "linie",
+        "serien": [
+          {
+            "name": "Temperatur",
+            "path": "/vorhersage"
+          }
+        ]
+      }
+    },
+    "Button": {
+      "gruppe": "aktion",
+      "beschreibung": "Knopf mit Aktion",
+      "eigenschaften": {
+        "text": "wert",
+        "icon": "string",
+        "variant": "default|primary|borderless|gefahr",
+        "action": "aktion"
+      },
+      "beispiel": {
+        "id": "notiz",
+        "component": "Button",
+        "text": "Notiz",
+        "icon": "edit",
+        "action": {
+          "event": {
+            "name": "notiz_anlegen",
+            "context": {
+              "objekt_id": {
+                "path": "id"
+              }
+            }
+          }
+        }
+      }
+    },
+    "TextField": {
+      "gruppe": "eingabe",
+      "beschreibung": "Textfeld, zweiseitig an das Datenmodell gebunden",
+      "eigenschaften": {
+        "label": "wert",
+        "value": "bindung",
+        "variant": "shortText|longText|number|obscured"
+      },
+      "beispiel": {
+        "id": "suche",
+        "component": "TextField",
+        "label": "Suche",
+        "value": {
+          "path": "/filter/suche"
+        }
+      }
+    },
+    "CheckBox": {
+      "gruppe": "eingabe",
+      "beschreibung": "Schalter mit Beschriftung",
+      "eigenschaften": {
+        "label": "wert",
+        "value": "bindung"
+      },
+      "beispiel": {
+        "id": "nur_aktive",
+        "component": "CheckBox",
+        "label": "Nur aktive",
+        "value": {
+          "path": "/filter/aktiv"
+        }
+      }
+    },
+    "ChoicePicker": {
+      "gruppe": "eingabe",
+      "beschreibung": "Auswahl aus Optionen [{label, value}]",
+      "eigenschaften": {
+        "label": "wert",
+        "options": "object[]",
+        "value": "bindung",
+        "displayStyle": "chips|dropdown|checkbox"
+      },
+      "beispiel": {
+        "id": "stadt",
+        "component": "ChoicePicker",
+        "label": "Stadt",
+        "options": [
+          {
+            "label": "Hamburg",
+            "value": "HH"
+          }
+        ],
+        "value": {
+          "path": "/filter/stadt"
+        }
+      }
+    },
+    "DateTimeInput": {
+      "gruppe": "eingabe",
+      "beschreibung": "Datum und/oder Zeit (ISO 8601)",
+      "eigenschaften": {
+        "label": "wert",
+        "value": "bindung",
+        "enableDate": "boolean",
+        "enableTime": "boolean"
+      },
+      "beispiel": {
+        "id": "ab",
+        "component": "DateTimeInput",
+        "label": "Ab",
+        "value": {
+          "path": "/filter/ab"
+        },
+        "enableDate": true
+      }
+    },
+    "Formular": {
+      "gruppe": "eingabe",
+      "beschreibung": "Felder aus einem JSON-Schema; Absenden löst action aus, context erhält die Werte unter /werte",
+      "eigenschaften": {
+        "schema": "object (JSON-Schema, nur Objekt mit string/number/boolean/enum)",
+        "value": "bindung (Objekt)",
+        "absenden": "string (Knopftext)",
+        "action": "aktion"
+      },
+      "beispiel": {
+        "id": "notiz_formular",
+        "component": "Formular",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "title": "Notiz"
+            }
+          },
+          "required": [
+            "text"
+          ]
+        },
+        "value": {
+          "path": "/notiz"
+        },
+        "absenden": "Speichern",
+        "action": {
+          "event": {
+            "name": "notiz_speichern",
+            "context": {
+              "objekt_id": {
+                "path": "/auswahl/id"
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "funktionen": {
     "formatString": "Interpolation: {\"call\": \"formatString\", \"args\": {\"value\": \"${/user/name}, ${anzahl} Treffer\"}}",

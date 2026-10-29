@@ -113,7 +113,7 @@ Server → Client:
 | `fehler` | `text` |
 | `sprachausgabe` | `zustand: start` (`rate`, danach PCM-**Binärframes** int16 mono an die Verbindung mit Audio-Sitzung, ≤ 9600 Bytes je Frame) \| `ende` \| `gestoppt` (`grund?: stoppwort\|ersetzt`; Wiedergabe sofort verwerfen) – kommt nur bei einer Audio-Sitzung im Browser; am Lautsprecher des Kerns gibt es nur `zustand spricht` und `pegel` |
 | `unterhaltung` | `id`, `titel`, `grund` (`neu` \| `gewechselt` \| `geloescht` – die aktuelle Unterhaltung ist eine andere, die Oberfläche leert die Konsole und lädt `/api/verlauf`; `titel` – nur der Titel hat sich geändert, z. B. automatisch nach der ersten Antwort) |
-| `buehne` | `nachricht` – eine A2UI-Nachricht (`version: "v0.9.1"`) mit genau einem Schlüssel: `stil` (Stil-Objekt, kommt vor `createSurface`), `createSurface {surfaceId, catalogId: "jarvis:buehne/1", theme: {stil}, titel, vorlage?}`, `updateComponents {surfaceId, components[]}`, `updateDataModel {surfaceId, path, value}` (`path: "/"` = ganzes Modell), `deleteSurface {surfaceId}`, `aktionen {schnell: [Schnellaktion…], varianten: {vorlageId: [Schnellaktion…]}}` (nach jedem Zeigen/Schließen; ersetzt den Stand aus `GET /api/buehne`). `Schnellaktion = {id, titel, vorlage, werkzeug, argumente, zaehler, zuletzt}`. Antworten auf Rezepte erscheinen als `antwort_start`/`antwort_ende` mit `id` `buehne_…` |
+| `buehne` | `nachricht` – eine A2UI-Nachricht (`version: "v0.9.1"`) mit genau einem Schlüssel: `stil` (Stil-Objekt, kommt vor `createSurface`), `createSurface {surfaceId, catalogId: "jarvis:buehne/1", theme: {stil}, titel, vorlage?, art?: daten|werkzeug, symbol?}`, `updateComponents {surfaceId, components[]}`, `updateDataModel {surfaceId, path, value}` (`path: "/"` = ganzes Modell), `deleteSurface {surfaceId}`, `aktionen {schnell: [Schnellaktion…], varianten: {vorlageId: [Schnellaktion…]}}` (nach jedem Zeigen/Schließen; ersetzt den Stand aus `GET /api/buehne`). `Schnellaktion = {id, titel, vorlage, werkzeug, argumente, zaehler, zuletzt}`. Antworten auf Rezepte erscheinen als `antwort_start`/`antwort_ende` mit `id` `buehne_…` |
 
 ## Bühne (`jarvis/buehne/`, Katalog `jarvis:buehne/1`)
 
@@ -157,7 +157,24 @@ https/data-URL); die Oberfläche rendert den Katalog mit eigenen React-Komponent
 * **Werkzeuge des Modells**: `buehne_zeigen` (lesen; führt das Datenwerkzeug über den Agenten aus – Freigaben und
   Aktivitäten wie sonst), `buehne_vorlage_aendern`, `buehne_vorlage_zurueck`, `buehne_daten`, `buehne_neu_laden`,
   `buehne_rezept_anlegen` (kritisch), `buehne_stil_ableiten`, `buehne_stil_aendern`, `buehne_stil_zuweisen`,
-  `buehne_schliessen`. Einstellung `buehne: {aktiv, hoehe}`.
+  `buehne_schliessen`, `buehne_werkzeug_oeffnen(werkzeug, modus?)`, `buehne_werkzeug_schliessen(werkzeug)`.
+  Einstellung `buehne: {aktiv, hoehe}`.
+* **Werkzeugflächen** (`buehne/werkzeugflaechen.py`) – etwas anderes als Datenflächen: feste Kern-Vorlagen (A2UI aus
+  dem Katalog), kein Modell, kein Rezept, kein Verlauf, keine Persistenz über Neustarts. Sie öffnen sich nur auf
+  Kommando des Nutzers („Browser: …“, „Shell: …“, „öffne das Terminal“) über `buehne_werkzeug_oeffnen`; danach
+  erscheinen die Aufrufe der zugehörigen Werkzeuge als Schritte (Name, Kurzargumente, läuft/ok/fehler, Ergebnis bis
+  600 Zeichen). Flächen tragen `art: "werkzeug"`, `symbol` und `werkzeug` (Kennung); `surfaceId` = `werkzeug-<kennung>`.
+  Arten: `live` (Schritte + Bild: nach jedem verändernden Werkzeug holt der Kern über `bild` ein Bild als data-URL;
+  Adresse aus dem Argument `adresse`; Knöpfe `werkzeug_oeffnen_url {url}`, `werkzeug_zurueck`,
+  `werkzeug_aktualisieren`, `werkzeug_modus`, `werkzeug_schliessen`), `terminal` (Schritte + Formular
+  `werkzeug_befehl {werte: {befehl}}`), `schritte` (nur Liste). Eingebaut: `shell` (terminal, `shell_befehl`),
+  `dateien` (schritte, `datei_*`, `ordner_auflisten`). Integrationen erklären ihre Fläche im Katalog mit dem Block
+  `buehne: {art, titel?, symbol?, bild?, adresse?, navigieren?, zurueck?, veraendernd[], unsichtbar_schalter?}`
+  (Browser: `live`, `browser_take_screenshot`, `url`, `browser_navigate`, `browser_navigate_back`, `--headless`).
+  Browser-Modus: `buehne` = Playwright mit `unsichtbar_schalter` (Standard beim ersten Öffnen), `fenster` = ohne;
+  Umschalten ändert `befehl` der Integrationskonfiguration, speichert und verbindet neu (die letzte Adresse wird
+  neu geladen). MCP-Bildblöcke bleiben erhalten (`McpVerbindung.letztes_bild`), im Text steht `[Bild: …]`.
+  `Image` kennt die Variante `screen` (volle Breite, natürliche Höhe).
 
 ## Integrationskatalog (`integrationen/katalog/*.yaml`)
 

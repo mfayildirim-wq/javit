@@ -3220,6 +3220,15 @@ input[type='range'] {
   align-items: center;
   flex: none;
 }
+.buehne-reiter-symbol {
+  margin-right: 6px;
+  color: var(--cyan);
+  vertical-align: -2px;
+}
+.buehne-reiter-eintrag.werkzeug .buehne-reiter-knopf {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing: 0.01em;
+}
 .buehne-reiter-eintrag::after {
   content: '';
   position: absolute;
@@ -3559,6 +3568,9 @@ input[type='range'] {
 .b-bild-mediumFeature { width: 100%; height: 160px; }
 .b-bild-largeFeature { width: 100%; height: 240px; }
 .b-bild-header { width: 100%; height: 120px; }
+/* Bildschirm/Screenshot: volle Breite, natürliche Höhe (Werkzeugflächen) */
+.b-bild-screen { width: 100%; height: auto; max-height: 70vh; object-fit: contain; border: 1px solid color-mix(in srgb, var(--b-text) 14%, transparent); }
+.b-bild-platzhalter.b-bild-screen { height: 160px; }
 .b-bild-platzhalter {
   display: grid;
   place-items: center;

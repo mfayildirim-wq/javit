@@ -10,7 +10,7 @@ import pytest
 from jarvis.geheimnisse import Geheimnisspeicher
 from jarvis.integrationen.katalog import Katalog
 from jarvis.integrationen.manager import IntegrationsManager
-from jarvis.integrationen.mcp_hub import McpVerbindung, mcp_werkzeugname, werkzeuge_aus_mcp
+from jarvis.integrationen.mcp_hub import McpVerbindung, bild_aus_ergebnis, ergebnis_zu_text, mcp_werkzeugname, werkzeuge_aus_mcp
 from jarvis.werkzeuge import WerkzeugFehler, WerkzeugRegister
 from tests.conftest import MINI_SERVER
 
@@ -124,3 +124,14 @@ def test_werkzeugname_maximal_64_zeichen():
     lang = mcp_werkzeugname("eine_sehr_lange_integration", "und_ein_noch_viel_laengerer_werkzeugname_mit_mehr")
     assert len(lang) <= 64
     assert lang != mcp_werkzeugname("eine_sehr_lange_integration", "und_ein_noch_viel_laengerer_werkzeugname_mit_meh2")
+
+
+def test_bild_aus_ergebnis_und_text():
+    from types import SimpleNamespace
+
+    ergebnis = SimpleNamespace(content=[SimpleNamespace(type="text", text="Screenshot gespeichert"), SimpleNamespace(type="image", data="aWJn", mime_type="image/png")], structured_content=None, is_error=False)
+    assert bild_aus_ergebnis(ergebnis) == "data:image/png;base64,aWJn"
+    assert ergebnis_zu_text(ergebnis) == "Screenshot gespeichert\n[Bild: image/png]"
+    assert bild_aus_ergebnis(SimpleNamespace(content=[SimpleNamespace(type="text", text="x")])) is None
+    v = McpVerbindung("browser", befehl=["npx", "x"])
+    assert v.letztes_bild("browser_take_screenshot") is None

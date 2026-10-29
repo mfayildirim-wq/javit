@@ -355,6 +355,10 @@ Structured results (lists from apps such as GG real estate, weather, unread mail
 * Every view (properties, agents, weather …) gets its own template and surface. The most recent and most frequent views
   sit at the top of the stage as buttons – "Weather Stuttgart" and "Weather Frankfurt" switch with one click, without
   asking the model.
+* **Tools on the stage**: say "Browser: open gg-immobilienhandel and go to the deals" or "Shell: show disk usage" and
+  Javit opens the matching tool surface and works there visibly – the browser with a screenshot after every step
+  (headless in the background, or "in a window" on request), the shell as a terminal with a command line. Without such
+  a command the stage stays untouched.
 * Templates, recipes and styles are global (not per conversation) and live under `~/.jarvis/buehne/`.
 * **Styles**: eight predefined (Javit dark/light, Material dark/light, Neutral, Compact, Paper, Contrast), custom ones
   derived from an app URL, a CSS file or pasted classes, colours editable with a colour picker; styles can be assigned

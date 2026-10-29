@@ -17,6 +17,9 @@ export interface FlaechenZustand {
   catalogId: string;
   stil: string;
   vorlage: string | null;
+  /** daten = Vorlage (Standard), werkzeug = Werkzeugfläche (Browser, Shell …). */
+  art: 'daten' | 'werkzeug';
+  symbol: string | null;
   /** Sichtbare Komponenten (erst, wenn `root` angekommen ist). */
   komponenten: Record<string, BuehnenKomponente>;
   /** Gepufferte Komponenten, solange `root` fehlt (Streaming). */
@@ -96,7 +99,7 @@ export function variantenLesen(x: unknown): Record<string, Schnellaktion[]> {
 }
 
 function neueFlaeche(surfaceId: string, teil: Partial<FlaechenZustand> = {}): FlaechenZustand {
-  return { surfaceId, titel: surfaceId, catalogId: 'jarvis:buehne/1', stil: STANDARD_STIL_ID, vorlage: null, komponenten: {}, puffer: [], daten: {}, ...teil };
+  return { surfaceId, titel: surfaceId, catalogId: 'jarvis:buehne/1', stil: STANDARD_STIL_ID, vorlage: null, art: 'daten', symbol: null, komponenten: {}, puffer: [], daten: {}, ...teil };
 }
 
 /** Neue Komponenten einarbeiten: ohne `root` puffern, sonst Puffer + neue übernehmen (max. 300). */
@@ -141,6 +144,8 @@ export const useBuehne = create<BuehnenZustand>()((set, get) => ({
       if (c.catalogId) f.catalogId = c.catalogId;
       if (typeof c.theme?.stil === 'string') f.stil = c.theme.stil;
       if (c.vorlage !== undefined) f.vorlage = c.vorlage ?? null;
+      if (c.art === 'werkzeug' || c.art === 'daten') f.art = c.art;
+      if (c.symbol !== undefined) f.symbol = typeof c.symbol === 'string' ? c.symbol : null;
       set({
         flaechen: { ...flaechen, [c.surfaceId]: f },
         reihenfolge: alt ? reihenfolge : [...reihenfolge, c.surfaceId],
@@ -194,6 +199,8 @@ export const useBuehne = create<BuehnenZustand>()((set, get) => ({
         catalogId: fl.catalogId || 'jarvis:buehne/1',
         stil: fl.stil || STANDARD_STIL_ID,
         vorlage: fl.vorlage ?? null,
+        art: fl.art === 'werkzeug' ? 'werkzeug' : 'daten',
+        symbol: typeof fl.symbol === 'string' ? fl.symbol : null,
         daten: alsObjekt(fl.daten),
       });
       flaechen[fl.surfaceId] = komponentenEinarbeiten(roh, (Array.isArray(fl.components) ? fl.components : []) as BuehnenKomponente[]);

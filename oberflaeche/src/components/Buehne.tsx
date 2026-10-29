@@ -1,7 +1,7 @@
 // Bühne über dem Gespräch: Reiter je Fläche (Schließen, Stil-Menü), Schnellaktionen, Inhalt, ziehbarer Teiler.
 // Ohne offene Fläche, aber mit Schnellaktionen: nur eine schmale Leiste (Kopf + Schnellaktionen).
 import { useEffect, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Folder, Globe, Terminal, Wrench, X } from 'lucide-react';
 import { api } from '../api/rest';
 import { Flaeche } from '../buehne/renderer';
 import { useBuehne } from '../buehne/store';
@@ -12,6 +12,12 @@ const SCHRITT = 0.05;
 
 function hinweis(text: string) {
   useJarvis.getState().verarbeiten({ typ: 'lokal_hinweis', text });
+}
+
+/** Symbol einer Werkzeugfläche (lucide-Name aus createSurface.symbol; Standard Schraubenschlüssel). */
+function WerkzeugSymbol({ name }: { name: string | null }) {
+  const Symbol = name === 'globe' ? Globe : name === 'terminal' ? Terminal : name === 'folder' ? Folder : Wrench;
+  return <Symbol size={13} aria-hidden="true" className="buehne-reiter-symbol" />;
 }
 
 function StilMenue({ surfaceId }: { surfaceId: string }) {
@@ -136,8 +142,9 @@ export function Buehne() {
           <div className="buehne-reiter" role="tablist" aria-label="Flächen">
             {reihenfolge.map((id) => {
               const titel = flaechen[id]?.titel ?? id;
+              const werkzeug = flaechen[id]?.art === 'werkzeug';
               return (
-                <div key={id} className={`buehne-reiter-eintrag ${id === aktuell ? 'an' : ''}`}>
+                <div key={id} className={`buehne-reiter-eintrag ${id === aktuell ? 'an' : ''} ${werkzeug ? 'werkzeug' : ''}`}>
                   <button
                     type="button"
                     role="tab"
@@ -150,6 +157,7 @@ export function Buehne() {
                       if (eingeklappt) useBuehne.getState().setEingeklappt(false);
                     }}
                   >
+                    {werkzeug && <WerkzeugSymbol name={flaechen[id]?.symbol ?? null} />}
                     {titel}
                   </button>
                   <button type="button" className="buehne-schliessen" aria-label={`Fläche „${titel}“ schließen`} title="Schließen" onClick={() => schliessen(id)}>
@@ -160,7 +168,7 @@ export function Buehne() {
             })}
           </div>
           <div className="buehne-werkzeuge">
-            {!eingeklappt && <StilMenue surfaceId={aktuell} />}
+            {!eingeklappt && flaechen[aktuell]?.art !== 'werkzeug' && <StilMenue surfaceId={aktuell} />}
             <button
               type="button"
               className="buehne-klappe"

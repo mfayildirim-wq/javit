@@ -20,6 +20,7 @@ from .buehne import werkzeuge as buehne_werkzeuge
 from .buehne.erzeuger import Erzeuger
 from .buehne.manager import BuehnenManager
 from .buehne.speicher import BuehnenSpeicher
+from .buehne.werkzeugflaechen import Werkzeugflaechen
 from .gedaechtnis import Gedaechtnis
 from .gedaechtnis_pflege import BenannterEinbetter, EinbetterKette, LokaleEinbettung, Nachbereiter
 from .geheimnisse import Geheimnisspeicher
@@ -95,6 +96,8 @@ class Jarvis:
             aktiv=lambda: self.einstellungen.buehne.aktiv,
         )
         self.buehne.laden()
+        self.buehne.werkzeugflaechen = Werkzeugflaechen(self.buehne, self.register, self.manager, self.agent.werkzeug_ausfuehren_extern)
+        self.hoerer_hinzufuegen(self.buehne.werkzeugflaechen.ereignis)
         self.stimme: Any = None
         self.stimme_fehler: str | None = None
         self._timer: set[asyncio.Task[None]] = set()

@@ -16,3 +16,15 @@ werkzeug_risiko:
   browser_network_requests: lesen
   browser_tabs: lesen
 bereich: technisch
+buehne:
+  art: live
+  titel: Browser
+  symbol: globe
+  bild: browser_take_screenshot
+  adresse: url
+  navigieren: browser_navigate
+  zurueck: browser_navigate_back
+  unsichtbar_schalter: --headless
+  veraendernd: [browser_navigate, browser_navigate_back, browser_click, browser_type, browser_press_key, browser_select_option,
+    browser_hover, browser_drag, browser_fill_form, browser_evaluate, browser_file_upload, browser_tabs, browser_handle_dialog,
+    browser_resize, browser_wait_for]

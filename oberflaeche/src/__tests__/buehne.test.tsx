@@ -71,6 +71,28 @@ describe('Bühne in der Konsole', () => {
     expect(buehne.compareDocumentPosition(container.querySelector('.gespraech')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('Werkzeugfläche: Reiter mit Symbol, kein Stil-Menü', () => {
+    act(() => {
+      flaecheAnlegen('immobilien', 'Immobilien', 'Liste', 'immobilien');
+      const b = useBuehne.getState();
+      b.verarbeiten({ version: 'v0.9.1', createSurface: { surfaceId: 'werkzeug-browser', titel: 'Browser', art: 'werkzeug', symbol: 'globe', vorlage: null } });
+      b.verarbeiten({ version: 'v0.9.1', updateComponents: { surfaceId: 'werkzeug-browser', components: [{ id: 'root', component: 'Image', url: { path: '/bild' }, alt: 'Seite', variant: 'screen' }] } });
+      b.verarbeiten({ version: 'v0.9.1', updateDataModel: { surfaceId: 'werkzeug-browser', path: '/', value: { bild: 'data:image/png;base64,aWJn' } } });
+    });
+    const { container } = render(<Konsole aktiv={false} />);
+    expect(useBuehne.getState().flaechen['werkzeug-browser']?.art).toBe('werkzeug');
+    const eintrag = container.querySelector('.buehne-reiter-eintrag.werkzeug')!;
+    expect(eintrag).not.toBeNull();
+    expect(eintrag.querySelector('.buehne-reiter-symbol')).not.toBeNull();
+    expect(within(eintrag as HTMLElement).getByRole('tab', { name: /Browser/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByLabelText('Stil der Fläche')).toBeNull();
+    const bild = container.querySelector('img.b-bild-screen') as HTMLImageElement;
+    expect(bild.src).toContain('data:image/png;base64');
+    // Datenfläche aktiv → Stil-Menü wieder da
+    act(() => useBuehne.getState().aktivSetzen('immobilien'));
+    expect(screen.getByLabelText('Stil der Fläche')).toBeInTheDocument();
+  });
+
   it('Schließen entfernt die Fläche und meldet es dem Kern', async () => {
     const u = userEvent.setup();
     act(() => {

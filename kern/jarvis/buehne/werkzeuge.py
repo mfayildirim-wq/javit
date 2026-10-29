@@ -105,6 +105,15 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
         z = manager.stil_zuweisen(integration, stil)
         return "Zuordnung: " + _text(z)
 
+    async def buehne_werkzeug_oeffnen(werkzeug: str, modus: str | None = None) -> str:
+        e = await manager.werkzeug_oeffnen(werkzeug, modus or None)
+        modus_text = f", Modus {e['modus']}" if e.get("modus") else ""
+        return f"Werkzeugfläche „{e['titel']}“ ist offen (Fläche {e['surfaceId']}{modus_text}). Führe die Schritte jetzt mit den Werkzeugen dieser Integration aus; sie erscheinen dort. Im Chat nur kurz berichten."
+
+    async def buehne_werkzeug_schliessen(werkzeug: str) -> str:
+        e = await manager.werkzeug_schliessen(werkzeug)
+        return "Werkzeugfläche geschlossen." if e.get("geschlossen") else "Diese Werkzeugfläche war nicht offen."
+
     async def buehne_schliessen(surfaceId: str | None = None) -> str:  # noqa: N803
         g = await manager.schliessen(surfaceId)
         return f"Geschlossen: {', '.join(g) if g else 'nichts offen'}."
@@ -230,6 +239,23 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
             "Weist einer Integration (Kennung) einen Bühnen-Stil zu; ohne stil wird die Zuordnung entfernt.",
             schema({"integration": {"type": "string"}, "stil": {"type": "string"}}, ["integration"]),
             "aendern",
+        ),
+        wz(
+            buehne_werkzeug_oeffnen,
+            "buehne_werkzeug_oeffnen",
+            "Öffnet auf der Bühne eine Werkzeugfläche (z. B. browser, shell, dateien), wenn der Nutzer ein Werkzeug ausdrücklich "
+            "nennt („Browser: …“, „Shell: …“, „öffne das Terminal“). Danach die Schritte mit den Werkzeugen dieser Integration "
+            "ausführen – sie erscheinen live auf der Fläche (Browser mit Screenshot). modus nur für den Browser: buehne (unsichtbar, "
+            "Standard) oder fenster (sichtbares Browserfenster, wenn der Nutzer „im Fenster“/„sichtbar“ sagt).",
+            schema({"werkzeug": {"type": "string", "description": "Kennung der Werkzeugfläche, z. B. browser, shell, dateien"}, "modus": {"type": "string", "enum": ["buehne", "fenster"]}}, ["werkzeug"]),
+            "lesen",
+        ),
+        wz(
+            buehne_werkzeug_schliessen,
+            "buehne_werkzeug_schliessen",
+            "Schließt eine Werkzeugfläche der Bühne (z. B. browser, shell).",
+            schema({"werkzeug": {"type": "string"}}, ["werkzeug"]),
+            "lesen",
         ),
         wz(
             buehne_schliessen,

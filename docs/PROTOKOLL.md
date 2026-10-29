@@ -462,3 +462,13 @@ mit pwsh geparst (nicht ausgeführt).
   `temperature_2m_max[]`) in Einträge; der Vorlagen-Prompt verbietet Rohtext/JSON und verlangt lesbare Einheiten,
   Codes und Zeiten; eine strukturierte Vorlage ersetzt automatisch die alte Rohtext-Vorlage derselben Sicht
   (Selbstreparatur ohne Nutzereingriff).
+- Werkzeugflächen (Freigabe des Nutzers nach Brainstorming, Spezifikation `docs/superpowers/specs/2026-10-29-buehne-
+  werkzeugflaechen-design.md`): Browser, Shell, Dateien erscheinen auf der Bühne nur auf Kommando („Browser: …“,
+  „Shell: …“) über `buehne_werkzeug_oeffnen`; Schritte aus den Werkzeugereignissen des Agenten (Hörer), Browser mit
+  automatischem Screenshot nach verändernden Schritten (MCP-Bildblöcke werden jetzt als data-URL gemerkt), Knöpfe
+  Adresse öffnen/Zurück/Aktualisieren/Fenster⇄Bühne/Schließen, Shell mit Befehlszeile. Modus Bühne = Playwright mit
+  `--headless` (Standard beim ersten Öffnen; Playwright startet sonst sichtbar), Fenster = ohne; Umschalten ändert die
+  Integrationskonfiguration und verbindet neu. Katalogblock `buehne` je Integration (browser.yaml), `Image` Variante
+  `screen`, Reiter mit Symbol und ohne Stil-Menü. Werkzeugflächen überleben keinen Neustart. Nicht am Mac mit echtem
+  Playwright getestet (npx/Chromium nötig) – beim ersten Nutzertest prüfen: Screenshot-Größe über WebSocket, Dauer.
+  Tests: Kern 42 Bühnen-Tests, Oberfläche 158.

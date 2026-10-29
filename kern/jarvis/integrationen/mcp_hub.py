@@ -38,6 +38,15 @@ def fehler_text(e: BaseException) -> str:
     return f"{type(e).__name__}: {text}" if text != type(e).__name__ else text
 
 
+def bild_aus_ergebnis(ergebnis: Any) -> str | None:
+    """Erstes Bild eines CallToolResult als data-URL (für die Bühne); None ohne Bildblock."""
+    for block in getattr(ergebnis, "content", None) or []:
+        if getattr(block, "type", "") == "image" and getattr(block, "data", None):
+            mime = getattr(block, "mime_type", None) or getattr(block, "mimeType", None) or "image/png"
+            return f"data:{mime};base64,{block.data}"
+    return None
+
+
 def ergebnis_zu_text(ergebnis: Any) -> str:
     """CallToolResult → Text (Textinhalte, sonst strukturierter Inhalt)."""
     teile: list[str] = []
@@ -79,6 +88,8 @@ class McpVerbindung:
             raise ValueError("Entweder befehl (stdio) oder url (HTTP) angeben")
         self.integration_id = integration_id
         self.befehl = befehl
+        #: letztes Bild je Werkzeug (data-URL) – Bildblöcke gehen im Text verloren, die Bühne braucht sie
+        self.letzte_bilder: dict[str, str] = {}
         self.umgebung = umgebung or {}
         self.url = url
         self.kopfzeilen = kopfzeilen or {}
@@ -218,7 +229,13 @@ class McpVerbindung:
                 self.status = "fehler"
                 self.fehler = fehler_text(e)
             raise WerkzeugFehler(f"MCP-Fehler bei {name}: {fehler_text(e)}") from e
+        bild = bild_aus_ergebnis(ergebnis)
+        if bild:
+            self.letzte_bilder[name] = bild
         return (not ergebnis.is_error), ergebnis_zu_text(ergebnis)
+
+    def letztes_bild(self, name: str) -> str | None:
+        return self.letzte_bilder.get(name)
 
     async def stop(self) -> None:
         self._stop.set()
@@ -265,6 +282,10 @@ class McpWerkzeug(Werkzeug):
         if not ok:
             raise WerkzeugFehler(text)
         return text
+
+    def letztes_bild(self) -> str | None:
+        """Letztes Bildergebnis dieses Werkzeugs (data-URL) – für Werkzeugflächen der Bühne."""
+        return self.verbindung.letztes_bild(self.tool_name)
 
 
 def risiko_fuer_tool(

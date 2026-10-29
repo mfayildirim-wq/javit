@@ -166,3 +166,14 @@ async def test_unbekannte_formen():
 def test_katalogpfad_env(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVIS_KATALOG", str(tmp_path))
     assert standard_katalog_pfad() == Path(tmp_path)
+
+
+def test_katalog_buehne_block():
+    k = Katalog([standard_katalog_pfad()])
+    browser = k.holen("browser")
+    assert browser is not None and browser.buehne is not None
+    assert browser.buehne.art == "live" and browser.buehne.bild == "browser_take_screenshot" and browser.buehne.unsichtbar_schalter == "--headless"
+    assert "browser_navigate" in browser.buehne.veraendernd and browser.als_info()["buehne"]["adresse"] == "url"
+    assert k.holen("wetter").buehne is None and k.holen("wetter").als_info()["buehne"] is None
+    with pytest.raises(Exception):
+        KatalogEintrag.model_validate({**browser.model_dump(), "buehne": {"art": "kino"}})

@@ -101,7 +101,8 @@ export type ClientNachricht =
 export interface BuehnenKomponente { id: string; component: string; [eigenschaft: string]: unknown }
 export interface A2uiNachricht {
   version: string;
-  createSurface?: { surfaceId: string; catalogId?: string; theme?: { stil?: string; [k: string]: unknown }; titel?: string; vorlage?: string | null };
+  /** `art` (ab Stufe 2): daten (Vorlage, Standard) oder werkzeug (Werkzeugfläche: Browser, Shell …); `symbol`: lucide-Name für den Reiter. */
+  createSurface?: { surfaceId: string; catalogId?: string; theme?: { stil?: string; [k: string]: unknown }; titel?: string; vorlage?: string | null; art?: 'daten' | 'werkzeug'; symbol?: string | null };
   updateComponents?: { surfaceId: string; components: BuehnenKomponente[] };
   /** path "/" = ganzes Modell; ohne `value` wird der Pfad gelöscht. */
   updateDataModel?: { surfaceId: string; path?: string; value?: unknown };
@@ -117,7 +118,7 @@ export interface StilWerte { schema: 'hell' | 'dunkel'; farben: { primaer: strin
 export interface Stil { id: string; name: string; beschreibung?: string; quelle: { art: 'vordefiniert' | 'url' | 'datei' | 'klassen' | 'werte'; wert?: string }; werte: StilWerte; vorlieben: { liste: 'kacheln' | 'zeilen' | 'tabelle'; bildgroesse: 'klein' | 'mittel' | 'gross'; kennzahlenOben: boolean }; eigen?: boolean }
 export interface Vorlage { id: string; name: string; zweck: string; version: number; protokollVersion: string; katalogId: string; komponenten?: unknown[]; datenschema?: unknown; datenquelle: { werkzeug: string; argumente: Record<string, unknown>; abbildung: Record<string, string> }; aktionen: Record<string, string>; stil: string | null; signatur: { werkzeug: string; schluessel: string[] }; erstellt: string; geaendert: string; modell?: string; versionen?: number }
 export interface Rezept { id: string; name: string; art: 'werkzeug' | 'agent' | 'zeigen'; werkzeug?: string; argumentAbbildung?: Record<string, string>; auftrag?: string; bestaetigung?: string; risiko: 'lesen' | 'aendern' | 'kritisch'; vorlage: string; /** Art `zeigen`: Titel der neuen Fläche (mit `{feld}`). */ titel?: string; /** Art `zeigen`: beim ersten Mal gebaute Vorlage der Zielfläche. */ vorlageZiel?: string }
-export interface Flaeche { surfaceId: string; titel: string; catalogId: string; stil: string; components: unknown[]; daten: Record<string, unknown>; vorlage: string | null }
+export interface Flaeche { surfaceId: string; titel: string; catalogId: string; stil: string; components: unknown[]; daten: Record<string, unknown>; vorlage: string | null; art?: 'daten' | 'werkzeug'; symbol?: string | null; werkzeug?: string }
 /** GET /api/buehne */
 export interface BuehnenStand { flaechen: Flaeche[]; stile: Stil[]; zuordnung: Record<string, string>; /** fehlt bei älterem Kern */ schnellaktionen?: Schnellaktion[]; /** fehlt bei älterem Kern */ varianten?: Record<string, Schnellaktion[]> }
 /** POST /api/buehne/stile – Stil ableiten (url/datei/klassen) oder aus Werten anlegen. */

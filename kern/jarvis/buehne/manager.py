@@ -16,6 +16,7 @@ from typing import Any, Awaitable, Callable
 from .daten import abbildung_anwenden, ergebnis_parsen, json_pointer_holen, json_pointer_setzen, signatur
 from .erzeuger import STILFARBEN, Erzeuger, _hex_norm
 from .speicher import KATALOG_ID, PROTOKOLL_VERSION, BuehnenSpeicher, kennung_aus
+from .werkzeugflaechen import Werkzeugflaechen, WerkzeugflaechenFehler
 
 log = logging.getLogger("jarvis.buehne")
 
@@ -60,6 +61,8 @@ class BuehnenManager:
         self.erzeuger = erzeuger
         self._senden = senden
         self._werkzeug = werkzeug_ausfuehren
+        #: Werkzeugflächen (Browser, Shell …) – von der Anwendung gesetzt
+        self.werkzeugflaechen: Werkzeugflaechen | None = None
         self._anfrage = anfrage
         self._aktiv = aktiv or (lambda: True)
         self.flaechen: dict[str, dict[str, Any]] = {}
@@ -69,6 +72,8 @@ class BuehnenManager:
     # ------------------------------------------------------------------ Zustand
     def laden(self) -> None:
         for f in self.speicher.flaechen_laden():
+            if f.get("art") == "werkzeug":
+                continue  # Werkzeugflächen (Browser, Shell …) überleben keinen Neustart
             self.flaechen[f["surfaceId"]] = f
 
     def _speichern(self) -> None:
@@ -103,12 +108,25 @@ class BuehnenManager:
             await self._nachricht({"stil": stil})
             self._gesendete_stile.add(stil_id)
 
-    async def _flaeche_senden(self, surface_id: str, titel: str, stil_id: str, komponenten: list[dict[str, Any]], daten: Any, vorlage_id: str | None) -> dict[str, Any]:
+    async def _flaeche_senden(
+        self,
+        surface_id: str,
+        titel: str,
+        stil_id: str,
+        komponenten: list[dict[str, Any]],
+        daten: Any,
+        vorlage_id: str | None,
+        art: str = "daten",
+        symbol: str | None = None,
+    ) -> dict[str, Any]:
         await self._stil_senden(stil_id)
-        await self._nachricht({"createSurface": {"surfaceId": surface_id, "catalogId": KATALOG_ID, "theme": {"stil": stil_id}, "titel": titel, "vorlage": vorlage_id}})
+        erzeugen: dict[str, Any] = {"surfaceId": surface_id, "catalogId": KATALOG_ID, "theme": {"stil": stil_id}, "titel": titel, "vorlage": vorlage_id, "art": art}
+        if symbol:
+            erzeugen["symbol"] = symbol
+        await self._nachricht({"createSurface": erzeugen})
         await self._nachricht({"updateComponents": {"surfaceId": surface_id, "components": komponenten}})
         await self._nachricht({"updateDataModel": {"surfaceId": surface_id, "path": "/", "value": daten}})
-        flaeche = {"surfaceId": surface_id, "titel": titel, "catalogId": KATALOG_ID, "stil": stil_id, "components": komponenten, "daten": daten, "vorlage": vorlage_id}
+        flaeche = {"surfaceId": surface_id, "titel": titel, "catalogId": KATALOG_ID, "stil": stil_id, "components": komponenten, "daten": daten, "vorlage": vorlage_id, "art": art, "symbol": symbol}
         self.flaechen[surface_id] = flaeche
         self._speichern()
         return flaeche
@@ -306,6 +324,8 @@ class BuehnenManager:
                 self._roh.pop(kennung, None)
                 await self._nachricht({"deleteSurface": {"surfaceId": kennung}})
                 geschlossen.append(kennung)
+                if self.werkzeugflaechen is not None:
+                    self.werkzeugflaechen.vergessen(kennung)
         self._speichern()
         if geschlossen:
             await self._aktionen_melden()
@@ -375,6 +395,13 @@ class BuehnenManager:
             raise BuehnenFehler(f"Fläche „{surface_id}“ ist nicht offen.")
         if not name:
             raise BuehnenFehler("Aktion ohne Namen.")
+        if flaeche.get("art") == "werkzeug":
+            if self.werkzeugflaechen is None:
+                raise BuehnenFehler("Werkzeugflächen sind nicht verfügbar.")
+            try:
+                return await self.werkzeugflaechen.aktion(flaeche, name, context)
+            except WerkzeugflaechenFehler as e:
+                raise BuehnenFehler(str(e)) from e
         vorlage = self.speicher.vorlage(flaeche["vorlage"]) if flaeche.get("vorlage") else None
         rezept_id = (vorlage or {}).get("aktionen", {}).get(name)
         rezept = self.speicher.rezept(rezept_id) if rezept_id else None
@@ -423,6 +450,25 @@ class BuehnenManager:
         )
         antwort = await self._anfrage(text)
         return {"ok": True, "rezept": None, "antwort": antwort}
+
+    # ------------------------------------------------------------------ Werkzeugflächen
+    async def werkzeug_oeffnen(self, kennung: str, modus: str | None = None) -> dict[str, Any]:
+        if not self._aktiv():
+            raise BuehnenFehler("Die Bühne ist in den Einstellungen ausgeschaltet.")
+        if self.werkzeugflaechen is None:
+            raise BuehnenFehler("Werkzeugflächen sind nicht verfügbar.")
+        try:
+            return await self.werkzeugflaechen.oeffnen(kennung, modus)
+        except WerkzeugflaechenFehler as e:
+            raise BuehnenFehler(str(e)) from e
+
+    async def werkzeug_schliessen(self, kennung: str) -> dict[str, Any]:
+        if self.werkzeugflaechen is None:
+            raise BuehnenFehler("Werkzeugflächen sind nicht verfügbar.")
+        try:
+            return await self.werkzeugflaechen.schliessen(kennung)
+        except WerkzeugflaechenFehler as e:
+            raise BuehnenFehler(str(e)) from e
 
     # ------------------------------------------------------------------ Stile
     async def stil_ableiten(self, name: str, quelle: dict[str, Any]) -> dict[str, Any]:
@@ -481,6 +527,8 @@ class BuehnenManager:
                 zeilen.append(f"- {v['id']} („{v['name']}“): {v.get('zweck', '')} – Quelle {v['datenquelle'].get('werkzeug', '?')}, Aktionen: {aktionen}")
         if self.flaechen:
             zeilen.append("Offene Flächen: " + ", ".join(f"{f['surfaceId']} („{f['titel']}“)" for f in self.flaechen.values()))
+        if self.werkzeugflaechen is not None:
+            zeilen.extend(self.werkzeugflaechen.prompt_zeilen())
         return "\n".join(zeilen)
 
     def aktuelle_daten(self, surface_id: str) -> Any:

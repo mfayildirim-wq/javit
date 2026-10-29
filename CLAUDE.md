@@ -37,7 +37,8 @@ Kommentare, Meldungen, Commits, Doku.
   Oberfläche über dem Chat im A2UI-Format: `katalog.json` + `katalog.py` (Prüfung), `speicher.py` (Vorlagen mit
   Versionen, Rezepte, Stile, Zuordnung, Flächen unter `~/.jarvis/buehne/`), `daten.py` (JSON-Pointer, Abbildung,
   Standardvorlage), `erzeuger.py` (Modell baut/ändert Vorlagen, leitet Stile ab), `manager.py` (Flächen, Aktionen,
-  Rezepte), `werkzeuge.py` (`buehne_*`); vordefinierte Stile in `buehne/stile/*.json`).
+  Rezepte), `werkzeuge.py` (`buehne_*`), `werkzeugflaechen.py` (Browser/Shell/Dateien als Werkzeugfläche nur auf Kommando;
+  Katalogblock `buehne` je Integration); vordefinierte Stile in `buehne/stile/*.json`).
 * Weckwort: `stimme/weckwort.py` (openWakeWord, `erzeuge_detektor()` nach `konfig.weckwort_engine()`),
   `stimme/weckwort_vosk.py` (freies Weckwort „Javit“: Grammatik aus Vokabular-Varianten + Kölner Phonetik).
 * Werkzeuge: `werkzeuge/mac.py` (nur macOS, **nicht verändern** – Ausnahme: Standard-Mitteilungstitel =
