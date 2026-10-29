@@ -260,3 +260,21 @@ async def test_rezept_zeigen_oeffnet_detailflaeche_und_ersetzt_altes_rezept():
         j.buehne.rezept_anlegen("immobilienliste", "x", "zeigen", werkzeug="immo__read", vorlage_ziel="nix")
     prompt = j._buehne_prompt()
     assert "buehne_vorlage_zurueck" in prompt and "nie den Nutzer" in prompt
+
+
+async def test_rohtext_vorlage_wird_durch_strukturierte_ersetzt():
+    roh = {"name": "Wetter Stuttgart", "zweck": "Rohtext", "abbildung": {"/antwort": "/text"}, "datenschema": {}, "komponenten": [{"id": "root", "component": "Text", "text": {"path": "/antwort"}}]}
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(roh)), text_chunks(json.dumps({**GUELTIG, "name": "Wetter"}))])
+    antworten = iter(["Dienst nicht erreichbar, bitte später", json.dumps(ERGEBNIS)])
+
+    async def wetter(ort: str = "stuttgart") -> str:
+        return next(antworten)
+
+    j.register.alle_registrieren([FunktionsWerkzeug(wetter, "wetter__abrufen", "wetter", schema({"ort": {"type": "string"}}), "lesen", integration="wetter")])
+    e1 = await j.buehne.zeigen("wetter__abrufen", {"ort": "stuttgart"}, titel="Wetter Stuttgart")
+    assert e1["vorlage"] == "wetter-stuttgart" and j.buehne.speicher.vorlage("wetter-stuttgart")["signatur"]["schluessel"] == ["text"]
+    # beim nächsten Mal liefert das Werkzeug Struktur → neue Vorlage, die Rohtext-Vorlage samt Fläche und Verlauf verschwindet
+    e2 = await j.buehne.zeigen("wetter__abrufen", {"ort": "stuttgart"}, titel="Wetter Stuttgart")
+    assert e2["neu"] is True and e2["vorlage"] == "wetter" and j.buehne.speicher.vorlage("wetter-stuttgart") is None
+    assert [f["surfaceId"] for f in j.buehne.zustand()["flaechen"]] == ["wetter"]
+    assert {v["vorlage"] for v in j.buehne.speicher.verlauf()} == {"wetter"}

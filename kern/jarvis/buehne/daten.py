@@ -116,7 +116,26 @@ def _formatieren(wert: Any, formatierer: str) -> Any:
             return _zahl_text(float(wert), int(arg or 0))
         except (TypeError, ValueError):
             return wert
+    if name == "zeilen":
+        return spalten_zu_zeilen(wert)
     return wert
+
+
+def spalten_zu_zeilen(wert: Any) -> Any:
+    """Spaltenweise Daten ``{"time": [...], "temp": [...]}`` → Liste von Einträgen ``[{"time": …, "temp": …}, …]``
+    (Länge der längsten Liste; Skalare werden in jede Zeile übernommen). Listen bleiben, wie sie sind."""
+    if not isinstance(wert, dict):
+        return wert
+    listen = {k: v for k, v in wert.items() if isinstance(v, list)}
+    if not listen:
+        return wert
+    laenge = max(len(v) for v in listen.values())
+    zeilen = []
+    for i in range(laenge):
+        zeile = {k: (v[i] if i < len(v) else None) for k, v in listen.items()}
+        zeile.update({k: v for k, v in wert.items() if not isinstance(v, (list, dict))})
+        zeilen.append(zeile)
+    return zeilen
 
 
 def abbildung_anwenden(abbildung: dict[str, str] | None, ergebnis: Any) -> Any:
@@ -210,6 +229,10 @@ def ergebnis_parsen(ergebnis: Any) -> Any:
         return ergebnis
     text = ergebnis.strip()
     kandidaten = [m.group(1) for m in _ZAUN.finditer(text)] + [text]
+    # JSON hinter einem kurzen Präfix (z. B. „HTTP 200“ der REST-Werkzeuge oder „Ergebnis:“)
+    start = min((i for i in (text.find("{"), text.find("[")) if 0 < i <= 160), default=-1)
+    if start > 0:
+        kandidaten.append(text[start:])
     for k in kandidaten:
         k = k.strip()
         if k[:1] in "{[":

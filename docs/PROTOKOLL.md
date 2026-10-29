@@ -456,3 +456,9 @@ mit pwsh geparst (nicht ausgeführt).
   (Orb bleibt groß). (3) Systemprompt: strukturierte Ergebnisse (auch Wetter, auch per Sprache) immer auf die Bühne;
   falsche/gemischte Sichten stellt das Modell selbst wieder her (`buehne_vorlage_zurueck`), statt den Nutzer zu bitten.
   Tests: Kern 612, Oberfläche 157.
+- Rückmeldung „Antwort des Wetterdienstes“ als JSON auf der Bühne: REST-Werkzeuge liefern `HTTP 200` vor dem JSON,
+  `ergebnis_parsen` erkannte deshalb kein JSON, das Modell baute eine Rohtext-Anzeige. Jetzt: JSON hinter kurzem
+  Präfix wird erkannt; Formatierer `zeilen` wandelt spaltenweise Daten (Open-Meteo `daily.time[]`,
+  `temperature_2m_max[]`) in Einträge; der Vorlagen-Prompt verbietet Rohtext/JSON und verlangt lesbare Einheiten,
+  Codes und Zeiten; eine strukturierte Vorlage ersetzt automatisch die alte Rohtext-Vorlage derselben Sicht
+  (Selbstreparatur ohne Nutzereingriff).

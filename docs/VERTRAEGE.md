@@ -132,7 +132,10 @@ https/data-URL); die Oberfläche rendert den Katalog mit eigenen React-Komponent
   eigene Vorlage mit eigener Fläche. `buehne_zeigen` kann die Vorlage auch explizit angeben (`vorlage`). Ergebnisse
   für die Bühne werden nicht auf Modellmaß gekürzt (`Agent.werkzeug_ausfuehren_extern`, bis 4 Mio. Zeichen).
 * **Abbildung** `{"/ziel": "/quelle|formatierer"}` – Ziel-JSON-Pointer im Datenmodell ← Quell-Pointer im
-  Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`. Ergebnisse ohne JSON: Markdown-Tabellen und
+  Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`, `zeilen` (spaltenweise Daten – Objekt aus Listen –
+  → Liste von Einträgen). JSON wird auch hinter einem kurzen Präfix erkannt (z. B. `HTTP 200` der REST-Werkzeuge).
+  Entsteht für eine Sicht eine strukturierte Vorlage, ersetzt sie eine frühere Rohtext-Vorlage (Signatur nur `text`)
+  derselben Sicht samt Fläche und Verlauf. Ergebnisse ohne JSON: Markdown-Tabellen und
   listenartiger Text (Aufzählung/Blöcke mit `Schlüssel: Wert`-Zeilen, mehrere Paare je Zeile durch `|`) →
   `eintraege`, sonst `text`. Fehlt `anzahl`, ergänzt der Manager sie aus `eintraege`/der einzigen Liste.
 * **Rezept** (`rezepte/<id>.json`): `{id, name, art: werkzeug|agent|zeigen, vorlage, aktion, werkzeug?, argumentAbbildung?:

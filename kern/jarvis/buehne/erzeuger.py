@@ -35,7 +35,9 @@ Regeln:
 - komponenten ist eine flache Liste; genau eine Komponente hat die id "root". Kinder werden über IDs referenziert.
 - Werte sind Literale, Bindungen {"path": "/pfad"} ins Datenmodell oder Funktionsaufrufe {"call": …, "args": …}.
 - Listen: "children": {"path": "/liste", "componentId": "vorlage_id"}; in der Vorlage sind Pfade relativ ("name" = Feld des Eintrags).
-- abbildung: Ziel-JSON-Pointer im Datenmodell → Quell-JSON-Pointer im Werkzeugergebnis (optional "|datum", "|waehrung:EUR", "|zahl:1"). Alle in Bindungen verwendeten Pfade müssen aus der Abbildung entstehen.
+- abbildung: Ziel-JSON-Pointer im Datenmodell → Quell-JSON-Pointer im Werkzeugergebnis (optional "|datum", "|waehrung:EUR", "|zahl:1", "|zeilen"). Alle in Bindungen verwendeten Pfade müssen aus der Abbildung entstehen.
+- Spaltenweise Daten (ein Objekt aus gleich langen Listen, z. B. daily.time, daily.temperature_2m_max) mit "|zeilen" in eine Liste von Einträgen wandeln: {"/tage": "/daily|zeilen"} → Einträge mit den Feldern time, temperature_2m_max …; dann als Liste/Tabelle/Kacheln zeigen.
+- Nie Rohtext oder JSON anzeigen: Zahlen, Einheiten (…_units), Codes (z. B. WMO-Wettercode → Icon/Wort) und Zeiten in lesbare Werte und Komponenten übersetzen; der Nutzer soll nichts Technisches sehen.
 - Erfinde keine Daten, Bilder oder URLs; nutze nur Felder, die im Ergebnis vorkommen. Bilder nur, wenn das Ergebnis https-URLs enthält.
 - Aktionen auf Knöpfen: {"action": {"event": {"name": "kleinschrift_mit_unterstrich", "context": {"id": {"path": "id"}}}}}; gib jedem sinnvollen Eintrag 1–3 Aktionen (öffnen, bearbeiten, kontaktieren …).
 - Oben ein Titel (Text h2) und eine Zeile mit Anzahl oder Stand; Listen als Kacheln (Grid+Card) oder Tabelle je nach Stilvorliebe; wichtige Zahlen als Kennzahl.

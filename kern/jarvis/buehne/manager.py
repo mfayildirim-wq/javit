@@ -170,6 +170,14 @@ class BuehnenManager:
         umgebaut = False
         stil_id = self.stil_fuer(vorlage, integration, werkzeug)
         if vorlage is None:
+            # Selbstreparatur: eine frühere Rohtext-Vorlage derselben Sicht (Ergebnis war damals nicht lesbar) weicht der neuen
+            if sig["schluessel"] != ["text"]:
+                for alt in self.speicher.vorlagen_fuer_signatur(werkzeug, ["text"]):
+                    if not titel or titel_passt(titel, alt["name"]):
+                        await self.schliessen(alt["id"])
+                        self.speicher.verlauf_vergessen(alt["id"])
+                        self.speicher.vorlage_loeschen(alt["id"])
+                        log.info("Bühne: Rohtext-Vorlage %s durch strukturierte Vorlage ersetzt", alt["id"])
             gebaut = await self.erzeuger.vorlage_bauen(werkzeug, daten, wunsch=wunsch, stil=self.speicher.stil(stil_id), titel=titel)
             vorlage = self.speicher.vorlage_anlegen(
                 gebaut["name"] or titel or werkzeug,

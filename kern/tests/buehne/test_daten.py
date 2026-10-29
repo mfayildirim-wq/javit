@@ -10,6 +10,7 @@ from jarvis.buehne.daten import (
     json_pointer_holen,
     json_pointer_setzen,
     signatur,
+    spalten_zu_zeilen,
     standardvorlage,
 )
 from jarvis.buehne.katalog import komponenten_pruefen
@@ -51,6 +52,18 @@ def test_ergebnis_parsen():
     assert ergebnis_parsen(tabelle) == {"eintraege": [{"Name": "A", "Preis": "1"}, {"Name": "B", "Preis": "2"}], "text": tabelle}
     zaun = "Ergebnis:\n```json\n{\"x\": [1]}\n```"
     assert ergebnis_parsen(zaun) == {"x": [1]}
+
+
+def test_ergebnis_parsen_json_hinter_praefix_und_spalten():
+    rest = 'HTTP 200\n{\n "latitude": 48.78,\n "daily": {"time": ["2026-10-29", "2026-10-30"], "temperature_2m_max": [13.1, 11.0]}\n}'
+    d = ergebnis_parsen(rest)
+    assert d["latitude"] == 48.78 and signatur("wetter__wetter_abrufen", rest)["schluessel"] == ["daily", "latitude"]
+    assert ergebnis_parsen("Ergebnis: [1, 2]") == [1, 2]
+    assert ergebnis_parsen("x" * 200 + "{\"a\": 1}") == {"text": "x" * 200 + "{\"a\": 1}"}  # Präfix zu lang → Text
+    tage = abbildung_anwenden({"/tage": "/daily|zeilen", "/ort": "/latitude"}, d)
+    assert tage == {"tage": [{"time": "2026-10-29", "temperature_2m_max": 13.1}, {"time": "2026-10-30", "temperature_2m_max": 11.0}], "ort": 48.78}
+    assert spalten_zu_zeilen({"a": [1, 2, 3], "b": [4], "einheit": "°C"}) == [{"a": 1, "b": 4, "einheit": "°C"}, {"a": 2, "b": None, "einheit": "°C"}, {"a": 3, "b": None, "einheit": "°C"}]
+    assert spalten_zu_zeilen([{"x": 1}]) == [{"x": 1}] and spalten_zu_zeilen({"kein": "listen"}) == {"kein": "listen"}
 
 
 def test_ergebnis_parsen_textlisten():
