@@ -1,5 +1,6 @@
-// Schnellaktionen der Bühne: Knöpfe unter der Reiterzeile – zuerst die Varianten der aktiven Vorlage
-// (z. B. „Wetter Stuttgart“, „Wetter Frankfurt“), danach die globalen Schnellaktionen (max. 10, ohne Duplikate).
+// Schnellaktionen der Bühne: Knöpfe unter der Reiterzeile. Bei offener Fläche nur die Sichten derselben App
+// (der Kern liefert `varianten` je Vorlage schon app-bezogen: gleiche Vorlage zuerst, dann die übrigen Sichten der
+// App – eine Wetter-Fläche zeigt nur Wetter, eine GG-Fläche nur GG). Ohne Fläche die globalen Schnellaktionen.
 import { api } from '../api/rest';
 import type { Schnellaktion } from '../api/types';
 import { useBuehne } from '../buehne/store';
@@ -9,20 +10,20 @@ export const MAX_SCHNELL = 10;
 
 export interface SchnellKnopf { aktion: Schnellaktion; an: boolean }
 
-/** Reihenfolge der Knöpfe: Varianten der aktiven Vorlage, dann globale Schnellaktionen; gleiche `id` nur einmal. */
+/** Knöpfe: bei offener Fläche nur deren App-Varianten (aktive Sicht markiert), sonst die globalen Schnellaktionen; gleiche `id` nur einmal. */
 export function schnellKnoepfe(
   varianten: Schnellaktion[],
   schnell: Schnellaktion[],
   aktiverTitel: string | null,
+  flaecheOffen = aktiverTitel !== null,
 ): SchnellKnopf[] {
   const gesehen = new Set<string>();
   const aus: SchnellKnopf[] = [];
-  for (const [liste, variante] of [[varianten, true], [schnell, false]] as const) {
-    for (const a of liste) {
-      if (gesehen.has(a.id) || aus.length >= MAX_SCHNELL) continue;
-      gesehen.add(a.id);
-      aus.push({ aktion: a, an: variante && aktiverTitel !== null && a.titel === aktiverTitel });
-    }
+  const liste = flaecheOffen ? varianten : schnell;
+  for (const a of liste) {
+    if (gesehen.has(a.id) || aus.length >= MAX_SCHNELL) continue;
+    gesehen.add(a.id);
+    aus.push({ aktion: a, an: flaecheOffen && a.titel === aktiverTitel });
   }
   return aus;
 }
@@ -40,8 +41,9 @@ export function schnellAusfuehren(a: Schnellaktion) {
 
 export function BuehneSchnell({ vorlage, titel }: { vorlage: string | null; titel: string | null }) {
   const schnell = useBuehne((s) => s.schnellaktionen);
+  const flaecheOffen = useBuehne((s) => s.reihenfolge.length > 0);
   const varianten = useBuehne((s) => (vorlage ? s.varianten[vorlage] : undefined));
-  const knoepfe = schnellKnoepfe(varianten ?? [], schnell, titel);
+  const knoepfe = schnellKnoepfe(varianten ?? [], schnell, titel, flaecheOffen);
   if (knoepfe.length === 0) return null;
   return (
     <div className="buehne-schnell" role="group" aria-label="Schnellaktionen">

@@ -85,7 +85,7 @@ class BuehnenManager:
     def aktionen_stand(self) -> dict[str, Any]:
         """Schnellaktionen (global) und Varianten je offener Vorlage – für GET /api/buehne und die Nachricht `aktionen`."""
         vorlagen = {f.get("vorlage") for f in self.flaechen.values() if f.get("vorlage")}
-        return {"schnellaktionen": self.speicher.schnellaktionen(), "varianten": {v: self.speicher.varianten(v) for v in sorted(vorlagen)}}
+        return {"schnellaktionen": self.speicher.schnellaktionen(), "varianten": {v: self.speicher.app_varianten(v) for v in sorted(vorlagen)}}
 
     async def _aktionen_melden(self) -> None:
         await self._nachricht({"aktionen": {"schnell": self.speicher.schnellaktionen(), "varianten": self.aktionen_stand()["varianten"]}})
@@ -270,13 +270,22 @@ class BuehnenManager:
         return await self.daten_setzen(surface_id, self._mischen(surface_id, self._datenmodell(quelle.get("abbildung") or {}, daten)))
 
     # ------------------------------------------------------------------ Ändern
-    async def aendern(self, vorlage_id: str, wunsch: str) -> dict[str, Any]:
+    async def aendern(self, vorlage_id: str, wunsch: str, neu_bauen: bool = False) -> dict[str, Any]:
+        """Vorlage nach Wunsch umbauen (neue Version). ``neu_bauen``: von Grund auf neu entwerfen statt die bestehende
+        Komponentenliste anzupassen – für „gefällt mir nicht, bau es anders auf“."""
         vorlage = self.speicher.vorlage(vorlage_id)
         if vorlage is None:
             raise BuehnenFehler(f"Vorlage „{vorlage_id}“ gibt es nicht.")
         flaeche = self.flaechen.get(vorlage_id)
-        beispiel = flaeche.get("daten") if flaeche else None
-        geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=beispiel)
+        roh = await self._rohdaten(vorlage)
+        if neu_bauen:
+            if roh is None:
+                raise BuehnenFehler("Zum Neubau fehlen die Daten der Vorlage (Datenquelle nicht ausführbar).")
+            stil = self.speicher.stil(self.stil_fuer(vorlage, None, vorlage["datenquelle"].get("werkzeug")))
+            geaendert = await self.erzeuger.vorlage_bauen(str(vorlage["datenquelle"].get("werkzeug") or ""), roh, wunsch=wunsch, stil=stil, titel=vorlage["name"])
+        else:
+            beispiel = flaeche.get("daten") if flaeche else None
+            geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=beispiel)
         neu = self.speicher.vorlage_neue_version(
             vorlage_id,
             komponenten=geaendert["komponenten"],
@@ -292,13 +301,31 @@ class BuehnenManager:
         await self._komponenten_anwenden(vorlage)
         return {"vorlage": vorlage["id"], "version": vorlage["version"]}
 
+    async def _rohdaten(self, vorlage: dict[str, Any]) -> Any:
+        """Letztes Werkzeugergebnis der Vorlage; nach einem Neustart wird die Datenquelle dafür erneut ausgeführt."""
+        roh = self._roh.get(vorlage["id"])
+        if roh is not None:
+            return roh
+        quelle = vorlage.get("datenquelle") or {}
+        if not quelle.get("werkzeug"):
+            return None
+        try:
+            roh = ergebnis_parsen(await self._werkzeug(str(quelle["werkzeug"]), dict(quelle.get("argumente") or {})))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Bühne: Datenquelle von %s nicht ausführbar (%s)", vorlage["id"], exc)
+            return None
+        if isinstance(roh, dict) and set(roh) == {"text"} and str(roh["text"]).startswith("FEHLER"):
+            return None
+        self._roh[vorlage["id"]] = roh
+        return roh
+
     async def _komponenten_anwenden(self, vorlage: dict[str, Any]) -> None:
         flaeche = self.flaechen.get(vorlage["id"])
         if flaeche is None:
             return
         flaeche["components"] = vorlage["komponenten"]
         await self._nachricht({"updateComponents": {"surfaceId": vorlage["id"], "components": vorlage["komponenten"]}})
-        roh = self._roh.get(vorlage["id"])
+        roh = await self._rohdaten(vorlage)
         if roh is not None:
             flaeche["daten"] = self._mischen(vorlage["id"], self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, roh))
             await self._nachricht({"updateDataModel": {"surfaceId": vorlage["id"], "path": "/", "value": flaeche["daten"]}})
@@ -519,7 +546,7 @@ class BuehnenManager:
     # ------------------------------------------------------------------ Prompt
     def prompt_abschnitt(self) -> str:
         vorlagen = self.speicher.vorlagen()[:20]
-        zeilen = ["## Bühne", "Ergebnisse mit Struktur (Listen, Datensätze, Mails, Wetter, Vergleiche) gehören immer auf die Bühne – auch bei Sprachfragen: rufe buehne_zeigen mit dem Werkzeug und seinen Argumenten auf, statt das Werkzeug selbst aufzurufen (bei mehrstufigen Abfragen wie Wetter erst Vorarbeiten wie die Ortssuche, dann buehne_zeigen mit dem letzten Werkzeug); der Chat fasst in einem Satz zusammen. Zuletzt gezeigte Varianten (z. B. Wetter Stuttgart, Wetter Frankfurt) bietet die Bühne selbst als Knöpfe an. Aktionen auf Knöpfen, die etwas öffnen oder anzeigen, führen zu einer eigenen Fläche (Rezept der Art zeigen) – nicht zu Text im Chat. Wirkt eine Sicht falsch, leer oder gemischt, stelle sie selbst wieder her (buehne_vorlage_zurueck) oder baue sie neu; bitte nie den Nutzer, das zu tun. Jede Sicht (Immobilien, Makler, Mails …) hat ihre eigene Vorlage und Fläche: der Titel entscheidet – gleicher Titel = vorhandene Vorlage wird nur befüllt, anderer Titel = neue Vorlage (oder gib vorlage explizit an). Filtern und Sortieren über die Argumente des Werkzeugs, nicht über den Wunsch. Umbauten auf Wunsch mit buehne_vorlage_aendern, Rückgängig mit buehne_vorlage_zurueck. Aktionen von der Bühne kommen als Nachricht; lege danach mit buehne_rezept_anlegen ein Rezept an. Stile: buehne_stil_ableiten (URL/Datei/Klassen), buehne_stil_aendern, buehne_stil_zuweisen."]
+        zeilen = ["## Bühne", "Ergebnisse mit Struktur (Listen, Datensätze, Mails, Wetter, Vergleiche) gehören immer auf die Bühne – auch bei Sprachfragen: rufe buehne_zeigen mit dem Werkzeug und seinen Argumenten auf, statt das Werkzeug selbst aufzurufen (bei mehrstufigen Abfragen wie Wetter erst Vorarbeiten wie die Ortssuche, dann buehne_zeigen mit dem letzten Werkzeug); der Chat fasst in einem Satz zusammen. Zuletzt gezeigte Varianten (z. B. Wetter Stuttgart, Wetter Frankfurt) bietet die Bühne selbst als Knöpfe an. Aktionen auf Knöpfen, die etwas öffnen oder anzeigen, führen zu einer eigenen Fläche (Rezept der Art zeigen) – nicht zu Text im Chat. Wirkt eine Sicht falsch, leer oder gemischt, stelle sie selbst wieder her (buehne_vorlage_zurueck) oder baue sie neu; bitte nie den Nutzer, das zu tun. Jede Sicht (Immobilien, Makler, Mails …) hat ihre eigene Vorlage und Fläche: der Titel entscheidet – gleicher Titel = vorhandene Vorlage wird nur befüllt, anderer Titel = neue Vorlage (oder gib vorlage explizit an). Filtern und Sortieren über die Argumente des Werkzeugs, nicht über den Wunsch. Sagt der Nutzer, die Darstellung gefalle ihm nicht oder sie solle anders aufgebaut werden, rufe sofort buehne_vorlage_aendern mit seinem Wunsch auf (neu_bauen=true für einen kompletten Neuentwurf) – die offene Fläche wird dadurch aktualisiert; Rückgängig mit buehne_vorlage_zurueck. Aktionen von der Bühne kommen als Nachricht; lege danach mit buehne_rezept_anlegen ein Rezept an. Stile: buehne_stil_ableiten (URL/Datei/Klassen), buehne_stil_aendern, buehne_stil_zuweisen."]
         if vorlagen:
             zeilen.append("Vorlagen:")
             for v in vorlagen:

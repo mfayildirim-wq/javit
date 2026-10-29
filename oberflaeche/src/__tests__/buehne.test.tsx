@@ -176,15 +176,15 @@ describe('Bühne in der Konsole', () => {
     const FRANKFURT = sa('w-f', 'Wetter Frankfurt', 'wetter', { ort: 'Frankfurt' });
     const POST = sa('post', 'Posteingang', 'posteingang', { q: 'is:unread' });
 
-    it('zeigt Varianten der aktiven Fläche zuerst, dann globale ohne Duplikate', () => {
+    it('zeigt bei offener Fläche nur die Sichten ihrer App (keine globalen), aktive markiert', () => {
       act(() => {
         flaecheAnlegen('wetter', 'Wetter Stuttgart', 'Sonnig', 'wetter');
-        useBuehne.getState().verarbeiten({ version: 'v0.9.1', aktionen: { schnell: [POST, FRANKFURT], varianten: { wetter: [FRANKFURT, STUTTGART] } } });
+        useBuehne.getState().verarbeiten({ version: 'v0.9.1', aktionen: { schnell: [POST, FRANKFURT], varianten: { wetter: [FRANKFURT, STUTTGART, FRANKFURT] } } });
       });
       render(<Konsole aktiv={false} />);
       const leiste = screen.getByRole('group', { name: 'Schnellaktionen' });
       const knoepfe = within(leiste).getAllByRole('button');
-      expect(knoepfe.map((k) => k.textContent)).toEqual(['Wetter Frankfurt', 'Wetter Stuttgart', 'Posteingang']);
+      expect(knoepfe.map((k) => k.textContent)).toEqual(['Wetter Frankfurt', 'Wetter Stuttgart']);
       const aktiv = within(leiste).getByRole('button', { name: 'Schnellaktion: Wetter Stuttgart' });
       expect(aktiv).toHaveClass('an');
       expect(aktiv).toHaveAttribute('aria-pressed', 'true');

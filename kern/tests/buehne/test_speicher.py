@@ -110,6 +110,7 @@ def test_verlauf_schnellaktionen_und_varianten(tmp_path):
     assert a["id"] == b["id"] and b["zaehler"] == 2 and len(sp.verlauf()) == 3
     assert [v["titel"] for v in sp.varianten("wetter")] == ["Wetter Stuttgart", "Wetter Frankfurt"]
     assert sp.schnellaktionen()[0]["titel"] == "Wetter Stuttgart" and len(sp.schnellaktionen(2)) == 2
+    assert a["app"] == "wetter" and sp.verlauf()[0]["app"] == "gg"
     sp.verlauf_vergessen("wetter")
     assert [e["vorlage"] for e in sp.verlauf()] == ["immobilien"]
     r = sp.rezept_anlegen("Öffnen", "zeigen", "immobilien", werkzeug="gg__read_entity")

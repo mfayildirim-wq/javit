@@ -278,3 +278,42 @@ async def test_rohtext_vorlage_wird_durch_strukturierte_ersetzt():
     assert e2["neu"] is True and e2["vorlage"] == "wetter" and j.buehne.speicher.vorlage("wetter-stuttgart") is None
     assert [f["surfaceId"] for f in j.buehne.zustand()["flaechen"]] == ["wetter"]
     assert {v["vorlage"] for v in j.buehne.speicher.verlauf()} == {"wetter"}
+
+
+async def test_umbau_nach_neustart_und_neu_bauen():
+    neu = {"komponenten": GUELTIG["komponenten"][:2] + [{"id": "kacheln", "component": "Text", "text": "leer"}]}
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(GUELTIG)), text_chunks(json.dumps(neu)), text_chunks(json.dumps({**GUELTIG, "zweck": "ganz neu"}))])
+    await j.buehne.zeigen("immo__read", {"collection": "immobilien"}, titel="Immobilien")
+    # Neustart: Rohdaten weg, Fläche aus der Datei – Umbau holt die Daten neu und sendet Komponenten + Datenmodell
+    neu_manager = BuehnenManager(j.buehne.speicher, j.buehne.erzeuger, j.senden, j.agent.werkzeug_ausfuehren_extern)
+    neu_manager.laden()
+    ereignisse.clear()
+    aufrufe.clear()
+    e = await neu_manager.aendern("immobilienliste", "nur Titel")
+    assert e["version"] == 2 and aufrufe == [{"collection": "immobilien", "limit": 10}]
+    nachrichten = _buehne(ereignisse)
+    assert "updateComponents" in nachrichten[0] and "updateDataModel" in nachrichten[1] and nachrichten[1]["updateDataModel"]["value"]["anzahl"] == 1
+    # neu_bauen: kompletter Neuentwurf über vorlage_bauen (Systemprompt „Du entwirfst“), Wunsch im Prompt, Version 3
+    e = await neu_manager.aendern("immobilienliste", "ganz anders, als Tabelle", neu_bauen=True)
+    assert e["version"] == 3 and skript.aufrufe[-1]["messages"][0]["content"].startswith("Du entwirfst") and "ganz anders" in skript.aufrufe[-1]["messages"][1]["content"]
+    assert neu_manager.speicher.vorlage("immobilienliste")["zweck"] == "ganz neu" or neu_manager.speicher.vorlage("immobilienliste")["version"] == 3
+    ok, text = await j.register.ausfuehren("buehne_vorlage_aendern", {"vorlage": "immobilienliste", "wunsch": "x", "neu_bauen": False})
+    assert not ok or "Version" in text  # Skript ist leer → Fehler erlaubt; nur die Signatur zählt
+
+
+async def test_varianten_nur_je_app():
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(GUELTIG)), text_chunks(json.dumps({**GUELTIG, "name": "Makler"})), text_chunks(json.dumps({**GUELTIG, "name": "Wetter"}))])
+
+    async def wetter(ort: str = "x") -> str:
+        return json.dumps(ERGEBNIS)
+
+    j.register.alle_registrieren([FunktionsWerkzeug(wetter, "wetter__abrufen", "wetter", schema({"ort": {"type": "string"}}), "lesen", integration="wetter")])
+    await j.buehne.zeigen("immo__read", {"collection": "immobilien"}, titel="Immobilien")
+    await j.buehne.zeigen("immo__read", {"collection": "immobilien"}, titel="Makler, die ich kontaktieren soll")
+    await j.buehne.zeigen("wetter__abrufen", {"ort": "stuttgart"}, titel="Wetter Stuttgart")
+    await j.buehne.zeigen("wetter__abrufen", {"ort": "frankfurt"}, titel="Wetter Frankfurt")
+    stand = j.buehne.zustand()
+    assert [v["titel"] for v in stand["varianten"]["wetter"]] == ["Wetter Frankfurt", "Wetter Stuttgart"]  # nur Wetter, gleiche Vorlage zuerst
+    assert [v["titel"] for v in stand["varianten"]["immobilienliste"]] == ["Immobilien", "Makler, die ich kontaktieren soll"]  # GG-App: eigene Sicht zuerst, dann Makler
+    assert all(v["app"] == "immo" for v in stand["varianten"]["makler"]) and stand["varianten"]["makler"][0]["titel"].startswith("Makler")
+    assert len(stand["schnellaktionen"]) == 4

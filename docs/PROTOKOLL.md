@@ -472,3 +472,9 @@ mit pwsh geparst (nicht ausgeführt).
   `screen`, Reiter mit Symbol und ohne Stil-Menü. Werkzeugflächen überleben keinen Neustart. Nicht am Mac mit echtem
   Playwright getestet (npx/Chromium nötig) – beim ersten Nutzertest prüfen: Screenshot-Größe über WebSocket, Dauer.
   Tests: Kern 42 Bühnen-Tests, Oberfläche 158.
+- Rückmeldung: Schnellaktionen-Leiste zeigte alle Sichten (Immobilien in der Wetter-Fläche); Umbau auf Zuruf
+  aktualisierte die Fläche nach einem Neustart nicht (Rohdaten der Vorlage nur im Speicher). Jetzt: Verlauf trägt `app`
+  (Werkzeugpräfix), `varianten` je Vorlage = Sichten derselben App (eigene zuerst), die Oberfläche zeigt bei offener
+  Fläche nur diese, ohne Fläche die globalen; `_rohdaten()` führt die Datenquelle bei fehlenden Rohdaten erneut aus,
+  `buehne_vorlage_aendern(neu_bauen=true)` entwirft die Vorlage komplett neu („gefällt mir nicht“), der Prompt verlangt
+  den Aufruf sofort bei solchen Sätzen.

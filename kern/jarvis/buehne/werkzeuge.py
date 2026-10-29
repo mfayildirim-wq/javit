@@ -35,8 +35,8 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
         anzahl = f", {e['anzahl']} Einträge" if e.get("anzahl") is not None else ""
         return f"Auf der Bühne gezeigt: „{e['titel']}“ (Fläche {e['surfaceId']}, Vorlage {e['vorlage']}, {hinweis}{anzahl}). Fasse das Ergebnis im Chat nur kurz zusammen."
 
-    async def buehne_vorlage_aendern(vorlage: str, wunsch: str) -> str:
-        e = await manager.aendern(vorlage, wunsch)
+    async def buehne_vorlage_aendern(vorlage: str, wunsch: str, neu_bauen: bool = False) -> str:
+        e = await manager.aendern(vorlage, wunsch, neu_bauen=bool(neu_bauen))
         return f"Vorlage {e['vorlage']} geändert (Version {e['version']}); die offene Fläche zeigt bereits die neue Darstellung mit den aktuellen Daten – kein Neuladen nötig. Rückgängig mit buehne_vorlage_zurueck."
 
     async def buehne_vorlage_zurueck(vorlage: str) -> str:
@@ -151,8 +151,9 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
         wz(
             buehne_vorlage_aendern,
             "buehne_vorlage_aendern",
-            "Baut eine bestehende Bühnen-Vorlage nach Wunsch um (neue Version, alte bleibt für Rückgängig).",
-            schema({"vorlage": {"type": "string"}, "wunsch": {"type": "string"}}, ["vorlage", "wunsch"]),
+            "Baut eine bestehende Bühnen-Vorlage nach Wunsch um (neue Version, alte bleibt für Rückgängig); die offene Fläche "
+            "wird sofort aktualisiert. neu_bauen=true entwirft die Vorlage komplett neu (für „gefällt mir nicht“, „anders aufbauen“).",
+            schema({"vorlage": {"type": "string"}, "wunsch": {"type": "string"}, "neu_bauen": {"type": "boolean"}}, ["vorlage", "wunsch"]),
             "aendern",
         ),
         wz(

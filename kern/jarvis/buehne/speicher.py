@@ -20,6 +20,12 @@ STILE_PAKET = Path(__file__).with_name("stile")
 _UMLAUTE = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss", "Ä": "ae", "Ö": "oe", "Ü": "ue"})
 
 
+def app_von(werkzeug: str | None) -> str:
+    """App/Integration eines Werkzeugs: Präfix vor ``__`` (gg__read → gg), sonst der Werkzeugname selbst."""
+    w = str(werkzeug or "")
+    return w.split("__", 1)[0] if "__" in w else w
+
+
 def kennung_aus(name: str, standard: str = "vorlage") -> str:
     """„Immobilien Liste“ → „immobilien-liste“ (a–z, 0–9, Bindestrich)."""
     text = (name or "").translate(_UMLAUTE).lower()
@@ -314,7 +320,7 @@ class BuehnenSpeicher:
         eintraege = self.verlauf()
         for e in eintraege:
             if e.get("vorlage") == vorlage and json.dumps(e.get("argumente") or {}, sort_keys=True, ensure_ascii=False) == schluessel:
-                e.update({"titel": titel or e.get("titel") or vorlage, "werkzeug": werkzeug, "zaehler": int(e.get("zaehler") or 0) + 1, "zuletzt": _jetzt()})
+                e.update({"titel": titel or e.get("titel") or vorlage, "werkzeug": werkzeug, "app": app_von(werkzeug), "zaehler": int(e.get("zaehler") or 0) + 1, "zuletzt": _jetzt()})
                 treffer = e
                 break
         else:
@@ -323,11 +329,14 @@ class BuehnenSpeicher:
                 "titel": titel or vorlage,
                 "vorlage": vorlage,
                 "werkzeug": werkzeug,
+                "app": app_von(werkzeug),
                 "argumente": argumente,
                 "zaehler": 1,
                 "zuletzt": _jetzt(),
             }
             eintraege.append(treffer)
+        # der gerade genutzte Eintrag steht vorn, auch bei gleicher Sekunde
+        eintraege = [treffer] + [e for e in eintraege if e is not treffer]
         eintraege.sort(key=lambda e: str(e.get("zuletzt") or ""), reverse=True)
         _schreiben(self.ordner / "verlauf.json", eintraege[: self.MAX_VERLAUF])
         return treffer
@@ -346,6 +355,18 @@ class BuehnenSpeicher:
     def varianten(self, vorlage: str, limit: int = 8) -> list[dict[str, Any]]:
         """Zuletzt gezeigte Argumentsätze einer Vorlage (z. B. Wetter Stuttgart / Frankfurt), jüngste zuerst."""
         return [e for e in self.verlauf() if e.get("vorlage") == vorlage][:limit]
+
+    def app_varianten(self, vorlage: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Anzeigen derselben App wie die Vorlage (gleiche Vorlage zuerst, dann die übrigen Sichten der App, jüngste
+        zuerst) – die Leiste einer Wetter-Fläche zeigt nur Wetter, die einer GG-Fläche nur GG."""
+        v = self.vorlage(vorlage)
+        app = app_von(((v or {}).get("datenquelle") or {}).get("werkzeug")) if v else None
+        eigene = self.varianten(vorlage, limit)
+        if not app:
+            return eigene
+        gesehen = {e["id"] for e in eigene}
+        andere = [e for e in self.verlauf() if e.get("app") == app and e["id"] not in gesehen]
+        return (eigene + andere)[:limit]
 
     def flaechen_laden(self) -> list[dict[str, Any]]:
         daten = _lesen(self.ordner / "flaechen.json", [])
