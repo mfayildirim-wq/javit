@@ -412,6 +412,7 @@ wss.on('connection', (ws) => {
       }
       case 'buehne_aktion':
       case 'buehne_daten':
+      case 'buehne_erneut':
         break; // im Mock nur protokolliert
       case 'abbrechen':
         allesStoppen();

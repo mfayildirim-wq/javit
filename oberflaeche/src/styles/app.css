@@ -3311,6 +3311,81 @@ input[type='range'] {
   background: var(--cyan);
 }
 
+/* ---------- Schnellaktionen (Varianten der aktiven Vorlage, dann global) ---------- */
+
+.buehne-schnell {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--linie);
+  background: rgba(3, 10, 18, 0.35);
+}
+.buehne-schnell::-webkit-scrollbar {
+  display: none;
+}
+.buehne-chip {
+  flex: none;
+  height: 28px;
+  max-width: 220px;
+  padding: 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(127, 232, 255, 0.04);
+  border: 1px solid var(--linie-mittel);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.buehne-chip:hover {
+  color: var(--eis);
+  border-color: var(--linie-stark);
+  background: var(--cyan-glimm);
+}
+.buehne-chip:focus-visible {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
+}
+.buehne-chip.an {
+  color: var(--eis);
+  border-color: var(--cyan);
+  background: var(--cyan-glimm);
+  box-shadow: 0 0 10px rgba(127, 232, 255, 0.25);
+}
+.buehne-oben.eingeklappt .buehne-schnell,
+.buehne-oben.leer .buehne-schnell {
+  border-bottom: 0;
+}
+.buehne-oben.leer {
+  flex-basis: auto;
+}
+.buehne-leiste-titel {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  color: var(--text-3);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+@media (max-width: 760px) {
+  .buehne-schnell {
+    padding: 6px 8px;
+    gap: 5px;
+  }
+  .buehne-chip {
+    max-width: 160px;
+    padding: 0 10px;
+  }
+}
+
 /* ---------- Fläche (Stilvariablen) ---------- */
 
 .buehne-flaeche {

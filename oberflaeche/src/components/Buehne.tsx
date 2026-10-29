@@ -1,9 +1,11 @@
-// Bühne über dem Gespräch: Reiter je Fläche (Schließen, Stil-Menü), Inhalt, ziehbarer Teiler.
+// Bühne über dem Gespräch: Reiter je Fläche (Schließen, Stil-Menü), Schnellaktionen, Inhalt, ziehbarer Teiler.
+// Ohne offene Fläche, aber mit Schnellaktionen: nur eine schmale Leiste (Kopf + Schnellaktionen).
 import { useEffect, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { api } from '../api/rest';
 import { Flaeche } from '../buehne/renderer';
 import { useBuehne } from '../buehne/store';
+import { BuehneSchnell } from './BuehneSchnell';
 import { useJarvis } from '../state/store';
 
 const SCHRITT = 0.05;
@@ -103,12 +105,23 @@ export function Buehne() {
   const hoehe = useBuehne((s) => s.hoehe);
   const eingeklappt = useBuehne((s) => s.eingeklappt);
   const stileLeer = useBuehne((s) => Object.keys(s.stile).length === 0);
+  const schnellDa = useBuehne((s) => s.schnellaktionen.length > 0);
 
   useEffect(() => {
     if (stileLeer) api.buehneStile().then((l) => useBuehne.getState().stileSetzen(l), () => undefined);
   }, [stileLeer]);
 
-  if (reihenfolge.length === 0) return null;
+  if (reihenfolge.length === 0) {
+    if (!schnellDa) return null;
+    return (
+      <section className="buehne-oben leer" aria-label="Bühne">
+        <div className="buehne-kopf">
+          <span className="buehne-leiste-titel">Bühne</span>
+        </div>
+        <BuehneSchnell vorlage={null} titel={null} />
+      </section>
+    );
+  }
   const aktuell = aktiv && flaechen[aktiv] ? aktiv : reihenfolge[0]!;
 
   const schliessen = (id: string) => {
@@ -159,6 +172,7 @@ export function Buehne() {
             </button>
           </div>
         </div>
+        <BuehneSchnell vorlage={flaechen[aktuell]?.vorlage ?? null} titel={flaechen[aktuell]?.titel ?? null} />
         {!eingeklappt && (
           <div className="buehne-inhalt" id="buehne-inhalt" role="tabpanel" aria-labelledby={`buehne-reiter-${aktuell}`}>
             <Flaeche surfaceId={aktuell} />

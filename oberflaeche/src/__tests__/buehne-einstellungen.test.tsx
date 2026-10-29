@@ -14,8 +14,9 @@ const VORDEF: Stil = { ...STANDARD_STIL, eigen: false };
 const VORLAGE: Vorlage = {
   id: 'immobilienliste', name: 'Immobilienliste', zweck: 'Aktuelle Objekte aus GG', version: 2, versionen: 2, protokollVersion: 'v0.9.1', katalogId: 'jarvis:buehne/1',
   datenquelle: { werkzeug: 'gg__read_collection', argumente: {}, abbildung: { '/immobilien': '/items' } },
-  aktionen: { notiz_anlegen: 'gg-notiz' }, stil: null, signatur: { werkzeug: 'gg__read_collection', schluessel: ['id'] }, erstellt: '2026-10-28T10:00:00', geaendert: '2026-10-28T11:00:00',
+  aktionen: { notiz_anlegen: 'gg-notiz', details: 'gg-detail' }, stil: null, signatur: { werkzeug: 'gg__read_collection', schluessel: ['id'] }, erstellt: '2026-10-28T10:00:00', geaendert: '2026-10-28T11:00:00',
 };
+const ZEIGEN: Rezept = { id: 'gg-detail', name: 'details', art: 'zeigen', werkzeug: 'gg__read_item', titel: 'Objekt {objekt_id}', risiko: 'lesen', vorlage: 'immobilienliste' };
 const REZEPT: Rezept = { id: 'gg-notiz', name: 'notiz_anlegen', art: 'werkzeug', werkzeug: 'gg__add_note', risiko: 'aendern', vorlage: 'immobilienliste' };
 
 function fetchAttrappe(aufrufe: Aufruf[]) {
@@ -28,7 +29,7 @@ function fetchAttrappe(aufrufe: Aufruf[]) {
     if (methode === 'GET') {
       if (pfad.startsWith('/api/modelle')) return json({ aktuell: 'ollama/x', vorschlaege: [], anbieter: [] });
       if (pfad === '/api/buehne/vorlagen') return json([VORLAGE]);
-      if (pfad === '/api/buehne/rezepte') return json([REZEPT]);
+      if (pfad === '/api/buehne/rezepte') return json([REZEPT, ZEIGEN]);
       if (pfad === '/api/buehne/stile') return json([VORDEF, EIGEN]);
       if (pfad === '/api/buehne') return json({ flaechen: [], stile: [VORDEF, EIGEN], zuordnung: { gg: 'mein-stil' } });
       if (pfad === '/api/integrationen')
@@ -72,6 +73,7 @@ describe('Einstellungen → Bühne', () => {
     expect(within(eintrag).getByText(/Version 2/)).toBeInTheDocument();
     expect(within(eintrag).getByText('notiz_anlegen')).toBeInTheDocument();
     expect(within(eintrag).getByText(/gg__add_note/)).toBeInTheDocument();
+    expect(within(eintrag).getByText('→ Zeigen: gg__read_item → Objekt {objekt_id}', { normalizer: (t) => t.trim() })).toBeInTheDocument();
 
     await u.click(within(eintrag).getByRole('button', { name: 'Umbenennen' }));
     const feld = within(eintrag).getByLabelText('Neuer Name');

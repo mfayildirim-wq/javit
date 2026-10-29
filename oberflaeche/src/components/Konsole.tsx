@@ -77,6 +77,8 @@ export function Konsole({ aktiv }: { aktiv: boolean }) {
   const ansicht = useJarvis((s) => s.ansicht);
   const name = useName();
   const buehneOffen = useBuehne((s) => s.reihenfolge.length > 0);
+  // Ohne Fläche, aber mit Schnellaktionen: nur die schmale Leiste, der Orb bleibt groß.
+  const buehneLeiste = useBuehne((s) => s.reihenfolge.length === 0 && s.schnellaktionen.length > 0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const letzteJarvis = [...nachrichten].reverse().find((n) => n.rolle === 'jarvis')?.id;
   const letzterText = nachrichten[nachrichten.length - 1]?.text.length ?? 0;
@@ -94,7 +96,7 @@ export function Konsole({ aktiv }: { aktiv: boolean }) {
         <Orb aktiv={aktiv} />
         <ZustandsAnzeige />
       </div>
-      {buehneOffen && <Buehne />}
+      {(buehneOffen || buehneLeiste) && <Buehne />}
       <div className="gespraech" ref={scrollRef} aria-live="polite">
         <div className="gespraech-spalte">
           {nachrichten.length === 0 && !transkript && (

@@ -109,4 +109,27 @@ describe('Bühnen-Store', () => {
     s().flaecheEntfernen('f');
     expect(s().reihenfolge).toEqual([]);
   });
+
+  it('übernimmt Schnellaktionen und Varianten aus `aktionen` (ersetzt den Stand)', () => {
+    const a = { id: 'w-s', titel: 'Wetter Stuttgart', vorlage: 'wetter', werkzeug: 'wetter__v', argumente: { ort: 'Stuttgart' }, zaehler: 2, zuletzt: '2026-10-29T08:00:00' };
+    const b = { ...a, id: 'w-f', titel: 'Wetter Frankfurt', argumente: { ort: 'Frankfurt' } };
+    s().verarbeiten(n({ aktionen: { schnell: [a, b], varianten: { wetter: [a, b] } } }));
+    expect(s().schnellaktionen.map((x) => x.id)).toEqual(['w-s', 'w-f']);
+    expect(s().varianten.wetter).toHaveLength(2);
+    s().verarbeiten(n({ aktionen: { schnell: [b, { kaputt: true } as never], varianten: {} } }));
+    expect(s().schnellaktionen.map((x) => x.id)).toEqual(['w-f']);
+    expect(s().varianten).toEqual({});
+    s().zuruecksetzen();
+    expect(s().schnellaktionen).toEqual([]);
+  });
+
+  it('ausServer liest Schnellaktionen tolerant (älterer Kern ohne Felder)', () => {
+    const a = { id: 'p', titel: 'Posteingang', vorlage: 'post', werkzeug: 'gmail__suchen', argumente: { q: 'x' }, zaehler: 1, zuletzt: '' };
+    s().ausServer([], [], [a], { post: [a] });
+    expect(s().schnellaktionen).toHaveLength(1);
+    expect(s().varianten.post?.[0]?.titel).toBe('Posteingang');
+    s().ausServer([], []);
+    expect(s().schnellaktionen).toEqual([]);
+    expect(s().varianten).toEqual({});
+  });
 });

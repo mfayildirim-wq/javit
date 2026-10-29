@@ -115,11 +115,11 @@ export async function verlaufLaden(): Promise<void> {
   }
 }
 
-/** Offene Flächen und Stile der Bühne laden (nach jedem Verbinden). */
+/** Offene Flächen, Stile, Schnellaktionen und Varianten der Bühne laden (nach jedem Verbinden). */
 export async function buehneLaden(): Promise<void> {
   try {
     const stand = await api.buehne();
-    useBuehne.getState().ausServer(stand?.flaechen ?? [], stand?.stile ?? []);
+    useBuehne.getState().ausServer(stand?.flaechen ?? [], stand?.stile ?? [], stand?.schnellaktionen, stand?.varianten);
   } catch {
     /* älterer Kern ohne Bühne */
   }

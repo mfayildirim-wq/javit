@@ -526,6 +526,7 @@ def create_app(
     async def buehne_vorlage_loeschen(kennung: str, request: Request) -> dict[str, Any]:
         j = j_(request)
         await j.buehne.schliessen(kennung)
+        j.buehne.speicher.verlauf_vergessen(kennung)
         return {"geloescht": j.buehne.speicher.vorlage_loeschen(kennung)}
 
     @app.post("/api/buehne/vorlagen/{kennung}/zurueck")
@@ -610,6 +611,16 @@ def create_app(
         except (BuehnenFehler, LLMFehler) as e:
             raise buehne_fehler(e) from e
 
+    @app.post("/api/buehne/erneut")
+    async def buehne_erneut(request: Request, daten: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        if j_(request).buehne.speicher.vorlage(str(daten.get("vorlage") or "")) is None:
+            raise HTTPException(404, f"Vorlage „{daten.get('vorlage')}“ gibt es nicht.")
+        try:
+            argumente = daten.get("argumente") if isinstance(daten.get("argumente"), dict) else None
+            return await j_(request).buehne.erneut(str(daten.get("vorlage") or ""), argumente, daten.get("titel"))
+        except Exception as e:  # noqa: BLE001
+            raise buehne_fehler(e) from e
+
     @app.delete("/api/buehne/flaechen/{surface_id}")
     async def buehne_flaeche_schliessen(surface_id: str, request: Request) -> dict[str, Any]:
         return {"geschlossen": await j_(request).buehne.schliessen(surface_id)}
@@ -639,7 +650,11 @@ def create_app(
 
         async def buehne_aktion_bearbeiten(daten: dict[str, Any]) -> None:
             try:
-                await j.buehne.aktion(daten)
+                if daten.get("typ") == "buehne_erneut":
+                    argumente = daten.get("argumente") if isinstance(daten.get("argumente"), dict) else None
+                    await j.buehne.erneut(str(daten.get("vorlage") or ""), argumente, daten.get("titel"))
+                else:
+                    await j.buehne.aktion(daten)
             except BuehnenFehler as e:
                 await ws.send_json({"typ": "fehler", "text": str(e)})
             except Exception as e:  # noqa: BLE001
@@ -692,7 +707,7 @@ def create_app(
                     await j.browser_audio_start(sender, rate)
                 elif typ == "audio_stop":
                     await j.browser_audio_stop(sender)
-                elif typ == "buehne_aktion":
+                elif typ in ("buehne_aktion", "buehne_erneut"):
                     aufgabe = asyncio.create_task(buehne_aktion_bearbeiten(daten))
                     aufgaben.add(aufgabe)
                     aufgabe.add_done_callback(aufgaben.discard)

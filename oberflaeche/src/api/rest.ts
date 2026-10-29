@@ -163,6 +163,8 @@ export const api = {
   buehneZuordnung: (zuordnung: Record<string, string | null>) => anfrage<Record<string, string>>('PUT', '/buehne/zuordnung', zuordnung),
   buehneAktion: (aktion: { name: string; surfaceId: string; sourceComponentId?: string; timestamp?: string; context?: Record<string, unknown> }) =>
     anfrage<{ ok: boolean; ergebnis?: unknown }>('POST', '/buehne/aktion', aktion),
+  buehneErneut: (body: { vorlage: string; argumente?: Record<string, unknown>; titel?: string }) =>
+    anfrage<{ surfaceId: string; titel: string; vorlage: string; anzahl: number }>('POST', '/buehne/erneut', body),
   buehneFlaecheSchliessen: (surfaceId: string) => anfrage<unknown>('DELETE', `/buehne/flaechen/${encodeURIComponent(surfaceId)}`),
 };
 

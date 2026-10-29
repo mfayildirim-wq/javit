@@ -46,7 +46,8 @@ Server: `http://127.0.0.1:8765` (nur localhost). Oberfläche wird unter `/` ausg
 | GET | `/api/unterhaltungen/{id}/verlauf?limit=` | Nachrichten dieser Unterhaltung; 404 |
 | GET | `/api/gedaechtnis` | Erinnerungen `[{id, zeit, text, quelle: nutzer\|auto, unterhaltung_id, aktualisiert, einbettung_modell}]` |
 | DELETE | `/api/gedaechtnis?id=` | alle bzw. eine Erinnerung löschen → `{geloescht: n}` |
-| GET | `/api/buehne` | Zustand der Bühne `{flaechen: [Flaeche…], stile: [Stil…], zuordnung: {integration: stilId}}` – die Oberfläche lädt ihn beim Verbinden (offene Flächen überleben Neustarts) |
+| GET | `/api/buehne` | Zustand der Bühne `{flaechen: [Flaeche…], stile: [Stil…], zuordnung: {integration: stilId}, schnellaktionen: [Schnellaktion…], varianten: {vorlageId: [Schnellaktion…]}}` – die Oberfläche lädt ihn beim Verbinden (offene Flächen überleben Neustarts). `schnellaktionen`: die zuletzt/häufigsten Anzeigen (global, max. 8, nach Häufigkeit und Aktualität); `varianten`: je offener Vorlage ihre zuletzt gezeigten Argumentsätze (z. B. „Wetter Stuttgart“, „Wetter Frankfurt“) |
+| POST | `/api/buehne/erneut` | `{vorlage, argumente?, titel?}` – eine Schnellaktion/Variante erneut zeigen: Datenwerkzeug der Vorlage mit diesen Argumenten ausführen und die Vorlage befüllen (ohne Modell) → `{surfaceId, titel, vorlage, anzahl}`; 404 bei unbekannter Vorlage |
 | GET | `/api/buehne/vorlagen` | `[Vorlage…]` ohne `komponenten`, mit `versionen: n` |
 | GET | `/api/buehne/vorlagen/{id}` | Vorlage vollständig; 404 |
 | PUT | `/api/buehne/vorlagen/{id}` | `{name?, stil?}` (`stil: null` = Stil der Integration/Standard) → Vorlage; eine offene Fläche wechselt sofort den Stil (`stil` + `createSurface`) |
@@ -92,6 +93,7 @@ Client → Server (JSON):
 | `audio_start` | `rate` (Hz) – Audio im Browser: diese Verbindung liefert danach **Binärframes** (int16 mono, `rate`) als Mikrofon und erhält die Sprachausgabe als Binärframes; der Kern schaltet das Sprachmodul auf diese Quelle um (genau eine Sitzung je Kern, eine neue ersetzt die alte) |
 | `buehne_aktion` | `name`, `surfaceId`, `sourceComponentId?`, `timestamp?`, `context` (Objekt aus der Vorlage, Bindungen aufgelöst) – Knopf/Formular auf der Bühne. Rezept der Vorlage → Werkzeug (Argumente aus `context` per `argumentAbbildung`, danach Datenquelle neu laden) oder Auftrag an den Assistenten; ohne Rezept geht eine Nachricht an den Assistenten, der danach ein Rezept anlegt |
 | `buehne_daten` | `surfaceId`, `path` (JSON-Pointer), `value` – Eingabefelder (zweiseitige Bindung, bei Blur/Enter); kein Ereignis zurück; Eingaben bleiben beim Neuladen der Daten erhalten |
+| `buehne_erneut` | `vorlage`, `argumente?`, `titel?` – Klick auf eine Schnellaktion/Variante (siehe `POST /api/buehne/erneut`); Antwort kommt als `buehne`-Nachrichten, Fehler als `fehler` |
 | `audio_stop` | – beendet die Audio-Sitzung (auch beim Trennen der Verbindung); das Sprachmodul bleibt danach aus, bis `stimme {aktiv: true}` es mit dem Mikrofon des Kerns neu startet |
 
 Server → Client:
@@ -111,7 +113,7 @@ Server → Client:
 | `fehler` | `text` |
 | `sprachausgabe` | `zustand: start` (`rate`, danach PCM-**Binärframes** int16 mono an die Verbindung mit Audio-Sitzung, ≤ 9600 Bytes je Frame) \| `ende` \| `gestoppt` (`grund?: stoppwort\|ersetzt`; Wiedergabe sofort verwerfen) – kommt nur bei einer Audio-Sitzung im Browser; am Lautsprecher des Kerns gibt es nur `zustand spricht` und `pegel` |
 | `unterhaltung` | `id`, `titel`, `grund` (`neu` \| `gewechselt` \| `geloescht` – die aktuelle Unterhaltung ist eine andere, die Oberfläche leert die Konsole und lädt `/api/verlauf`; `titel` – nur der Titel hat sich geändert, z. B. automatisch nach der ersten Antwort) |
-| `buehne` | `nachricht` – eine A2UI-Nachricht (`version: "v0.9.1"`) mit genau einem Schlüssel: `stil` (Stil-Objekt, kommt vor `createSurface`), `createSurface {surfaceId, catalogId: "jarvis:buehne/1", theme: {stil}, titel, vorlage?}`, `updateComponents {surfaceId, components[]}`, `updateDataModel {surfaceId, path, value}` (`path: "/"` = ganzes Modell), `deleteSurface {surfaceId}`. Antworten auf Rezepte erscheinen als `antwort_start`/`antwort_ende` mit `id` `buehne_…` |
+| `buehne` | `nachricht` – eine A2UI-Nachricht (`version: "v0.9.1"`) mit genau einem Schlüssel: `stil` (Stil-Objekt, kommt vor `createSurface`), `createSurface {surfaceId, catalogId: "jarvis:buehne/1", theme: {stil}, titel, vorlage?}`, `updateComponents {surfaceId, components[]}`, `updateDataModel {surfaceId, path, value}` (`path: "/"` = ganzes Modell), `deleteSurface {surfaceId}`, `aktionen {schnell: [Schnellaktion…], varianten: {vorlageId: [Schnellaktion…]}}` (nach jedem Zeigen/Schließen; ersetzt den Stand aus `GET /api/buehne`). `Schnellaktion = {id, titel, vorlage, werkzeug, argumente, zaehler, zuletzt}`. Antworten auf Rezepte erscheinen als `antwort_start`/`antwort_ende` mit `id` `buehne_…` |
 
 ## Bühne (`jarvis/buehne/`, Katalog `jarvis:buehne/1`)
 
@@ -133,8 +135,16 @@ https/data-URL); die Oberfläche rendert den Katalog mit eigenen React-Komponent
   Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`. Ergebnisse ohne JSON: Markdown-Tabellen und
   listenartiger Text (Aufzählung/Blöcke mit `Schlüssel: Wert`-Zeilen, mehrere Paare je Zeile durch `|`) →
   `eintraege`, sonst `text`. Fehlt `anzahl`, ergänzt der Manager sie aus `eintraege`/der einzigen Liste.
-* **Rezept** (`rezepte/<id>.json`): `{id, name, art: werkzeug|agent, vorlage, aktion, werkzeug?, argumentAbbildung?:
-  {"arg": "context.feld"}, auftrag? (mit `{feld}`-Platzhaltern), risiko, bestaetigung?}`.
+* **Rezept** (`rezepte/<id>.json`): `{id, name, art: werkzeug|agent|zeigen, vorlage, aktion, werkzeug?, argumentAbbildung?:
+  {"arg": "context.feld"}, auftrag? (mit `{feld}`-Platzhaltern), titel? (mit `{feld}`), vorlageZiel?, risiko, bestaetigung?}`.
+  Art `zeigen`: der Klick zeigt das Ergebnis des Werkzeugs auf der Bühne (eigene Fläche, z. B. Detailseite eines
+  Objekts) – wie `buehne_zeigen` ohne Modell; die beim ersten Mal gebaute Vorlage wird als `vorlageZiel` gemerkt, damit
+  jede weitere Detailseite dieselbe Vorlage füllt. Ein neues Rezept für eine schon belegte Aktion ersetzt das alte.
+* **Verlauf** (`verlauf.json`): jede Anzeige (`buehne_zeigen`, `erneut`, Rezept `zeigen`) merkt sich `{id, titel, vorlage,
+  werkzeug, argumente, zaehler, zuletzt}` (gleiche Vorlage + gleiche Argumente = ein Eintrag, max. 50). Daraus die
+  Schnellaktionen (global) und Varianten (je Vorlage); die Oberfläche zeigt sie als Knöpfe oben in der Bühne – auch
+  ohne offene Fläche als schmale Leiste. Die Bühne repariert Sichten selbst: Wirkt eine Sicht falsch oder gemischt,
+  stellt das Modell sie mit `buehne_vorlage_zurueck` wieder her oder baut sie neu, statt den Nutzer darum zu bitten.
 * **Stil** (`stile/*.json` im Paket = vordefiniert, `~/.jarvis/buehne/stile/` = eigene): `{id, name, beschreibung,
   quelle: {art: vordefiniert|url|datei|klassen|werte, wert?}, werte: {schema: hell|dunkel, farben: {primaer, akzent,
   hintergrund, flaeche, text, dezent, ok, warn, fehler}, schrift: {familie, basisgroesse}, rundung, abstand, dichte:

@@ -70,7 +70,7 @@ const POSTEINGANG = {
 };
 
 const WETTER = {
-  surfaceId: 'wetter', titel: 'Wetter Stuttgart', catalogId: KATALOG, stil: 'material-hell', vorlage: null,
+  surfaceId: 'wetter', titel: 'Wetter Stuttgart', catalogId: KATALOG, stil: 'material-hell', vorlage: 'wetter',
   components: [
     { id: 'root', component: 'Row', children: ['links', 'verlauf'], wrap: true, gap: 24 },
     { id: 'links', component: 'Column', children: ['kopf', 'werte'] },
@@ -89,10 +89,18 @@ let flaechen = [];
 const vorlagen = [
   { id: 'immobilienliste', name: 'Immobilienliste', zweck: 'Aktuelle Objekte aus GG als Kacheln', version: 3, versionen: 3, protokollVersion: V, katalogId: KATALOG, datenquelle: { werkzeug: 'gg-immobilien__read_collection', argumente: {}, abbildung: { '/immobilien': '/items' } }, aktionen: { notiz_anlegen: 'gg-notiz', makler_kontaktieren: 'makler' }, stil: null, signatur: { werkzeug: 'gg-immobilien__read_collection', schluessel: ['id', 'preis'] }, erstellt: '2026-10-28T10:00:00', geaendert: '2026-10-28T12:30:00' },
   { id: 'posteingang', name: 'Posteingang', zweck: 'Ungelesene Mails mit Absender, Betreff, Zeit', version: 1, versionen: 1, protokollVersion: V, katalogId: KATALOG, datenquelle: { werkzeug: 'gmail__suchen', argumente: { q: 'is:unread' }, abbildung: { '/mails': '/messages' } }, aktionen: { mail_oeffnen: '' }, stil: 'neutral', signatur: { werkzeug: 'gmail__suchen', schluessel: ['id'] }, erstellt: '2026-10-28T11:00:00', geaendert: '2026-10-28T11:00:00' },
+  { id: 'wetter', name: 'Wetter', zweck: 'Temperatur, Wind und Vorhersage eines Orts', version: 1, versionen: 1, protokollVersion: V, katalogId: KATALOG, datenquelle: { werkzeug: 'wetter__vorhersage', argumente: { ort: 'Stuttgart' }, abbildung: {} }, aktionen: {}, stil: 'material-hell', signatur: { werkzeug: 'wetter__vorhersage', schluessel: ['temperatur'] }, erstellt: '2026-10-28T09:00:00', geaendert: '2026-10-28T09:00:00' },
 ];
+const WETTER_STUTTGART = { id: 'wetter-stuttgart', titel: 'Wetter Stuttgart', vorlage: 'wetter', werkzeug: 'wetter__vorhersage', argumente: { ort: 'Stuttgart' }, zaehler: 5, zuletzt: '2026-10-28T18:00:00' };
+const WETTER_FRANKFURT = { id: 'wetter-frankfurt', titel: 'Wetter Frankfurt', vorlage: 'wetter', werkzeug: 'wetter__vorhersage', argumente: { ort: 'Frankfurt' }, zaehler: 2, zuletzt: '2026-10-27T08:30:00' };
+const POST_UNGELESEN = { id: 'posteingang-ungelesen', titel: 'Posteingang', vorlage: 'posteingang', werkzeug: 'gmail__suchen', argumente: { q: 'is:unread' }, zaehler: 3, zuletzt: '2026-10-28T11:00:00' };
+const schnellaktionen = [WETTER_STUTTGART, POST_UNGELESEN, WETTER_FRANKFURT];
+const varianten = { wetter: [WETTER_STUTTGART, WETTER_FRANKFURT] };
+
 let rezepte = [
   { id: 'gg-notiz', name: 'notiz_anlegen', art: 'werkzeug', werkzeug: 'gg-immobilien__add_note', argumentAbbildung: { entity_id: 'context.objekt_id' }, risiko: 'aendern', vorlage: 'immobilienliste' },
   { id: 'makler', name: 'makler_kontaktieren', art: 'agent', auftrag: 'Entwurf an den Makler schreiben', risiko: 'kritisch', vorlage: 'immobilienliste' },
+  { id: 'gg-detail', name: 'details', art: 'zeigen', werkzeug: 'gg-immobilien__read_item', argumentAbbildung: { entity_id: 'context.objekt_id' }, titel: 'Objekt {objekt_id}', vorlageZiel: 'immobilie-detail', risiko: 'lesen', vorlage: 'immobilienliste' },
 ];
 
 /** Nachrichten für das Szenario „buehne“ (alle drei Flächen nacheinander). */
@@ -102,7 +110,7 @@ export function buehneSzenario() {
     { typ: 'buehne', nachricht: { version: V, createSurface: { surfaceId: f.surfaceId, catalogId: KATALOG, theme: { stil: f.stil }, titel: f.titel } } },
     { typ: 'buehne', nachricht: { version: V, updateComponents: { surfaceId: f.surfaceId, components: f.components } } },
     { typ: 'buehne', nachricht: { version: V, updateDataModel: { surfaceId: f.surfaceId, path: '/', value: f.daten } } },
-  ]);
+  ]).concat([{ typ: 'buehne', nachricht: { version: V, aktionen: { schnell: schnellaktionen, varianten } } }]);
 }
 
 /** REST /api/buehne…; gibt [status, daten] oder null (nicht zuständig) zurück. */
@@ -113,7 +121,7 @@ export async function buehneAnfrage(p, m, lesen) {
     // MOCK_BUEHNE_ERSTE=wetter|posteingang: diese Fläche zuerst (für Screenshots).
     const erste = process.env.MOCK_BUEHNE_ERSTE;
     const sortiert = erste ? [...flaechen].sort((a, b) => Number(b.surfaceId === erste) - Number(a.surfaceId === erste)) : flaechen;
-    return [200, { flaechen: sortiert, stile, zuordnung }];
+    return [200, { flaechen: sortiert, stile, zuordnung, schnellaktionen, varianten }];
   }
   const [art, id, zusatz] = teil;
   if (art === 'vorlagen') {
@@ -167,6 +175,12 @@ export async function buehneAnfrage(p, m, lesen) {
     return [200, zuordnung];
   }
   if (art === 'aktion' && m === 'POST') return [200, { ok: true }];
+  if (art === 'erneut' && m === 'POST') {
+    const b = await lesen();
+    const f = flaechen.find((x) => x.vorlage === b.vorlage);
+    if (!f) return [404, { detail: 'Vorlage nicht gefunden' }];
+    return [200, { surfaceId: f.surfaceId, titel: b.titel ?? f.titel, vorlage: b.vorlage, anzahl: 0 }];
+  }
   if (art === 'flaechen' && m === 'DELETE') {
     flaechen = flaechen.filter((f) => f.surfaceId !== id);
     return [200, { geschlossen: true }];

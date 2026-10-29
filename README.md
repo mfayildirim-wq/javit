@@ -349,8 +349,12 @@ Structured results (lists from apps such as GG real estate, weather, unread mail
   data – no regeneration, same look.
 * Changes through conversation: "show that as cards with pictures", "move the price column first" – every change is a
   new version (up to ten), "undo that" goes back.
-* **Buttons** on the stage (e.g. "add note") go through Javit on the first click; afterwards a **recipe** runs the
-  click directly (a tool with arguments from the row, or a task for Javit).
+* **Buttons** on the stage (e.g. "open", "add note") go through Javit on the first click; afterwards a **recipe** runs
+  the click directly: "open" loads the matching detail page as its own surface, other buttons run a tool with arguments
+  from the row or hand Javit a task.
+* Every view (properties, agents, weather …) gets its own template and surface. The most recent and most frequent views
+  sit at the top of the stage as buttons – "Weather Stuttgart" and "Weather Frankfurt" switch with one click, without
+  asking the model.
 * Templates, recipes and styles are global (not per conversation) and live under `~/.jarvis/buehne/`.
 * **Styles**: eight predefined (Javit dark/light, Material dark/light, Neutral, Compact, Paper, Contrast), custom ones
   derived from an app URL, a CSS file or pasted classes, colours editable with a colour picker; styles can be assigned

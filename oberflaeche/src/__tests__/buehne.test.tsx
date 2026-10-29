@@ -6,7 +6,7 @@ import { useBuehne } from '../buehne/store';
 import { useJarvis } from '../state/store';
 import { anfangsZustand } from '../state/reducer';
 import { STANDARD_STIL } from '../buehne/stile';
-import type { Stil } from '../api/types';
+import type { Schnellaktion, Stil } from '../api/types';
 
 interface Aufruf { methode: string; pfad: string; body: unknown }
 
@@ -144,5 +144,76 @@ describe('Bühne in der Konsole', () => {
     expect(screen.queryByRole('separator', { name: 'Höhe der Bühne' })).toBeNull();
     await u.click(screen.getByRole('button', { name: 'Bühne ausklappen' }));
     expect(screen.getByText('Sonnig')).toBeInTheDocument();
+  });
+
+  describe('Schnellaktionen', () => {
+    const sa = (id: string, titel: string, vorlage: string, argumente: Record<string, unknown> = {}): Schnellaktion => ({
+      id, titel, vorlage, werkzeug: `${vorlage}__lesen`, argumente, zaehler: 1, zuletzt: '2026-10-29T08:00:00',
+    });
+    const STUTTGART = sa('w-s', 'Wetter Stuttgart', 'wetter', { ort: 'Stuttgart' });
+    const FRANKFURT = sa('w-f', 'Wetter Frankfurt', 'wetter', { ort: 'Frankfurt' });
+    const POST = sa('post', 'Posteingang', 'posteingang', { q: 'is:unread' });
+
+    it('zeigt Varianten der aktiven Fläche zuerst, dann globale ohne Duplikate', () => {
+      act(() => {
+        flaecheAnlegen('wetter', 'Wetter Stuttgart', 'Sonnig', 'wetter');
+        useBuehne.getState().verarbeiten({ version: 'v0.9.1', aktionen: { schnell: [POST, FRANKFURT], varianten: { wetter: [FRANKFURT, STUTTGART] } } });
+      });
+      render(<Konsole aktiv={false} />);
+      const leiste = screen.getByRole('group', { name: 'Schnellaktionen' });
+      const knoepfe = within(leiste).getAllByRole('button');
+      expect(knoepfe.map((k) => k.textContent)).toEqual(['Wetter Frankfurt', 'Wetter Stuttgart', 'Posteingang']);
+      const aktiv = within(leiste).getByRole('button', { name: 'Schnellaktion: Wetter Stuttgart' });
+      expect(aktiv).toHaveClass('an');
+      expect(aktiv).toHaveAttribute('aria-pressed', 'true');
+      expect(within(leiste).getByRole('button', { name: 'Schnellaktion: Wetter Frankfurt' })).not.toHaveClass('an');
+    });
+
+    it('höchstens zehn Knöpfe', () => {
+      const viele = Array.from({ length: 14 }, (_, i) => sa(`a${i}`, `Anzeige ${i}`, `v${i}`));
+      act(() => useBuehne.getState().ausServer([], [], viele, {}));
+      render(<Konsole aktiv={false} />);
+      expect(within(screen.getByRole('group', { name: 'Schnellaktionen' })).getAllByRole('button')).toHaveLength(10);
+    });
+
+    it('Klick sendet buehne_erneut mit Vorlage, Argumenten und Titel', async () => {
+      const u = userEvent.setup();
+      const gesendet: unknown[] = [];
+      useJarvis.setState({ sender: (x) => (gesendet.push(x), true) });
+      act(() => {
+        flaecheAnlegen('wetter', 'Wetter Stuttgart', 'Sonnig', 'wetter');
+        useBuehne.getState().verarbeiten({ version: 'v0.9.1', aktionen: { schnell: [], varianten: { wetter: [STUTTGART, FRANKFURT] } } });
+      });
+      render(<Konsole aktiv={false} />);
+      await u.click(screen.getByRole('button', { name: 'Schnellaktion: Wetter Frankfurt' }));
+      expect(gesendet).toEqual([{ typ: 'buehne_erneut', vorlage: 'wetter', argumente: { ort: 'Frankfurt' }, titel: 'Wetter Frankfurt' }]);
+      expect(aufrufe.some((a) => a.pfad === '/api/buehne/erneut')).toBe(false);
+    });
+
+    it('ohne WebSocket geht der Klick per REST an /api/buehne/erneut', async () => {
+      const u = userEvent.setup();
+      useJarvis.setState({ sender: () => false });
+      act(() => useBuehne.getState().ausServer([], [], [POST], {}));
+      render(<Konsole aktiv={false} />);
+      await u.click(screen.getByRole('button', { name: 'Schnellaktion: Posteingang' }));
+      await waitFor(() =>
+        expect(aufrufe).toContainEqual({ methode: 'POST', pfad: '/api/buehne/erneut', body: { vorlage: 'posteingang', argumente: { q: 'is:unread' }, titel: 'Posteingang' } }),
+      );
+    });
+
+    it('ohne Fläche nur eine schmale Leiste: Orb groß, kein Teiler, kein Stil-Menü', () => {
+      act(() => useBuehne.getState().verarbeiten({ version: 'v0.9.1', aktionen: { schnell: [POST, STUTTGART], varianten: {} } }));
+      const { container } = render(<Konsole aktiv={false} />);
+      const buehne = screen.getByRole('region', { name: 'Bühne' });
+      expect(buehne).toHaveClass('leer');
+      expect(within(buehne).getByText('Bühne')).toBeInTheDocument();
+      expect(within(buehne).getAllByRole('button').map((k) => k.textContent)).toEqual(['Posteingang', 'Wetter Stuttgart']);
+      expect(container.querySelector('.orb-buehne')).not.toHaveClass('klein');
+      expect(container.querySelector('.konsole')).not.toHaveClass('mit-buehne');
+      expect(screen.queryByRole('separator')).toBeNull();
+      expect(screen.queryByRole('combobox', { name: 'Stil der Fläche' })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Bühne (ein|aus)klappen/ })).toBeNull();
+      expect(screen.queryByRole('tabpanel')).toBeNull();
+    });
   });
 });

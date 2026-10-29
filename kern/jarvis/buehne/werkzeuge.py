@@ -66,9 +66,11 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
         auftrag: str | None = None,
         risiko: str = "aendern",
         bestaetigung: str | None = None,
+        titel: str | None = None,
+        vorlage_ziel: str | None = None,
     ) -> str:
-        r = manager.rezept_anlegen(vorlage, aktion, art, name, werkzeug, argument_abbildung, auftrag, risiko, bestaetigung)
-        return f"Rezept {r['id']} für Aktion „{aktion}“ der Vorlage {vorlage} angelegt."
+        r = manager.rezept_anlegen(vorlage, aktion, art, name, werkzeug, argument_abbildung, auftrag, risiko, bestaetigung, titel=titel, vorlage_ziel=vorlage_ziel)
+        return f"Rezept {r['id']} ({art}) für Aktion „{aktion}“ der Vorlage {vorlage} angelegt; ein früheres Rezept dieser Aktion ist ersetzt."
 
     async def buehne_stil_ableiten(name: str, art: str, wert: str) -> str:
         if art not in ("url", "klassen", "datei"):
@@ -168,17 +170,21 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
         wz(
             buehne_rezept_anlegen,
             "buehne_rezept_anlegen",
-            "Hinterlegt dauerhaft, was ein Knopf (Aktion) einer Vorlage tut: art „werkzeug“ (Werkzeug + "
-            "argument_abbildung {\"arg\": \"context.feld\"}) oder art „agent“ (Auftrag in Worten mit {feld}-Platzhaltern).",
+            "Hinterlegt dauerhaft, was ein Knopf (Aktion) einer Vorlage tut: art „zeigen“ (Lesewerkzeug + argument_abbildung "
+            "{\"arg\": \"context.feld\"} + titel mit {feld}; Ergebnis erscheint als eigene Fläche, z. B. Detailseite – vorlage_ziel = "
+            "Kennung der dafür gebauten Vorlage), art „werkzeug“ (Werkzeug ausführen, Fläche neu laden) oder art „agent“ (Auftrag in "
+            "Worten mit {feld}-Platzhaltern). Ein neues Rezept ersetzt das bisherige der Aktion.",
             schema(
                 {
                     "vorlage": {"type": "string"},
                     "aktion": {"type": "string", "description": "Name der Aktion aus der Vorlage"},
-                    "art": {"type": "string", "enum": ["werkzeug", "agent"]},
+                    "art": {"type": "string", "enum": ["zeigen", "werkzeug", "agent"]},
                     "name": {"type": "string"},
                     "werkzeug": {"type": "string"},
                     "argument_abbildung": {"type": "object"},
                     "auftrag": {"type": "string"},
+                    "titel": {"type": "string", "description": "Titel der Fläche bei art zeigen, mit {feld}-Platzhaltern"},
+                    "vorlage_ziel": {"type": "string", "description": "bei art zeigen: Kennung der Vorlage, die befüllt wird"},
                     "risiko": {"type": "string", "enum": ["lesen", "aendern", "kritisch"]},
                     "bestaetigung": {"type": "string", "description": "Rückfrage vor Ausführung (optional)"},
                 },

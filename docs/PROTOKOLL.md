@@ -443,3 +443,16 @@ mit pwsh geparst (nicht ausgeführt).
   (Aufzählung/Blöcke mit `Schlüssel: Wert`) als Einträge, damit das Modell Tabellen bauen kann. Dazu verlangt der
   Vorlagen-Prompt einen Aktionsbereich (Row mit Buttons) unter dem Titel. Nicht geändert: die beim Nutzer bereits
   umgebaute Vorlage `immobilien-deals` (Version 2) – mit „rückgängig“ oder in Einstellungen → Bühne zurückzusetzen.
+- 29.10.2026 – Rückmeldung nach dem zweiten Test („Klick auf Knöpfe macht nichts“, „Wetter kommt nicht auf die Bühne“,
+  „Stuttgart, dann Frankfurt oben als Knöpfe“, „die Anwendung soll das generativ selbst machen“): (1) Rezeptart `zeigen`
+  – ein Knopf (Öffnen/Details) führt das Lesewerkzeug mit Kontextdaten aus und zeigt das Ergebnis als eigene Fläche
+  (Detailseite); die beim ersten Klick gebaute Vorlage wird als `vorlageZiel` gemerkt, jede weitere Detailseite füllt
+  sie. Ein neues Rezept ersetzt das alte derselben Aktion; der Agent wird bei Aktionen ohne Rezept (und bei
+  Agenten-Rezepten) angewiesen, Anzeigbares auf die Bühne zu bringen. (2) Verlauf `verlauf.json`: jede Anzeige wird
+  mit Vorlage, Titel, Werkzeug und Argumenten gemerkt; daraus Schnellaktionen (global, nach Häufigkeit und Aktualität)
+  und Varianten je Vorlage (Wetter Stuttgart/Frankfurt); Nachricht `aktionen` nach jedem Zeigen/Schließen,
+  `GET /api/buehne` liefert sie, `buehne_erneut`/`POST /api/buehne/erneut` zeigt eine Variante ohne Modell. Die
+  Oberfläche (Frontend-Agent) zeigt sie als Knopfzeile unter den Reitern, ohne offene Fläche als schmale Leiste
+  (Orb bleibt groß). (3) Systemprompt: strukturierte Ergebnisse (auch Wetter, auch per Sprache) immer auf die Bühne;
+  falsche/gemischte Sichten stellt das Modell selbst wieder her (`buehne_vorlage_zurueck`), statt den Nutzer zu bitten.
+  Tests: Kern 612, Oberfläche 157.

@@ -75,7 +75,15 @@ class BuehnenManager:
         self.speicher.flaechen_speichern(list(self.flaechen.values()))
 
     def zustand(self) -> dict[str, Any]:
-        return {"flaechen": list(self.flaechen.values()), "stile": self.speicher.stile(), "zuordnung": self.speicher.zuordnung()}
+        return {"flaechen": list(self.flaechen.values()), "stile": self.speicher.stile(), "zuordnung": self.speicher.zuordnung(), **self.aktionen_stand()}
+
+    def aktionen_stand(self) -> dict[str, Any]:
+        """Schnellaktionen (global) und Varianten je offener Vorlage – für GET /api/buehne und die Nachricht `aktionen`."""
+        vorlagen = {f.get("vorlage") for f in self.flaechen.values() if f.get("vorlage")}
+        return {"schnellaktionen": self.speicher.schnellaktionen(), "varianten": {v: self.speicher.varianten(v) for v in sorted(vorlagen)}}
+
+    async def _aktionen_melden(self) -> None:
+        await self._nachricht({"aktionen": {"schnell": self.speicher.schnellaktionen(), "varianten": self.aktionen_stand()["varianten"]}})
 
     async def _nachricht(self, inhalt: dict[str, Any]) -> None:
         await self._senden({"typ": "buehne", "nachricht": {"version": PROTOKOLL_VERSION, **inhalt}})
@@ -185,7 +193,27 @@ class BuehnenManager:
         modell = self._mischen(vorlage["id"], self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
         self._roh[vorlage["id"]] = daten
         flaeche = await self._flaeche_senden(vorlage["id"], titel or vorlage["name"], stil_id, vorlage["komponenten"], modell, vorlage["id"])
+        flaeche["argumente"] = argumente
+        self.speicher.verlauf_merken(vorlage["id"], flaeche["titel"], werkzeug, argumente)
+        self._speichern()
+        await self._aktionen_melden()
         return {"surfaceId": flaeche["surfaceId"], "titel": flaeche["titel"], "vorlage": vorlage["id"], "neu": neu, "umgebaut": umgebaut, "anzahl": modell.get("anzahl"), "stil": stil_id}
+
+    async def erneut(self, vorlage_id: str, argumente: dict[str, Any] | None = None, titel: str | None = None) -> dict[str, Any]:
+        """Schnellaktion/Variante: Datenwerkzeug der Vorlage mit diesen Argumenten ausführen und die Vorlage befüllen (ohne Modell)."""
+        vorlage = self.speicher.vorlage(vorlage_id)
+        if vorlage is None:
+            raise BuehnenFehler(f"Vorlage „{vorlage_id}“ gibt es nicht.")
+        werkzeug = vorlage["datenquelle"].get("werkzeug")
+        if not werkzeug:
+            raise BuehnenFehler(f"Vorlage „{vorlage_id}“ hat keine Datenquelle.")
+        if argumente is None:
+            argumente = dict(vorlage["datenquelle"].get("argumente") or {})
+        if not titel:
+            passende = [e for e in self.speicher.varianten(vorlage_id, 50) if json.dumps(e.get("argumente") or {}, sort_keys=True) == json.dumps(argumente, sort_keys=True)]
+            titel = passende[0]["titel"] if passende else vorlage["name"]
+        e = await self.zeigen(werkzeug, argumente, titel=titel, vorlage=vorlage_id)
+        return {k: e[k] for k in ("surfaceId", "titel", "vorlage", "anzahl")}
 
     async def daten_setzen(self, surface_id: str, daten: Any = None, path: str = "/", value: Any = None, melden: bool = True) -> dict[str, Any]:
         flaeche = self.flaechen.get(surface_id)
@@ -271,6 +299,8 @@ class BuehnenManager:
                 await self._nachricht({"deleteSurface": {"surfaceId": kennung}})
                 geschlossen.append(kennung)
         self._speichern()
+        if geschlossen:
+            await self._aktionen_melden()
         return geschlossen
 
     # ------------------------------------------------------------------ Aktionen und Rezepte
@@ -295,26 +325,36 @@ class BuehnenManager:
         auftrag: str | None = None,
         risiko: str = "aendern",
         bestaetigung: str | None = None,
+        titel: str | None = None,
+        vorlage_ziel: str | None = None,
     ) -> dict[str, Any]:
-        if self.speicher.vorlage(vorlage_id) is None:
+        vorlage = self.speicher.vorlage(vorlage_id)
+        if vorlage is None:
             raise BuehnenFehler(f"Vorlage „{vorlage_id}“ gibt es nicht.")
-        if art not in ("werkzeug", "agent"):
-            raise BuehnenFehler("art muss „werkzeug“ oder „agent“ sein.")
-        if art == "werkzeug" and not werkzeug:
-            raise BuehnenFehler("Für art „werkzeug“ fehlt der Werkzeugname.")
+        if art not in ("werkzeug", "agent", "zeigen"):
+            raise BuehnenFehler("art muss „werkzeug“, „agent“ oder „zeigen“ sein.")
+        if art in ("werkzeug", "zeigen") and not werkzeug:
+            raise BuehnenFehler(f"Für art „{art}“ fehlt der Werkzeugname.")
         if art == "agent" and not auftrag:
             raise BuehnenFehler("Für art „agent“ fehlt der Auftrag.")
+        if vorlage_ziel and self.speicher.vorlage(vorlage_ziel) is None:
+            raise BuehnenFehler(f"Zielvorlage „{vorlage_ziel}“ gibt es nicht.")
         rezept = self.speicher.rezept_anlegen(
             name or aktion.replace("_", " ").capitalize(),
             art,
             vorlage_id,
-            risiko=risiko if risiko in ("lesen", "aendern", "kritisch") else "aendern",
+            risiko="lesen" if art == "zeigen" and risiko != "kritisch" else (risiko if risiko in ("lesen", "aendern", "kritisch") else "aendern"),
             aktion=aktion,
             werkzeug=werkzeug,
             argumentAbbildung=argument_abbildung,
             auftrag=auftrag,
             bestaetigung=bestaetigung,
+            titel=titel,
+            vorlageZiel=vorlage_ziel,
         )
+        altes = (vorlage.get("aktionen") or {}).get(aktion)
+        if altes and altes != rezept["id"]:
+            self.speicher.rezept_loeschen(altes)  # ein neues Rezept ersetzt das alte für diese Aktion
         self.speicher.aktion_setzen(vorlage_id, aktion, rezept["id"])
         return rezept
 
@@ -343,9 +383,23 @@ class BuehnenManager:
             await self._senden({"typ": "antwort_start", "id": kennung})
             await self._senden({"typ": "antwort_ende", "id": kennung, "text": text})
             return {"ok": True, "rezept": rezept["id"], "ergebnis": str(ergebnis)[:2000]}
+        if rezept and rezept.get("art") == "zeigen" and rezept.get("werkzeug"):
+            argumente = {k: self._argument(v, context) for k, v in (rezept.get("argumentAbbildung") or {}).items()}
+            titel = _PLATZHALTER.sub(lambda m: str(self._argument("context." + m.group(1), context) or m.group(0)), str(rezept.get("titel") or rezept.get("name") or name))
+            ziel = rezept.get("vorlageZiel")
+            if ziel and self.speicher.vorlage(ziel) is None:
+                ziel = None
+            e = await self.zeigen(str(rezept["werkzeug"]), argumente, titel=titel, vorlage=ziel)
+            if not ziel:
+                self.speicher.rezept_aendern(rezept["id"], vorlageZiel=e["vorlage"])
+            return {"ok": True, "rezept": rezept["id"], "surfaceId": e["surfaceId"], "vorlage": e["vorlage"]}
         if rezept and rezept.get("art") == "agent" and rezept.get("auftrag") and self._anfrage is not None:
             auftrag = _PLATZHALTER.sub(lambda m: str(self._argument("context." + m.group(1), context) or m.group(0)), str(rezept["auftrag"]))
-            auftrag += f"\n(Aktion „{name}“ von der Bühne „{flaeche['titel'] if flaeche else surface_id}“; Daten: {json.dumps(context, ensure_ascii=False)[:1500]})"
+            auftrag += (
+                f"\n(Aktion „{name}“ von der Bühne „{flaeche['titel'] if flaeche else surface_id}“; Daten: {json.dumps(context, ensure_ascii=False)[:1500]}. "
+                "Lässt sich das Ergebnis anzeigen, zeige es auf der Bühne (buehne_zeigen, allgemeiner Titel) und lege das Rezept "
+                "dieser Aktion neu als Art „zeigen“ an – es ersetzt dieses. Im Chat nur ein Satz.)"
+            )
             antwort = await self._anfrage(auftrag)
             return {"ok": True, "rezept": rezept["id"], "antwort": antwort}
         if self._anfrage is None:
@@ -353,8 +407,11 @@ class BuehnenManager:
         text = (
             f"Auf der Bühne „{flaeche['titel'] if flaeche else surface_id}“ wurde die Aktion „{name}“ ausgelöst"
             f"{' (Vorlage „' + vorlage['id'] + '“)' if vorlage else ''}. Daten: {json.dumps(context, ensure_ascii=False)[:1500]}\n"
-            "Führe die passende Arbeit aus. Lege danach mit buehne_rezept_anlegen ein Rezept für diese Aktion an, "
-            "damit sie beim nächsten Klick direkt läuft."
+            "Führe die passende Arbeit aus. Soll etwas geöffnet oder angezeigt werden (öffnen, Details, anzeigen), zeige es auf der "
+            "Bühne mit buehne_zeigen (Lesewerkzeug mit den Daten aus dem Kontext; allgemeiner Titel wie „Deal-Details“, damit die "
+            "Vorlage für alle Einträge gilt) und lege danach mit buehne_rezept_anlegen ein Rezept der Art „zeigen“ an (werkzeug, "
+            "argument_abbildung {\"arg\": \"context.feld\"}, titel, vorlage_ziel = Kennung der eben gebauten Vorlage). Sonst lege ein "
+            "Rezept der Art „werkzeug“ oder „agent“ an, damit die Aktion beim nächsten Klick direkt läuft. Im Chat nur ein Satz."
         )
         antwort = await self._anfrage(text)
         return {"ok": True, "rezept": None, "antwort": antwort}
@@ -408,7 +465,7 @@ class BuehnenManager:
     # ------------------------------------------------------------------ Prompt
     def prompt_abschnitt(self) -> str:
         vorlagen = self.speicher.vorlagen()[:20]
-        zeilen = ["## Bühne", "Ergebnisse mit Struktur (Listen, Datensätze, Mails, Wetter, Vergleiche) gehören auf die Bühne: rufe buehne_zeigen mit dem Werkzeug und seinen Argumenten auf, statt das Werkzeug selbst aufzurufen; der Chat fasst dann kurz zusammen. Jede Sicht (Immobilien, Makler, Mails …) hat ihre eigene Vorlage und Fläche: der Titel entscheidet – gleicher Titel = vorhandene Vorlage wird nur befüllt, anderer Titel = neue Vorlage (oder gib vorlage explizit an). Filtern und Sortieren über die Argumente des Werkzeugs, nicht über den Wunsch. Umbauten auf Wunsch mit buehne_vorlage_aendern, Rückgängig mit buehne_vorlage_zurueck. Aktionen von der Bühne kommen als Nachricht; lege danach mit buehne_rezept_anlegen ein Rezept an. Stile: buehne_stil_ableiten (URL/Datei/Klassen), buehne_stil_aendern, buehne_stil_zuweisen."]
+        zeilen = ["## Bühne", "Ergebnisse mit Struktur (Listen, Datensätze, Mails, Wetter, Vergleiche) gehören immer auf die Bühne – auch bei Sprachfragen: rufe buehne_zeigen mit dem Werkzeug und seinen Argumenten auf, statt das Werkzeug selbst aufzurufen (bei mehrstufigen Abfragen wie Wetter erst Vorarbeiten wie die Ortssuche, dann buehne_zeigen mit dem letzten Werkzeug); der Chat fasst in einem Satz zusammen. Zuletzt gezeigte Varianten (z. B. Wetter Stuttgart, Wetter Frankfurt) bietet die Bühne selbst als Knöpfe an. Aktionen auf Knöpfen, die etwas öffnen oder anzeigen, führen zu einer eigenen Fläche (Rezept der Art zeigen) – nicht zu Text im Chat. Wirkt eine Sicht falsch, leer oder gemischt, stelle sie selbst wieder her (buehne_vorlage_zurueck) oder baue sie neu; bitte nie den Nutzer, das zu tun. Jede Sicht (Immobilien, Makler, Mails …) hat ihre eigene Vorlage und Fläche: der Titel entscheidet – gleicher Titel = vorhandene Vorlage wird nur befüllt, anderer Titel = neue Vorlage (oder gib vorlage explizit an). Filtern und Sortieren über die Argumente des Werkzeugs, nicht über den Wunsch. Umbauten auf Wunsch mit buehne_vorlage_aendern, Rückgängig mit buehne_vorlage_zurueck. Aktionen von der Bühne kommen als Nachricht; lege danach mit buehne_rezept_anlegen ein Rezept an. Stile: buehne_stil_ableiten (URL/Datei/Klassen), buehne_stil_aendern, buehne_stil_zuweisen."]
         if vorlagen:
             zeilen.append("Vorlagen:")
             for v in vorlagen:

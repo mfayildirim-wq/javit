@@ -176,7 +176,7 @@ def test_buehne_immobilien(umgebung):
         text, ereignisse = _antwort(ws, f"Zeig mir die Immobilien aus {datei}")
         assert text.startswith("Erledigt. Ergebnis:") and "neue Vorlage gebaut" in text
         buehne = [e["nachricht"] for e in ereignisse if e["typ"] == "buehne"]
-        assert [next(k for k in n if k != "version") for n in buehne] == ["stil", "createSurface", "updateComponents", "updateDataModel"]
+        assert [next(k for k in n if k != "version") for n in buehne] == ["stil", "createSurface", "updateComponents", "updateDataModel", "aktionen"]
         assert buehne[1]["createSurface"]["surfaceId"] == "immobilien-e2e" and buehne[1]["createSurface"]["titel"] == "Immobilien"
         assert buehne[3]["updateDataModel"]["value"]["eintraege"][1]["titel"] == "Kirchgasse 7" and buehne[3]["updateDataModel"]["value"]["anzahl"] == 2
         # Werkzeugaufruf des Datenwerkzeugs ist als Aktivität sichtbar (innerhalb von buehne_zeigen)

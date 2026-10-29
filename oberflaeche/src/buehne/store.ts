@@ -1,7 +1,7 @@
 // Eigener Store der Bühne (getrennt vom globalen useJarvis): Flächen, Stile, aktive Fläche, Höhe.
 // verarbeiten() setzt die A2UI-Nachrichten des Ereignisses `buehne` um.
 import { create } from 'zustand';
-import type { A2uiNachricht, BuehnenKomponente, Flaeche, Stil } from '../api/types';
+import type { A2uiNachricht, BuehnenKomponente, Flaeche, Schnellaktion, Stil } from '../api/types';
 import { zeigerLoeschen, zeigerSetzen } from './binder';
 
 export const HOEHE_SCHLUESSEL = 'jarvis.buehne.hoehe';
@@ -33,10 +33,14 @@ export interface BuehnenZustand {
   /** Anteil der Mitte (0.2–0.8). */
   hoehe: number;
   eingeklappt: boolean;
+  /** Zuletzt/häufig gezeigte Anzeigen (global). */
+  schnellaktionen: Schnellaktion[];
+  /** Je Vorlage die zuletzt gezeigten Argumentsätze. */
+  varianten: Record<string, Schnellaktion[]>;
 
   verarbeiten: (n: A2uiNachricht) => void;
   datenSetzen: (surfaceId: string, pfad: string, wert: unknown) => void;
-  ausServer: (flaechen: Flaeche[], stile: Stil[]) => void;
+  ausServer: (flaechen: Flaeche[], stile: Stil[], schnellaktionen?: unknown, varianten?: unknown) => void;
   stileSetzen: (stile: Stil[]) => void;
   stilSetzen: (surfaceId: string, stilId: string) => void;
   vorlageSetzen: (surfaceId: string, vorlage: string | null) => void;
@@ -70,6 +74,27 @@ function alsObjekt(x: unknown): Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x) ? (x as Record<string, unknown>) : {};
 }
 
+function istSchnellaktion(x: unknown): x is Schnellaktion {
+  const a = x as Schnellaktion;
+  return typeof x === 'object' && x !== null && typeof a.id === 'string' && typeof a.vorlage === 'string' && typeof a.titel === 'string';
+}
+
+/** Liste von Schnellaktionen tolerant lesen (ungültige Einträge fallen weg, `argumente` immer ein Objekt). */
+export function schnellListe(x: unknown): Schnellaktion[] {
+  if (!Array.isArray(x)) return [];
+  return x.filter(istSchnellaktion).map((a) => ({ ...a, argumente: alsObjekt(a.argumente) }));
+}
+
+/** Varianten je Vorlage tolerant lesen. */
+export function variantenLesen(x: unknown): Record<string, Schnellaktion[]> {
+  const aus: Record<string, Schnellaktion[]> = {};
+  for (const [vorlage, liste] of Object.entries(alsObjekt(x))) {
+    const l = schnellListe(liste);
+    if (l.length > 0) aus[vorlage] = l;
+  }
+  return aus;
+}
+
 function neueFlaeche(surfaceId: string, teil: Partial<FlaechenZustand> = {}): FlaechenZustand {
   return { surfaceId, titel: surfaceId, catalogId: 'jarvis:buehne/1', stil: STANDARD_STIL_ID, vorlage: null, komponenten: {}, puffer: [], daten: {}, ...teil };
 }
@@ -87,7 +112,15 @@ function komponentenEinarbeiten(f: FlaechenZustand, neue: BuehnenKomponente[]): 
   return { ...f, komponenten, puffer: [] };
 }
 
-const leer = () => ({ flaechen: {}, reihenfolge: [] as string[], aktiv: null, stile: {} as Record<string, Stil>, eingeklappt: false });
+const leer = () => ({
+  flaechen: {},
+  reihenfolge: [] as string[],
+  aktiv: null,
+  stile: {} as Record<string, Stil>,
+  eingeklappt: false,
+  schnellaktionen: [] as Schnellaktion[],
+  varianten: {} as Record<string, Schnellaktion[]>,
+});
 
 export const useBuehne = create<BuehnenZustand>()((set, get) => ({
   ...leer(),
@@ -139,6 +172,9 @@ export const useBuehne = create<BuehnenZustand>()((set, get) => ({
       });
     }
     if (n.deleteSurface?.surfaceId) get().flaecheEntfernen(n.deleteSurface.surfaceId);
+    if (n.aktionen && typeof n.aktionen === 'object') {
+      set({ schnellaktionen: schnellListe(n.aktionen.schnell), varianten: variantenLesen(n.aktionen.varianten) });
+    }
   },
 
   datenSetzen: (surfaceId, pfad, wert) =>
@@ -148,7 +184,7 @@ export const useBuehne = create<BuehnenZustand>()((set, get) => ({
       return { flaechen: { ...s.flaechen, [surfaceId]: { ...f, daten: alsObjekt(zeigerSetzen(f.daten, pfad, wert)) } } };
     }),
 
-  ausServer: (liste, stile) => {
+  ausServer: (liste, stile, schnellaktionen, varianten) => {
     const flaechen: Record<string, FlaechenZustand> = {};
     const reihenfolge: string[] = [];
     for (const fl of Array.isArray(liste) ? liste : []) {
@@ -164,7 +200,13 @@ export const useBuehne = create<BuehnenZustand>()((set, get) => ({
       reihenfolge.push(fl.surfaceId);
     }
     const aktiv = get().aktiv;
-    set({ flaechen, reihenfolge, aktiv: aktiv && flaechen[aktiv] ? aktiv : (reihenfolge[0] ?? null) });
+    set({
+      flaechen,
+      reihenfolge,
+      aktiv: aktiv && flaechen[aktiv] ? aktiv : (reihenfolge[0] ?? null),
+      schnellaktionen: schnellListe(schnellaktionen),
+      varianten: variantenLesen(varianten),
+    });
     get().stileSetzen(stile);
   },
 

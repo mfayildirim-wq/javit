@@ -99,3 +99,19 @@ def test_vorlagen_fuer_signatur_liste(tmp_path):
     assert [k["id"] for k in kandidaten] == [b["id"], a["id"]] and "komponenten" in kandidaten[0]
     assert sp.vorlage_fuer_signatur("w", ["zeilen"], ["id", "objekt"])["id"] == a["id"]
     assert sp.vorlagen_fuer_signatur("w", ["anders"]) == []
+
+
+def test_verlauf_schnellaktionen_und_varianten(tmp_path):
+    sp = BuehnenSpeicher(tmp_path)
+    a = sp.verlauf_merken("wetter", "Wetter Stuttgart", "wetter__abrufen", {"latitude": 48.7, "longitude": 9.1})
+    sp.verlauf_merken("wetter", "Wetter Frankfurt", "wetter__abrufen", {"longitude": 8.6, "latitude": 50.1})
+    b = sp.verlauf_merken("wetter", "Wetter Stuttgart", "wetter__abrufen", {"longitude": 9.1, "latitude": 48.7})  # gleiche Argumente, andere Reihenfolge
+    sp.verlauf_merken("immobilien", "Immobilien", "gg__read", {"collection": "deals"})
+    assert a["id"] == b["id"] and b["zaehler"] == 2 and len(sp.verlauf()) == 3
+    assert [v["titel"] for v in sp.varianten("wetter")] == ["Wetter Stuttgart", "Wetter Frankfurt"]
+    assert sp.schnellaktionen()[0]["titel"] == "Wetter Stuttgart" and len(sp.schnellaktionen(2)) == 2
+    sp.verlauf_vergessen("wetter")
+    assert [e["vorlage"] for e in sp.verlauf()] == ["immobilien"]
+    r = sp.rezept_anlegen("Öffnen", "zeigen", "immobilien", werkzeug="gg__read_entity")
+    assert sp.rezept_aendern(r["id"], vorlageZiel="objekt-details")["vorlageZiel"] == "objekt-details" and sp.rezept(r["id"])["vorlageZiel"] == "objekt-details"
+    assert sp.rezept_aendern("nix", vorlageZiel="x") is None

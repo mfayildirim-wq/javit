@@ -92,7 +92,9 @@ export type ClientNachricht =
   /** Bühne: Klick auf eine Aktion (Button, Karte, Tabellenzeile, Formular). */
   | { typ: 'buehne_aktion'; name: string; surfaceId: string; sourceComponentId: string; timestamp: string; context: Record<string, unknown> }
   /** Bühne: Eingabefeld geändert (zweiseitige Bindung; gesendet bei Blur/Enter). */
-  | { typ: 'buehne_daten'; surfaceId: string; path: string; value: unknown };
+  | { typ: 'buehne_daten'; surfaceId: string; path: string; value: unknown }
+  /** Bühne: Klick auf eine Schnellaktion/Variante – Vorlage mit diesen Argumenten erneut zeigen (ohne Modell). */
+  | { typ: 'buehne_erneut'; vorlage: string; argumente?: Record<string, unknown>; titel?: string };
 
 // ---------- Bühne (A2UI v0.9.1-Teilmenge, Katalog jarvis:buehne/1) ----------
 /** Eine Komponente der flachen Liste: `id`, `component` (Bausteinname) und Eigenschaften laut Katalog. */
@@ -106,14 +108,18 @@ export interface A2uiNachricht {
   deleteSurface?: { surfaceId: string };
   /** Werte eines Stils (vor `createSurface`, wenn der Client ihn nicht kennt). */
   stil?: Stil;
+  /** Schnellaktionen (global) und Varianten (je Vorlage); ersetzt den Stand aus GET /api/buehne. */
+  aktionen?: { schnell: Schnellaktion[]; varianten: Record<string, Schnellaktion[]> };
 }
+/** Eine gemerkte Anzeige der Bühne (Verlauf): Vorlage + Argumente des Datenwerkzeugs. */
+export interface Schnellaktion { id: string; titel: string; vorlage: string; werkzeug: string; argumente: Record<string, unknown>; zaehler: number; zuletzt: string }
 export interface StilWerte { schema: 'hell' | 'dunkel'; farben: { primaer: string; akzent: string; hintergrund: string; flaeche: string; text: string; dezent: string; ok: string; warn: string; fehler: string }; schrift: { familie: string; basisgroesse: number }; rundung: number; abstand: number; dichte: 'dicht' | 'normal' | 'luftig'; schatten: 'keiner' | 'weich' | 'stark' }
 export interface Stil { id: string; name: string; beschreibung?: string; quelle: { art: 'vordefiniert' | 'url' | 'datei' | 'klassen' | 'werte'; wert?: string }; werte: StilWerte; vorlieben: { liste: 'kacheln' | 'zeilen' | 'tabelle'; bildgroesse: 'klein' | 'mittel' | 'gross'; kennzahlenOben: boolean }; eigen?: boolean }
 export interface Vorlage { id: string; name: string; zweck: string; version: number; protokollVersion: string; katalogId: string; komponenten?: unknown[]; datenschema?: unknown; datenquelle: { werkzeug: string; argumente: Record<string, unknown>; abbildung: Record<string, string> }; aktionen: Record<string, string>; stil: string | null; signatur: { werkzeug: string; schluessel: string[] }; erstellt: string; geaendert: string; modell?: string; versionen?: number }
-export interface Rezept { id: string; name: string; art: 'werkzeug' | 'agent'; werkzeug?: string; argumentAbbildung?: Record<string, string>; auftrag?: string; bestaetigung?: string; risiko: 'lesen' | 'aendern' | 'kritisch'; vorlage: string }
+export interface Rezept { id: string; name: string; art: 'werkzeug' | 'agent' | 'zeigen'; werkzeug?: string; argumentAbbildung?: Record<string, string>; auftrag?: string; bestaetigung?: string; risiko: 'lesen' | 'aendern' | 'kritisch'; vorlage: string; /** Art `zeigen`: Titel der neuen Fläche (mit `{feld}`). */ titel?: string; /** Art `zeigen`: beim ersten Mal gebaute Vorlage der Zielfläche. */ vorlageZiel?: string }
 export interface Flaeche { surfaceId: string; titel: string; catalogId: string; stil: string; components: unknown[]; daten: Record<string, unknown>; vorlage: string | null }
 /** GET /api/buehne */
-export interface BuehnenStand { flaechen: Flaeche[]; stile: Stil[]; zuordnung: Record<string, string> }
+export interface BuehnenStand { flaechen: Flaeche[]; stile: Stil[]; zuordnung: Record<string, string>; /** fehlt bei älterem Kern */ schnellaktionen?: Schnellaktion[]; /** fehlt bei älterem Kern */ varianten?: Record<string, Schnellaktion[]> }
 /** POST /api/buehne/stile – Stil ableiten (url/datei/klassen) oder aus Werten anlegen. */
 export interface StilAnlegen { name: string; quelle: { art: 'url' | 'datei' | 'klassen' | 'werte'; wert?: string; inhalt_base64?: string; werte?: StilWerte } }
 

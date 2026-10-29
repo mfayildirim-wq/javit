@@ -353,8 +353,12 @@ der **Bühne** oberhalb des Chats als bedienbare Oberfläche – nicht als Flie�
   nur noch mit Daten befüllt – keine erneute Erzeugung, gleiche Darstellung.
 * Umbauten durch Kommunikation: „zeig das als Kacheln mit Bild“, „nimm die Spalte Preis nach vorn“ – jede Änderung
   ist eine neue Version (bis zu zehn), „mach das rückgängig“ geht zurück.
-* **Knöpfe** auf der Bühne (z. B. „Notiz anlegen“) laufen beim ersten Klick über Javit; danach liegt ein **Rezept**
-  vor, das den Klick direkt ausführt (Werkzeug mit Argumenten aus der Zeile oder Auftrag an Javit).
+* **Knöpfe** auf der Bühne (z. B. „Öffnen“, „Notiz anlegen“) laufen beim ersten Klick über Javit; danach liegt ein
+  **Rezept** vor, das den Klick direkt ausführt: „Öffnen“ lädt die passende Detailseite als eigene Fläche, andere
+  Knöpfe führen ein Werkzeug mit Argumenten aus der Zeile aus oder geben Javit einen Auftrag.
+* Jede Sicht (Immobilien, Makler, Wetter …) hat ihre eigene Vorlage und Fläche. Oben in der Bühne stehen die zuletzt
+  und am häufigsten gezeigten Sichten als Knöpfe – „Wetter Stuttgart“ und „Wetter Frankfurt“ wechseln so mit einem
+  Klick, ohne dass das Modell gefragt wird.
 * Vorlagen, Rezepte und Stile gelten global (nicht je Unterhaltung) und liegen unter `~/.jarvis/buehne/`.
 * **Stile**: acht vordefinierte (Javit dunkel/hell, Material dunkel/hell, Neutral, Kompakt, Papier, Kontrast),
   eigene aus einer App-Adresse, CSS-Datei oder Klassen abgeleitet, Farben per Farbwähler änderbar; Stile lassen sich

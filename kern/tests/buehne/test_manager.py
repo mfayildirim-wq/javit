@@ -49,7 +49,9 @@ async def test_zeigen_baut_vorlage_und_verwendet_sie_wieder():
     e = await j.buehne.zeigen("immo__read", {"collection": "immobilien"}, titel="Immobilien", integration="immo")
     assert e["neu"] is True and e["vorlage"] == "immobilienliste" and e["anzahl"] == 1 and e["stil"] == "javit-dunkel"
     arten = [next(k for k in n if k != "version") for n in _buehne(ereignisse)]
-    assert arten == ["stil", "createSurface", "updateComponents", "updateDataModel"]
+    assert arten == ["stil", "createSurface", "updateComponents", "updateDataModel", "aktionen"]
+    schnell = _buehne(ereignisse)[4]["aktionen"]["schnell"]
+    assert [s["titel"] for s in schnell] == ["Immobilien"] and schnell[0]["vorlage"] == "immobilienliste" and schnell[0]["argumente"] == {"collection": "immobilien"}
     daten = _buehne(ereignisse)[3]["updateDataModel"]
     assert daten["path"] == "/" and daten["value"]["immobilien"][0]["titel"] == "Hafenweg 3" and daten["value"]["anzahl"] == 1
     assert _buehne(ereignisse)[1]["createSurface"]["titel"] == "Immobilien"
@@ -162,7 +164,9 @@ async def test_aendern_zurueck_und_schliessen():
     assert e["version"] == 1 and _buehne(ereignisse)[0]["updateComponents"]["components"][2]["component"] == "Grid"
     ereignisse.clear()
     assert await j.buehne.schliessen() == ["immobilienliste"]
-    assert _buehne(ereignisse) == [{"version": "v0.9.1", "deleteSurface": {"surfaceId": "immobilienliste"}}]
+    assert _buehne(ereignisse)[0] == {"version": "v0.9.1", "deleteSurface": {"surfaceId": "immobilienliste"}}
+    assert _buehne(ereignisse)[1]["aktionen"]["varianten"] == {}  # keine offene Fläche mehr, Schnellaktionen bleiben
+    assert [s["titel"] for s in _buehne(ereignisse)[1]["aktionen"]["schnell"]] == ["Immobilien"]
     assert j.buehne.speicher.flaechen_laden() == []
 
 
@@ -207,3 +211,52 @@ def test_titel_passt():
     assert titel_passt("Ungelesene Mails", "Mails") and titel_passt("Makler", "Makler, die ich kontaktieren soll")
     assert not titel_passt("Makler, die ich kontaktieren soll", "Immobilien-Deals")
     assert not titel_passt("Makler-Liste", "Immobilien-Liste") and not titel_passt("", "Immobilien")
+
+
+async def test_varianten_schnellaktionen_und_erneut():
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps({**GUELTIG, "name": "Wetter"}))])
+    await j.buehne.zeigen("immo__read", {"collection": "stuttgart"}, titel="Wetter Stuttgart")
+    await j.buehne.zeigen("immo__read", {"collection": "frankfurt"}, titel="Wetter Frankfurt")
+    await j.buehne.zeigen("immo__read", {"collection": "stuttgart"}, titel="Wetter Stuttgart")
+    assert len(skript.aufrufe) == 1  # eine Vorlage „Wetter“ für beide Orte
+    stand = j.buehne.zustand()
+    assert [f["titel"] for f in stand["flaechen"]] == ["Wetter Stuttgart"] and stand["flaechen"][0]["argumente"] == {"collection": "stuttgart"}
+    assert [(v["titel"], v["zaehler"]) for v in stand["varianten"]["wetter"]] == [("Wetter Stuttgart", 2), ("Wetter Frankfurt", 1)]
+    assert [s["titel"] for s in stand["schnellaktionen"]] == ["Wetter Stuttgart", "Wetter Frankfurt"]
+    # erneut: Variante ohne Modell, Titel aus dem Verlauf
+    ereignisse.clear()
+    aufrufe.clear()
+    e = await j.buehne.erneut("wetter", {"collection": "frankfurt"})
+    assert e == {"surfaceId": "wetter", "titel": "Wetter Frankfurt", "vorlage": "wetter", "anzahl": 1} and aufrufe[0]["collection"] == "frankfurt"
+    assert len(skript.aufrufe) == 1 and [n for n in _buehne(ereignisse) if "aktionen" in n]
+    assert j.buehne.speicher.schnellaktionen()[0]["titel"] == "Wetter Frankfurt" or j.buehne.speicher.schnellaktionen()[0]["zaehler"] == 2
+    with pytest.raises(BuehnenFehler):
+        await j.buehne.erneut("gibt-es-nicht")
+    # Verlauf überlebt einen Neustart
+    neu = BuehnenManager(j.buehne.speicher, j.buehne.erzeuger, j.senden, j.agent.werkzeug_ausfuehren_extern)
+    neu.laden()
+    assert len(neu.zustand()["schnellaktionen"]) == 2
+
+
+async def test_rezept_zeigen_oeffnet_detailflaeche_und_ersetzt_altes_rezept():
+    detail = {**GUELTIG, "name": "Objekt-Details", "abbildung": {"/immobilien": "/items", "/anzahl": "/total"}}
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(GUELTIG)), text_chunks(json.dumps(detail))])
+    await j.buehne.zeigen("immo__read", {}, titel="Immobilien")
+    altes = j.buehne.rezept_anlegen("immobilienliste", "notiz_anlegen", "agent", auftrag="Fasse {objekt_id} zusammen.")
+    rezept = j.buehne.rezept_anlegen("immobilienliste", "notiz_anlegen", "zeigen", werkzeug="immo__read", argument_abbildung={"collection": "context.objekt_id"}, titel="Objekt {objekt_id}")
+    assert rezept["art"] == "zeigen" and rezept["risiko"] == "lesen" and rezept["titel"] == "Objekt {objekt_id}"
+    assert j.buehne.speicher.rezept(altes["id"]) is None and j.buehne.speicher.vorlage("immobilienliste")["aktionen"] == {"notiz_anlegen": rezept["id"]}
+    # erster Klick baut die Detailvorlage und merkt sie im Rezept; zweiter Klick füllt dieselbe Vorlage (andere Fläche als die Liste)
+    antwort = await j.buehne.aktion({"name": "notiz_anlegen", "surfaceId": "immobilienliste", "context": {"objekt_id": "h3"}})
+    assert antwort["vorlage"] == "objekt-details" and antwort["surfaceId"] == "objekt-details" and len(skript.aufrufe) == 2
+    assert j.buehne.speicher.rezept(rezept["id"])["vorlageZiel"] == "objekt-details" and aufrufe[-1]["collection"] == "h3"
+    antwort = await j.buehne.aktion({"name": "notiz_anlegen", "surfaceId": "immobilienliste", "context": {"objekt_id": "h4"}})
+    assert antwort["vorlage"] == "objekt-details" and len(skript.aufrufe) == 2
+    titel = [f["titel"] for f in j.buehne.zustand()["flaechen"]]
+    assert titel == ["Immobilien", "Objekt h4"]
+    with pytest.raises(BuehnenFehler):
+        j.buehne.rezept_anlegen("immobilienliste", "x", "zeigen")  # Werkzeug fehlt
+    with pytest.raises(BuehnenFehler):
+        j.buehne.rezept_anlegen("immobilienliste", "x", "zeigen", werkzeug="immo__read", vorlage_ziel="nix")
+    prompt = j._buehne_prompt()
+    assert "buehne_vorlage_zurueck" in prompt and "nie den Nutzer" in prompt

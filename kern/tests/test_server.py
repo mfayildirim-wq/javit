@@ -393,7 +393,10 @@ def test_buehne_rest_und_websocket():
             ende, mehr = _bis(ws, "antwort_ende")
             gesehen += mehr
         buehne = [e["nachricht"] for e in gesehen if e["typ"] == "buehne"]
-        assert [next(k for k in n if k != "version") for n in buehne] == ["stil", "createSurface", "updateComponents", "updateDataModel"]
+        assert [next(k for k in n if k != "version") for n in buehne] == ["stil", "createSurface", "updateComponents", "updateDataModel", "aktionen"]
+        assert buehne[4]["aktionen"]["schnell"][0]["vorlage"] == "immobilienliste" and list(buehne[4]["aktionen"]["varianten"]) == ["immobilienliste"]
+        stand = c.get("/api/buehne").json()
+        assert stand["schnellaktionen"][0]["titel"] == stand["flaechen"][0]["titel"] and "immobilienliste" in stand["varianten"]
         assert buehne[0]["stil"]["id"] == "neutral-eigen" and buehne[1]["createSurface"]["theme"] == {"stil": "neutral-eigen"}
         _bis(ws, "zustand")
         ws.send_json({"typ": "buehne_daten", "surfaceId": "immobilienliste", "path": "/suche", "value": "Hafen"})
@@ -419,6 +422,20 @@ def test_buehne_rest_und_websocket():
         assert c.delete("/api/buehne/rezepte/notiz-anlegen").json() == {"geloescht": True}
         assert c.get("/api/buehne/vorlagen/immobilienliste").json()["aktionen"] == {}
         assert c.post("/api/buehne/aktion", json={"name": "x", "surfaceId": "fehlt"}).status_code == 400
+        # Schnellaktion erneut: REST und WebSocket, ohne Modell
+        antwort = c.post("/api/buehne/erneut", json={"vorlage": "immobilienliste", "argumente": {}, "titel": "Objekte heute"})
+        erneut = antwort.json()
+        assert antwort.status_code == 200, erneut
+        assert erneut["vorlage"] == "immobilienliste" and erneut["titel"] == "Objekte heute" and erneut["anzahl"] == 1
+        assert c.post("/api/buehne/erneut", json={"vorlage": "fehlt"}).status_code == 404
+        ws.send_json({"typ": "buehne_erneut", "vorlage": "immobilienliste"})
+        n, _ = _bis(ws, "buehne")
+        while "aktionen" not in n["nachricht"]:
+            n, _ = _bis(ws, "buehne")
+        assert any(s["titel"] == "Objekte heute" for s in n["nachricht"]["aktionen"]["schnell"])
+        ws.send_json({"typ": "buehne_erneut", "vorlage": "fehlt"})
+        fehler, _ = _bis(ws, "fehler")
+        assert "gibt es nicht" in fehler["text"]
         assert c.delete("/api/buehne/flaechen/immobilienliste").json() == {"geschlossen": ["immobilienliste"]}
         geloescht, dazwischen = _bis(ws, "buehne")
         while "deleteSurface" not in geloescht["nachricht"]:  # davor: updateComponents/updateDataModel vom Zurücksetzen

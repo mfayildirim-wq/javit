@@ -5,6 +5,13 @@ import { api } from '../../api/rest';
 import type { Rezept, Stil, Vorlage } from '../../api/types';
 import { Abschnitt } from '../EinstellungsBausteine';
 
+/** Lesbare Kurzform eines Rezepts (hinter dem Aktionsnamen). */
+export function rezeptText(r: Rezept): string {
+  if (r.art === 'werkzeug') return ` → Werkzeug ${r.werkzeug ?? ''}`;
+  if (r.art === 'zeigen') return ` → Zeigen: ${r.werkzeug ?? '–'} → ${r.titel || r.vorlageZiel || 'neue Fläche'}`;
+  return ` → Auftrag: ${r.auftrag ?? ''}`;
+}
+
 function VorlageEintrag({ v, rezepte, stile, neuLaden, fehler }: { v: Vorlage; rezepte: Rezept[]; stile: Stil[]; neuLaden: () => void; fehler: (t: string) => void }) {
   const [umbenennen, setUmbenennen] = useState(false);
   const [name, setName] = useState(v.name);
@@ -43,7 +50,7 @@ function VorlageEintrag({ v, rezepte, stile, neuLaden, fehler }: { v: Vorlage; r
             return (
               <li key={aktion}>
                 <code>{aktion}</code>
-                <span className="feld-hilfe">{r ? (r.art === 'werkzeug' ? ` → Werkzeug ${r.werkzeug ?? ''}` : ` → Auftrag: ${r.auftrag ?? ''}`) : ' → noch kein Rezept'}</span>
+                <span className="feld-hilfe">{r ? rezeptText(r) : ' → noch kein Rezept'}</span>
                 {r && (
                   <button type="button" className="icon-knopf" aria-label={`Rezept „${aktion}“ löschen`} onClick={() => void aufruf(api.buehneRezeptLoeschen(r.id))}>
                     <Trash2 size={13} aria-hidden="true" />

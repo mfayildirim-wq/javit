@@ -4,6 +4,7 @@ Alles gilt global, nicht je Unterhaltung."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import datetime
@@ -221,6 +222,14 @@ class BuehnenSpeicher:
         _schreiben(self.ordner / "rezepte" / f"{kennung}.json", rezept)
         return rezept
 
+    def rezept_aendern(self, kennung: str, **felder: Any) -> dict[str, Any] | None:
+        r = self.rezept(kennung)
+        if r is None:
+            return None
+        r.update({k: v for k, v in felder.items() if v is not None})
+        _schreiben(self.ordner / "rezepte" / f"{kennung}.json", r)
+        return r
+
     def rezept_loeschen(self, kennung: str) -> bool:
         pfad = self.ordner / "rezepte" / f"{kennung}.json"
         if not pfad.exists():
@@ -290,6 +299,53 @@ class BuehnenSpeicher:
         sauber = {str(k): str(v) for k, v in (zuordnung or {}).items() if v}
         _schreiben(self.ordner / "zuordnung.json", sauber)
         return sauber
+
+    # ------------------------------------------------------------------ Verlauf (Schnellaktionen, Varianten)
+    MAX_VERLAUF = 50
+
+    def verlauf(self) -> list[dict[str, Any]]:
+        daten = _lesen(self.ordner / "verlauf.json", [])
+        return [e for e in daten if isinstance(e, dict) and e.get("vorlage")] if isinstance(daten, list) else []
+
+    def verlauf_merken(self, vorlage: str, titel: str, werkzeug: str, argumente: dict[str, Any] | None) -> dict[str, Any]:
+        """Anzeige merken: gleiche Vorlage + gleiche Argumente = ein Eintrag (Zähler hoch, Titel aktualisiert)."""
+        argumente = dict(argumente or {})
+        schluessel = json.dumps(argumente, sort_keys=True, ensure_ascii=False)
+        eintraege = self.verlauf()
+        for e in eintraege:
+            if e.get("vorlage") == vorlage and json.dumps(e.get("argumente") or {}, sort_keys=True, ensure_ascii=False) == schluessel:
+                e.update({"titel": titel or e.get("titel") or vorlage, "werkzeug": werkzeug, "zaehler": int(e.get("zaehler") or 0) + 1, "zuletzt": _jetzt()})
+                treffer = e
+                break
+        else:
+            treffer = {
+                "id": f"{vorlage}-{hashlib.sha1(schluessel.encode('utf-8')).hexdigest()[:8]}",
+                "titel": titel or vorlage,
+                "vorlage": vorlage,
+                "werkzeug": werkzeug,
+                "argumente": argumente,
+                "zaehler": 1,
+                "zuletzt": _jetzt(),
+            }
+            eintraege.append(treffer)
+        eintraege.sort(key=lambda e: str(e.get("zuletzt") or ""), reverse=True)
+        _schreiben(self.ordner / "verlauf.json", eintraege[: self.MAX_VERLAUF])
+        return treffer
+
+    def verlauf_vergessen(self, vorlage: str) -> None:
+        rest = [e for e in self.verlauf() if e.get("vorlage") != vorlage]
+        _schreiben(self.ordner / "verlauf.json", rest)
+
+    def schnellaktionen(self, limit: int = 8) -> list[dict[str, Any]]:
+        """Häufigste und zuletzt genutzte Anzeigen: Rang aus Zähler und Aktualität (jüngere Einträge zuerst bei Gleichstand)."""
+        eintraege = sorted(self.verlauf(), key=lambda e: str(e.get("zuletzt") or ""), reverse=True)
+        bewertet = [(int(e.get("zaehler") or 0) + max(0, len(eintraege) - i) / max(1, len(eintraege)), e) for i, e in enumerate(eintraege)]
+        bewertet.sort(key=lambda p: p[0], reverse=True)
+        return [e for _, e in bewertet[:limit]]
+
+    def varianten(self, vorlage: str, limit: int = 8) -> list[dict[str, Any]]:
+        """Zuletzt gezeigte Argumentsätze einer Vorlage (z. B. Wetter Stuttgart / Frankfurt), jüngste zuerst."""
+        return [e for e in self.verlauf() if e.get("vorlage") == vorlage][:limit]
 
     def flaechen_laden(self) -> list[dict[str, Any]]:
         daten = _lesen(self.ordner / "flaechen.json", [])
