@@ -317,3 +317,45 @@ async def test_varianten_nur_je_app():
     assert [v["titel"] for v in stand["varianten"]["immobilienliste"]] == ["Immobilien", "Makler, die ich kontaktieren soll"]  # GG-App: eigene Sicht zuerst, dann Makler
     assert all(v["app"] == "immo" for v in stand["varianten"]["makler"]) and stand["varianten"]["makler"][0]["titel"].startswith("Makler")
     assert len(stand["schnellaktionen"]) == 4
+
+
+async def test_vorlage_die_nicht_mehr_zum_ergebnis_passt_wird_neu_gebaut():
+    """Rückmeldung 29.10.: Die Wetter-Vorlage hatte eine strukturierte Abbildung (aus einer früheren Datenquelle), das
+    Werkzeug lieferte dann nur Text – die Abbildung fand nichts, die Fläche kam ohne Werte. Greift die Abbildung einer
+    vorhandenen Vorlage nicht, wird die Vorlage aus dem echten Ergebnis neu gebaut (neue Version, Signatur folgt)."""
+    textvorlage = {
+        "name": "Wetter Stuttgart",
+        "zweck": "Wetter als Text",
+        "abbildung": {"/text": "/text"},
+        "datenschema": {"type": "object", "properties": {"text": {"type": "string"}}},
+        "komponenten": [{"id": "root", "component": "Column", "children": ["t"]}, {"id": "t", "component": "Text", "text": {"path": "/text"}}],
+    }
+    strukturiert = {**GUELTIG, "name": "Wetter Stuttgart"}
+    j, skript, aufrufe, ereignisse = _mit_immobilien([text_chunks(json.dumps(strukturiert)), text_chunks(json.dumps(textvorlage))])
+    antwort = {"wert": json.dumps(ERGEBNIS)}
+
+    async def wetter(ort: str = "Stuttgart") -> str:
+        return antwort["wert"]
+
+    j.register.alle_registrieren([FunktionsWerkzeug(wetter, "immo__wetter", "Wetter", schema({"ort": {"type": "string"}}), "lesen", integration="immo")])
+    e1 = await j.buehne.zeigen("immo__wetter", {"ort": "Stuttgart"}, titel="Wetter Stuttgart")
+    assert e1["neu"] is True and j.buehne.speicher.vorlage(e1["vorlage"])["signatur"]["schluessel"] == ["items", "total"]
+
+    antwort["wert"] = "Wolkenlos, 10 Grad in Stuttgart"
+    ereignisse.clear()
+    # ausdrücklich gewählte Vorlage (umgeht die Signatur) – so war es beim Nutzer
+    e2 = await j.buehne.zeigen("immo__wetter", {"ort": "Stuttgart"}, titel="Wetter Stuttgart", vorlage=e1["vorlage"])
+    assert e2["vorlage"] == e1["vorlage"] and e2["neu"] is False and e2["umgebaut"] is True
+    daten = [n for n in _buehne(ereignisse) if "updateDataModel" in n][-1]["updateDataModel"]["value"]
+    assert daten["text"] == "Wolkenlos, 10 Grad in Stuttgart"
+    vorlage = j.buehne.speicher.vorlage(e1["vorlage"])
+    assert vorlage["version"] == 2 and vorlage["signatur"]["schluessel"] == ["text"] and vorlage["datenquelle"]["abbildung"] == {"/text": "/text"}
+    assert len(skript.aufrufe) == 2
+    # passt die Vorlage wieder (Text), wird sie ohne Modell wiederverwendet
+    e3 = await j.buehne.zeigen("immo__wetter", {"ort": "Stuttgart"}, titel="Wetter Stuttgart")
+    assert e3["neu"] is False and e3["umgebaut"] is False and len(skript.aufrufe) == 2
+    # Neu laden ohne Modell: passt das Ergebnis nicht mehr zur Vorlage, kommt ein Fehler statt einer leeren Fläche
+    antwort["wert"] = json.dumps(ERGEBNIS)
+    with pytest.raises(BuehnenFehler, match="passt nicht mehr"):
+        await j.buehne.neu_laden(e3["surfaceId"])
+    assert j.buehne.flaechen[e3["surfaceId"]]["daten"]["text"] == "Wolkenlos, 10 Grad in Stuttgart"

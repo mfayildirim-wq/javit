@@ -161,6 +161,22 @@ def abbildung_anwenden(abbildung: dict[str, str] | None, ergebnis: Any) -> Any:
     return modell
 
 
+def _hat_werte(wert: Any) -> bool:
+    if isinstance(wert, dict):
+        return any(_hat_werte(v) for v in wert.values())
+    if isinstance(wert, list):
+        return any(_hat_werte(v) for v in wert)
+    return wert is not None and wert != ""
+
+
+def abbildung_greift(abbildung: dict[str, str] | None, ergebnis: Any) -> bool:
+    """Liefert die Abbildung aus diesem Ergebnis überhaupt Werte? Ohne Abbildung oder bei leerem Ergebnis ja (dann ist
+    die Leere echt). Nein heißt: Die Vorlage passt nicht zur Form des Ergebnisses (z. B. Text statt JSON)."""
+    if not abbildung or not _hat_werte(ergebnis):
+        return True
+    return _hat_werte(abbildung_anwenden(abbildung, ergebnis))
+
+
 # ---------------------------------------------------------------- Ergebnisse
 def _markdown_tabelle(text: str) -> list[dict[str, str]] | None:
     zeilen = [z.strip() for z in text.strip().splitlines() if z.strip().startswith("|")]

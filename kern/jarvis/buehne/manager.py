@@ -13,7 +13,7 @@ import re
 import uuid
 from typing import Any, Awaitable, Callable
 
-from .daten import abbildung_anwenden, ergebnis_parsen, json_pointer_holen, json_pointer_setzen, signatur
+from .daten import abbildung_greift, abbildung_anwenden, ergebnis_parsen, json_pointer_holen, json_pointer_setzen, signatur
 from .erzeuger import STILFARBEN, Erzeuger, _hex_norm
 from .speicher import KATALOG_ID, PROTOKOLL_VERSION, BuehnenSpeicher, kennung_aus
 from .werkzeugflaechen import Werkzeugflaechen, WerkzeugflaechenFehler
@@ -206,6 +206,20 @@ class BuehnenManager:
                 signatur=sig,
                 modell=gebaut.get("modell"),
             )
+        elif not abbildung_greift(vorlage["datenquelle"].get("abbildung") or {}, daten):
+            # Die Vorlage passt nicht zur Form dieses Ergebnisses (andere Datenquelle, Text statt JSON …): aus dem echten
+            # Ergebnis neu bauen, als neue Version derselben Vorlage – statt einer Fläche ohne Werte
+            umgebaut = True
+            gebaut = await self.erzeuger.vorlage_bauen(werkzeug, daten, wunsch=wunsch, stil=self.speicher.stil(stil_id), titel=titel or vorlage["name"])
+            vorlage = self.speicher.vorlage_neue_version(
+                vorlage["id"],
+                komponenten=gebaut["komponenten"],
+                datenschema=gebaut.get("datenschema"),
+                datenquelle={"werkzeug": werkzeug, "argumente": argumente, "abbildung": gebaut.get("abbildung") or {}},
+                modell=gebaut.get("modell"),
+                signatur=sig,
+            )
+            log.info("Bühne: Abbildung der Vorlage %s greift nicht mehr – aus dem Ergebnis neu gebaut (Version %s)", vorlage["id"], vorlage.get("version"))
         elif wunsch:
             umgebaut = True
             geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
@@ -215,6 +229,7 @@ class BuehnenManager:
                 datenschema=geaendert.get("datenschema"),
                 datenquelle={**vorlage["datenquelle"], "argumente": argumente, "abbildung": geaendert.get("abbildung") or {}},
                 modell=geaendert.get("modell"),
+                signatur=sig,
             )
         modell = self._mischen(vorlage["id"], self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
         self._roh[vorlage["id"]] = daten
@@ -266,6 +281,11 @@ class BuehnenManager:
             raise BuehnenFehler(f"Vorlage „{flaeche['vorlage']}“ hat keine Datenquelle.")
         quelle = vorlage["datenquelle"]
         daten = ergebnis_parsen(await self._werkzeug(quelle["werkzeug"], dict(quelle.get("argumente") or {})))
+        if not abbildung_greift(quelle.get("abbildung") or {}, daten):
+            raise BuehnenFehler(
+                "Das Ergebnis der Datenquelle passt nicht mehr zur Vorlage (die Abbildung findet keine Werte) – "
+                "die Sicht mit buehne_zeigen neu anzeigen, dann wird die Vorlage aus dem Ergebnis neu gebaut."
+            )
         self._roh[vorlage["id"]] = daten
         return await self.daten_setzen(surface_id, self._mischen(surface_id, self._datenmodell(quelle.get("abbildung") or {}, daten)))
 

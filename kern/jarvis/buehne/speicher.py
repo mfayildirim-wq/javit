@@ -148,8 +148,11 @@ class BuehnenSpeicher:
         datenschema: Any = None,
         datenquelle: dict[str, Any] | None = None,
         modell: str | None = None,
+        signatur: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         roh = self._vorlage_roh(kennung)
+        if signatur:
+            roh["signatur"] = dict(signatur)  # die Wiedererkennung folgt der aktuellen Datenquelle
         versionen = roh.setdefault("versionen", [])
         letzte = versionen[-1] if versionen else {}
         neu = {

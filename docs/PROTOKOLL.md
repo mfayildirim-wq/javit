@@ -478,3 +478,27 @@ mit pwsh geparst (nicht ausgeführt).
   Fläche nur diese, ohne Fläche die globalen; `_rohdaten()` führt die Datenquelle bei fehlenden Rohdaten erneut aus,
   `buehne_vorlage_aendern(neu_bauen=true)` entwirft die Vorlage komplett neu („gefällt mir nicht“), der Prompt verlangt
   den Aufruf sofort bei solchen Sätzen.
+
+## 29.10.2026 – Katalog: GG Immobilienhandel
+
+- Linux-Arbeitskopie per Fast-Forward auf den Stand des Mac gezogen (fünf Bühnen-Commits).
+- Neuer Katalogeintrag `integrationen/katalog/gg-immobilienhandel.yaml` (`mcp_http`, Kategorie Vertrieb, Bereich fachlich):
+  eigener MCP-Server der Immobilien-App unter `${GG_URL}/api/mcp` mit Bearer-Schlüssel, Standardadresse
+  `https://gg-immobilienhandel-test.vercel.app`. Der Server antwortet ohne Schlüssel mit 401 ohne `resource_metadata`,
+  OAuth-Entdeckung scheidet also aus – fester Schlüssel aus `MCP_API_KEYS` (SHA-256-Hash in der App). OpenAPI verworfen,
+  weil die REST-API ein ablaufendes Supabase-JWT verlangt. Noch nicht live verbunden (Schlüssel muss der Nutzer in der
+  App hinterlegen).
+- Rückmeldung: „Wetter Stuttgart“ auf der Bühne zeigte nur die Vorlage, keine Werte. Ursache: Die Vorlage `wetter-stuttgart`
+  (Datenquelle `shell_befehl`) trug seit einem Umbau per Wunsch eine strukturierte Abbildung (`/ort`, `/tag`, …) und die
+  stale Signatur `["text"]` – die Signatur wurde bei neuen Versionen nie nachgeführt, und `vorlage_aendern` prüft die
+  Abbildung nicht gegen das Ergebnis (`vorlage_bauen` tut das). Lieferte `curl wttr.in` dann wieder Text, wählte `zeigen`
+  die Vorlage (per Signatur/Titel oder ausdrücklich `vorlage=`) und die Abbildung fand nichts → Datenmodell aus lauter
+  `null`, keine Meldung. Fix: `daten.abbildung_greift()`; in `zeigen` wird eine gewählte Vorlage, deren Abbildung aus dem
+  Ergebnis keine Werte liefert, aus dem echten Ergebnis neu gebaut (neue Version, Signatur folgt dem Ergebnis –
+  `vorlage_neue_version(signatur=…)`, auch im Wunsch-Pfad); `neu_laden` meldet einen Fehler statt einer leeren Fläche.
+  Test `test_vorlage_die_nicht_mehr_zum_ergebnis_passt_wird_neu_gebaut`. Der laufende Kern muss neu gestartet werden,
+  die kaputte Vorlage repariert sich beim nächsten Zeigen selbst.
+- Auf dem Linux-Rechner schlagen 8 Tests unabhängig von diesen Änderungen fehl (auch auf HEAD): Windows-Skripte liegen
+  durch Git-Zeilenende-Umwandlung ohne CRLF vor, `~/Documents` fehlt (deutsches Home: `~/Dokumente`), Papierkorb-Tests
+  (gio) und `test_abbrechen_waehrend_freigabe`, `test_browser_oeffnen_schritte_bild_und_knoepfe` (Screenshot-Zähler).
+  Noch nicht untersucht.
