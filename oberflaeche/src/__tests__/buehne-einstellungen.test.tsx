@@ -150,9 +150,9 @@ describe('Einstellungen → Bühne', () => {
     render(<BuehneEinstellungen />);
     const form = await screen.findByRole('form', { name: 'Stil ableiten' });
     await u.type(within(form).getByLabelText('Name des Stils'), 'GG Immo');
-    await u.type(within(form).getByLabelText('Adresse (https)'), 'https://gg-immobilienhandel-test.vercel.app');
+    await u.type(within(form).getByLabelText('Adresse (https)'), 'https://immo-app.example');
     await u.click(within(form).getByRole('button', { name: 'Stil ableiten' }));
-    expect(aufrufe).toContainEqual({ methode: 'POST', pfad: '/api/buehne/stile', body: { name: 'GG Immo', quelle: { art: 'url', wert: 'https://gg-immobilienhandel-test.vercel.app' } } });
+    expect(aufrufe).toContainEqual({ methode: 'POST', pfad: '/api/buehne/stile', body: { name: 'GG Immo', quelle: { art: 'url', wert: 'https://immo-app.example' } } });
     expect(await within(form).findByText(/„GG Immo“ angelegt/)).toBeInTheDocument();
 
     await u.click(within(within(form).getByRole('radiogroup', { name: 'Quelle' })).getByRole('radio', { name: 'Klassen einfügen' }));

@@ -170,11 +170,28 @@ def _hat_werte(wert: Any) -> bool:
 
 
 def abbildung_greift(abbildung: dict[str, str] | None, ergebnis: Any) -> bool:
-    """Liefert die Abbildung aus diesem Ergebnis überhaupt Werte? Ohne Abbildung oder bei leerem Ergebnis ja (dann ist
-    die Leere echt). Nein heißt: Die Vorlage passt nicht zur Form des Ergebnisses (z. B. Text statt JSON)."""
+    """Passt die Abbildung zur Form des Ergebnisses? Ja, wenn mindestens ein Quellpfad im Ergebnis etwas findet – auch
+    eine leere Liste (die Leere ist dann echt und darf angezeigt werden). Ohne Abbildung oder bei leerem Ergebnis ja.
+    Nein heißt: anderes Format (z. B. Text statt JSON, andere Schlüssel)."""
     if not abbildung or not _hat_werte(ergebnis):
         return True
-    return _hat_werte(abbildung_anwenden(abbildung, ergebnis))
+    for quelle in abbildung.values():
+        pfad = str(quelle).partition("|")[0].strip()
+        if pfad in ("", "/") or json_pointer_holen(ergebnis, pfad) is not None:
+            return True
+    return False
+
+
+FEHLER_PRAEFIXE = ("fehler", "error", "nicht ausgeführt", "unbekanntes werkzeug", "http 4", "http 5", "timeout", "zeitüberschreitung", "mcp-fehler", "dienst nicht erreichbar", "service unavailable")
+
+
+def ist_nur_text(daten: Any) -> bool:
+    return isinstance(daten, dict) and set(daten) == {"text"}
+
+
+def ist_fehlertext(daten: Any) -> bool:
+    """Werkzeugergebnis, das nur eine Fehlermeldung ist (statt Daten) – darf nie zu einer Vorlage werden."""
+    return ist_nur_text(daten) and str(daten["text"]).strip().lower().startswith(FEHLER_PRAEFIXE)
 
 
 # ---------------------------------------------------------------- Ergebnisse
@@ -270,9 +287,10 @@ def _groesste_liste(daten: Any) -> tuple[str, list[Any]] | None:
         return None
     beste: tuple[str, list[Any]] | None = None
     for schluessel, wert in daten.items():
-        if isinstance(wert, list) and wert and all(isinstance(e, dict) for e in wert):
-            if beste is None or len(wert) > len(beste[1]) or (schluessel in _LISTEN_SCHLUESSEL and len(wert) == len(beste[1])):
-                beste = (f"/{schluessel}", wert)
+        if not (isinstance(wert, list) and wert and all(isinstance(e, dict) for e in wert)):
+            continue
+        if beste is None or len(wert) > len(beste[1]) or (schluessel in _LISTEN_SCHLUESSEL and len(wert) == len(beste[1])):
+            beste = (f"/{schluessel}", wert)
     return beste
 
 
@@ -335,7 +353,7 @@ def standardvorlage(werkzeug: str, ergebnis: Any, titel: str) -> dict[str, Any]:
             "datenschema": {"type": "object", "properties": {"eintraege": {"type": "array"}, "anzahl": {"type": "integer"}}},
             "anzahl_pfad": pfad,
         }
-    if isinstance(daten, dict) and daten and not (set(daten) == {"text"}):
+    if isinstance(daten, dict) and daten and set(daten) != {"text"}:
         kinder = ["titel"]
         komponenten: list[dict[str, Any]] = [kopf]
         for i, (schluessel, wert) in enumerate(list(daten.items())[:12]):

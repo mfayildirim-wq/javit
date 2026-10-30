@@ -28,7 +28,9 @@ def werkzeuge(manager: BuehnenManager) -> list[FunktionsWerkzeug]:
         e = await manager.zeigen(str(werkzeug), argumente or {}, titel=titel, wunsch=wunsch or "", integration=integration, vorlage=vorlage or None)
         if e["neu"]:
             hinweis = "neue Vorlage gebaut" + (" nach deinem Wunsch" if wunsch else "")
-        elif e.get("umgebaut"):
+        elif e.get("grund") == "form":
+            hinweis = "vorhandene Vorlage passte nicht mehr zur Form des Ergebnisses und wurde aus dem Ergebnis neu gebaut (neue Version)"
+        elif e.get("grund") == "wunsch":
             hinweis = "vorhandene Vorlage nach deinem Wunsch umgebaut (neue Version)"
         else:
             hinweis = "vorhandene Vorlage mit den aktuellen Daten befüllt"

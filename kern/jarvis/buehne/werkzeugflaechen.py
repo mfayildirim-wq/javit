@@ -12,7 +12,8 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 log = logging.getLogger("jarvis.buehne")
 
@@ -174,7 +175,7 @@ class Werkzeugflaechen:
         raise WerkzeugflaechenFehler(f"Keine Werkzeugfläche „{kennung}“. Verfügbar: " + ", ".join(sorted(defs)) + ".")
 
     def _fuer_werkzeug(self, name: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
-        for kennung, z in self.offen.items():
+        for z in self.offen.values():
             d = z["definition"]
             if (d["praefix"] and name.startswith(d["praefix"])) or name in d.get("werkzeuge", []):
                 return d, z

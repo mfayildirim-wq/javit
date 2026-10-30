@@ -222,7 +222,7 @@ class McpVerbindung:
             )
         try:
             ergebnis = await asyncio.wait_for(session.call_tool(name, argumente), self.aufruf_timeout)
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise WerkzeugFehler(f"Zeitüberschreitung bei {name} ({self.aufruf_timeout:.0f} s)") from e
         except Exception as e:  # noqa: BLE001
             if self._task is not None and self._task.done():
@@ -243,7 +243,7 @@ class McpVerbindung:
         if task and not task.done():
             try:
                 await asyncio.wait_for(asyncio.shield(task), timeout=10)
-            except (asyncio.TimeoutError, Exception):  # noqa: BLE001
+            except Exception:  # noqa: BLE001
                 task.cancel()
                 try:
                     await task

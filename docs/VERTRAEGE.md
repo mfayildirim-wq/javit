@@ -135,7 +135,12 @@ https/data-URL); die Oberfläche rendert den Katalog mit eigenen React-Komponent
   Werkzeugergebnis; Formatierer `datum`, `waehrung:EUR`, `zahl:n`, `zeilen` (spaltenweise Daten – Objekt aus Listen –
   → Liste von Einträgen). JSON wird auch hinter einem kurzen Präfix erkannt (z. B. `HTTP 200` der REST-Werkzeuge).
   Entsteht für eine Sicht eine strukturierte Vorlage, ersetzt sie eine frühere Rohtext-Vorlage (Signatur nur `text`)
-  derselben Sicht samt Fläche und Verlauf. Ergebnisse ohne JSON: Markdown-Tabellen und
+  derselben Sicht samt Fläche und Verlauf. Passt die Abbildung einer gewählten Vorlage nicht zur Form des Ergebnisses
+  (`abbildung_greift`: kein Quellpfad findet etwas – leere Listen gelten als echt), wird sie aus dem Ergebnis neu gebaut
+  (neue Version, `grund: form`); liefert das Werkzeug dabei nur Text oder eine Fehlermeldung (`ist_fehlertext`), bleibt
+  die Fläche unverändert und `buehne_zeigen` meldet einen Fehler. Signatur und Zweck liegen je Version, `zurueck` stellt
+  sie wieder her; eine vom Modell geänderte Abbildung wird gegen das echte Ergebnis geprüft (sonst bleibt die alte);
+  `neu_laden` nutzt die Argumente der gezeigten Variante. Ergebnisse ohne JSON: Markdown-Tabellen und
   listenartiger Text (Aufzählung/Blöcke mit `Schlüssel: Wert`-Zeilen, mehrere Paare je Zeile durch `|`) →
   `eintraege`, sonst `text`. Fehlt `anzahl`, ergänzt der Manager sie aus `eintraege`/der einzigen Liste.
 * **Rezept** (`rezepte/<id>.json`): `{id, name, art: werkzeug|agent|zeigen, vorlage, aktion, werkzeug?, argumentAbbildung?:

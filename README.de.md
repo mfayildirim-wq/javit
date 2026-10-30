@@ -359,7 +359,7 @@ der **Bühne** oberhalb des Chats als bedienbare Oberfläche – nicht als Flie�
 * Jede Sicht (Immobilien, Makler, Wetter …) hat ihre eigene Vorlage und Fläche. Oben in der Bühne stehen die zuletzt
   und am häufigsten gezeigten Sichten als Knöpfe – „Wetter Stuttgart“ und „Wetter Frankfurt“ wechseln so mit einem
   Klick, ohne dass das Modell gefragt wird.
-* **Werkzeuge auf der Bühne**: Sagst du „Browser: geh auf gg-immobilienhandel und öffne die Deals“ oder „Shell: zeig
+* **Werkzeuge auf der Bühne**: Sagst du „Browser: öffne meine Immobilien-App und zeig die Deals“ oder „Shell: zeig
   den Speicherplatz“, öffnet Javit die passende Werkzeugfläche und arbeitet dort sichtbar – der Browser mit Screenshot
   nach jedem Schritt (unsichtbar im Hintergrund oder auf Wunsch „im Fenster“ sichtbar), die Shell als Terminal mit
   Befehlszeile. Ohne solch ein Kommando bleibt die Bühne unberührt.

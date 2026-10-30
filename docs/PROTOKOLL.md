@@ -502,3 +502,19 @@ mit pwsh geparst (nicht ausgeführt).
   durch Git-Zeilenende-Umwandlung ohne CRLF vor, `~/Documents` fehlt (deutsches Home: `~/Dokumente`), Papierkorb-Tests
   (gio) und `test_abbrechen_waehrend_freigabe`, `test_browser_oeffnen_schritte_bild_und_knoepfe` (Screenshot-Zähler).
   Noch nicht untersucht.
+
+## 30.10.2026 – Privater Katalogeintrag entfernt, Code-Durchsicht Bühne
+
+- `integrationen/katalog/gg-immobilienhandel.yaml` wieder entfernt: GG ist die private App des Nutzers und gehört nicht
+  in den mitgelieferten Katalog. Eigene Einträge gehören nach `~/.jarvis/katalog/` (wird vom Katalog mitgeladen) oder
+  werden wie bisher als MCP-Integration direkt hinzugefügt. README-Beispiele und ein UI-Test nennen die App nicht mehr.
+- Code-Durchsicht `kern/jarvis/buehne` (`/code-review medium`, 15 Funde) und Ruff: Der Neubau-Zweig aus d2cabfa
+  behandelte leere Listen und Fehlertexte als „Vorlage passt nicht“ (Neubau per Modell aus einer Störung, bei
+  Schnellaktionen/Rezepten gleich zweimal); Rückgängig stellte die Signatur nicht zurück; Umbauten übernahmen erfundene
+  Abbildungen ungeprüft; `neu_laden` lud die Argumente der Vorlage statt der gezeigten Variante; Datenquelle wurde an drei
+  Stellen unterschiedlich gebaut; Ergebnistext nannte „nach deinem Wunsch“ auch beim Formwechsel. Behoben:
+  `abbildung_greift` prüft Quellpfade (leer = echt), `ist_fehlertext` mit breiteren Präfixen, Text gegen strukturierte
+  Vorlage = Fehler statt Neubau, Signatur/Zweck je Version und Rückgängig, `_abbildung_pruefen` in Umbau und Wunsch-Zweig,
+  `_datenquelle()`-Helfer, `_rohdaten(frisch=True)` nach Rückgängig, Grund `form|wunsch` im Werkzeugtext; Reparatur-
+  schleife im Erzeuger ohne `noqa`, `contextlib.suppress`, `collections.abc`-Importe. Ruff (E,F,W,B,UP,SIM) ist für
+  `jarvis/buehne` sauber; `ruff` liegt jetzt in der venv.

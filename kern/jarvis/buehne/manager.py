@@ -7,13 +7,15 @@ Agenten (mit Freigaberegeln); Aufträge an den Assistenten über ``anfrage``.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
 import uuid
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from .daten import abbildung_greift, abbildung_anwenden, ergebnis_parsen, json_pointer_holen, json_pointer_setzen, signatur
+from .daten import abbildung_anwenden, abbildung_greift, ergebnis_parsen, ist_fehlertext, ist_nur_text, json_pointer_holen, json_pointer_setzen, signatur
 from .erzeuger import STILFARBEN, Erzeuger, _hex_norm
 from .speicher import KATALOG_ID, PROTOKOLL_VERSION, BuehnenSpeicher, kennung_aus
 from .werkzeugflaechen import Werkzeugflaechen, WerkzeugflaechenFehler
@@ -41,6 +43,11 @@ def titel_passt(titel: str, name: str) -> bool:
     woerter_a = [w for w in a.split("-") if len(w) >= 4 and w not in _FUELLWOERTER]
     woerter_b = [w for w in b.split("-") if len(w) >= 4 and w not in _FUELLWOERTER]
     return any(x == y or x.startswith(y) or y.startswith(x) for x in woerter_a for y in woerter_b)
+
+
+def _datenquelle(werkzeug: str, argumente: dict[str, Any], abbildung: Any) -> dict[str, Any]:
+    """Einheitliche Datenquelle einer Vorlagenversion: Werkzeug, Argumente, Abbildung (immer alle drei, immer aktuell)."""
+    return {"werkzeug": werkzeug, "argumente": dict(argumente or {}), "abbildung": dict(abbildung) if isinstance(abbildung, dict) else {}}
 
 
 class BuehnenFehler(RuntimeError):
@@ -166,12 +173,7 @@ class BuehnenManager:
         if not self._aktiv():
             raise BuehnenFehler("Die Bühne ist in den Einstellungen ausgeschaltet.")
         argumente = dict(argumente or {})
-        text = await self._werkzeug(werkzeug, argumente)
-        daten = ergebnis_parsen(text)
-        if isinstance(daten, dict) and set(daten) == {"text"} and str(daten["text"]).lower().startswith(("fehler", "nicht ausgeführt", "unbekanntes werkzeug")):
-            raise BuehnenFehler(str(daten["text"])[:300])
-        if isinstance(daten, dict) and set(daten) == {"text"} and "Zeichen ausgelassen)" in str(daten["text"])[-60:]:
-            raise BuehnenFehler("Das Ergebnis wurde gekürzt und ist dadurch nicht auswertbar; schränke die Abfrage ein (weniger Einträge).")
+        daten = await self._ergebnis_holen(werkzeug, argumente)
         sig = signatur(werkzeug, daten)
         gewaehlt: dict[str, Any] | None
         if vorlage:
@@ -185,7 +187,8 @@ class BuehnenManager:
             gewaehlt = kandidaten[0] if kandidaten else None
         vorlage = gewaehlt
         neu = vorlage is None
-        umgebaut = False
+        grund: str | None = None  # „form“ (Ergebnisform geändert) oder „wunsch“ (Umbau nach Wunsch)
+        mischen = True
         stil_id = self.stil_fuer(vorlage, integration, werkzeug)
         if vorlage is None:
             # Selbstreparatur: eine frühere Rohtext-Vorlage derselben Sicht (Ergebnis war damals nicht lesbar) weicht der neuen
@@ -202,43 +205,73 @@ class BuehnenManager:
                 gebaut.get("zweck", ""),
                 gebaut["komponenten"],
                 gebaut.get("datenschema"),
-                {"werkzeug": werkzeug, "argumente": argumente, "abbildung": gebaut.get("abbildung") or {}},
+                _datenquelle(werkzeug, argumente, gebaut.get("abbildung")),
                 signatur=sig,
                 modell=gebaut.get("modell"),
             )
         elif not abbildung_greift(vorlage["datenquelle"].get("abbildung") or {}, daten):
-            # Die Vorlage passt nicht zur Form dieses Ergebnisses (andere Datenquelle, Text statt JSON …): aus dem echten
-            # Ergebnis neu bauen, als neue Version derselben Vorlage – statt einer Fläche ohne Werte
-            umgebaut = True
+            if ist_nur_text(daten):
+                # Text statt der erwarteten Daten: nie eine gute Vorlage aus einem Text (oft eine Störung) neu bauen
+                raise BuehnenFehler(
+                    f"„{vorlage['name']}“ erwartet strukturierte Daten, das Werkzeug lieferte nur Text: {str(daten['text'])[:200]} – "
+                    "Fläche unverändert. Abfrage prüfen oder die Sicht unter einem anderen Titel neu zeigen."
+                )
+            # Die Daten haben eine andere Form (andere Schlüssel/Datenquelle): aus dem echten Ergebnis neu bauen,
+            # als neue Version derselben Vorlage – statt einer Fläche ohne Werte
+            grund, mischen = "form", False
             gebaut = await self.erzeuger.vorlage_bauen(werkzeug, daten, wunsch=wunsch, stil=self.speicher.stil(stil_id), titel=titel or vorlage["name"])
             vorlage = self.speicher.vorlage_neue_version(
                 vorlage["id"],
                 komponenten=gebaut["komponenten"],
                 datenschema=gebaut.get("datenschema"),
-                datenquelle={"werkzeug": werkzeug, "argumente": argumente, "abbildung": gebaut.get("abbildung") or {}},
+                datenquelle=_datenquelle(werkzeug, argumente, gebaut.get("abbildung")),
                 modell=gebaut.get("modell"),
                 signatur=sig,
+                zweck=gebaut.get("zweck"),
             )
             log.info("Bühne: Abbildung der Vorlage %s greift nicht mehr – aus dem Ergebnis neu gebaut (Version %s)", vorlage["id"], vorlage.get("version"))
         elif wunsch:
-            umgebaut = True
-            geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
+            grund = "wunsch"
+            alt_abbildung = vorlage["datenquelle"].get("abbildung") or {}
+            geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=self._datenmodell(alt_abbildung, daten))
+            abbildung = self._abbildung_pruefen(vorlage["id"], geaendert.get("abbildung"), alt_abbildung, daten)
             vorlage = self.speicher.vorlage_neue_version(
                 vorlage["id"],
                 komponenten=geaendert["komponenten"],
                 datenschema=geaendert.get("datenschema"),
-                datenquelle={**vorlage["datenquelle"], "argumente": argumente, "abbildung": geaendert.get("abbildung") or {}},
+                datenquelle=_datenquelle(werkzeug, argumente, abbildung),
                 modell=geaendert.get("modell"),
                 signatur=sig,
+                zweck=geaendert.get("zweck"),
             )
-        modell = self._mischen(vorlage["id"], self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten))
+        modell = self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, daten)
+        if mischen:
+            modell = self._mischen(vorlage["id"], modell)
         self._roh[vorlage["id"]] = daten
         flaeche = await self._flaeche_senden(vorlage["id"], titel or vorlage["name"], stil_id, vorlage["komponenten"], modell, vorlage["id"])
         flaeche["argumente"] = argumente
         self.speicher.verlauf_merken(vorlage["id"], flaeche["titel"], werkzeug, argumente)
         self._speichern()
         await self._aktionen_melden()
-        return {"surfaceId": flaeche["surfaceId"], "titel": flaeche["titel"], "vorlage": vorlage["id"], "neu": neu, "umgebaut": umgebaut, "anzahl": modell.get("anzahl"), "stil": stil_id}
+        return {"surfaceId": flaeche["surfaceId"], "titel": flaeche["titel"], "vorlage": vorlage["id"], "neu": neu, "umgebaut": grund is not None, "grund": grund, "anzahl": modell.get("anzahl"), "stil": stil_id}
+
+    async def _ergebnis_holen(self, werkzeug: str, argumente: dict[str, Any]) -> Any:
+        """Werkzeug ausführen und das Ergebnis als Daten liefern; Fehlermeldungen und gekürzte Ergebnisse sind Fehler."""
+        daten = ergebnis_parsen(await self._werkzeug(werkzeug, argumente))
+        if ist_fehlertext(daten):
+            raise BuehnenFehler(str(daten["text"])[:300])
+        if ist_nur_text(daten) and "Zeichen ausgelassen)" in str(daten["text"])[-60:]:
+            raise BuehnenFehler("Das Ergebnis wurde gekürzt und ist dadurch nicht auswertbar; schränke die Abfrage ein (weniger Einträge).")
+        return daten
+
+    @staticmethod
+    def _abbildung_pruefen(vorlage_id: str, neu: Any, alt: dict[str, str], daten: Any) -> dict[str, str]:
+        """Vom Modell geänderte Abbildung nur übernehmen, wenn sie im echten Ergebnis Werte findet; sonst bleibt die alte."""
+        if isinstance(neu, dict) and neu and abbildung_greift(neu, daten):
+            return {str(k): str(v) for k, v in neu.items()}
+        if isinstance(neu, dict) and neu:
+            log.warning("Bühne: geänderte Abbildung der Vorlage %s findet im Ergebnis nichts – alte Abbildung bleibt", vorlage_id)
+        return dict(alt)
 
     async def erneut(self, vorlage_id: str, argumente: dict[str, Any] | None = None, titel: str | None = None) -> dict[str, Any]:
         """Schnellaktion/Variante: Datenwerkzeug der Vorlage mit diesen Argumenten ausführen und die Vorlage befüllen (ohne Modell)."""
@@ -280,7 +313,9 @@ class BuehnenManager:
         if not vorlage or not vorlage["datenquelle"].get("werkzeug"):
             raise BuehnenFehler(f"Vorlage „{flaeche['vorlage']}“ hat keine Datenquelle.")
         quelle = vorlage["datenquelle"]
-        daten = ergebnis_parsen(await self._werkzeug(quelle["werkzeug"], dict(quelle.get("argumente") or {})))
+        # die Fläche zeigt ggf. eine Variante (andere Argumente als die Vorlage) – genau die neu laden
+        argumente = flaeche.get("argumente") if isinstance(flaeche.get("argumente"), dict) else dict(quelle.get("argumente") or {})
+        daten = await self._ergebnis_holen(str(quelle["werkzeug"]), argumente)
         if not abbildung_greift(quelle.get("abbildung") or {}, daten):
             raise BuehnenFehler(
                 "Das Ergebnis der Datenquelle passt nicht mehr zur Vorlage (die Abbildung findet keine Werte) – "
@@ -306,12 +341,16 @@ class BuehnenManager:
         else:
             beispiel = flaeche.get("daten") if flaeche else None
             geaendert = await self.erzeuger.vorlage_aendern(vorlage, wunsch, beispiel_daten=beispiel)
+        alt_abbildung = vorlage["datenquelle"].get("abbildung") or {}
+        abbildung = self._abbildung_pruefen(vorlage_id, geaendert.get("abbildung"), alt_abbildung, roh) if roh is not None else (geaendert.get("abbildung") or alt_abbildung)
+        quelle = vorlage["datenquelle"]
         neu = self.speicher.vorlage_neue_version(
             vorlage_id,
             komponenten=geaendert["komponenten"],
             datenschema=geaendert.get("datenschema"),
-            datenquelle={**vorlage["datenquelle"], "abbildung": geaendert.get("abbildung") or vorlage["datenquelle"].get("abbildung") or {}},
+            datenquelle=_datenquelle(str(quelle.get("werkzeug") or ""), quelle.get("argumente") or {}, abbildung),
             modell=geaendert.get("modell"),
+            zweck=geaendert.get("zweck"),
         )
         await self._komponenten_anwenden(neu)
         return {"vorlage": neu["id"], "version": neu["version"]}
@@ -321,20 +360,21 @@ class BuehnenManager:
         await self._komponenten_anwenden(vorlage)
         return {"vorlage": vorlage["id"], "version": vorlage["version"]}
 
-    async def _rohdaten(self, vorlage: dict[str, Any]) -> Any:
-        """Letztes Werkzeugergebnis der Vorlage; nach einem Neustart wird die Datenquelle dafür erneut ausgeführt."""
+    async def _rohdaten(self, vorlage: dict[str, Any], frisch: bool = False) -> Any:
+        """Letztes Werkzeugergebnis der Vorlage; nach einem Neustart (oder mit ``frisch``) wird die Datenquelle mit den
+        Argumenten der offenen Fläche erneut ausgeführt."""
         roh = self._roh.get(vorlage["id"])
-        if roh is not None:
+        if roh is not None and not frisch:
             return roh
         quelle = vorlage.get("datenquelle") or {}
         if not quelle.get("werkzeug"):
             return None
+        flaeche = self.flaechen.get(vorlage["id"]) or {}
+        argumente = flaeche.get("argumente") if isinstance(flaeche.get("argumente"), dict) else dict(quelle.get("argumente") or {})
         try:
-            roh = ergebnis_parsen(await self._werkzeug(str(quelle["werkzeug"]), dict(quelle.get("argumente") or {})))
+            roh = await self._ergebnis_holen(str(quelle["werkzeug"]), argumente)
         except Exception as exc:  # noqa: BLE001
             log.warning("Bühne: Datenquelle von %s nicht ausführbar (%s)", vorlage["id"], exc)
-            return None
-        if isinstance(roh, dict) and set(roh) == {"text"} and str(roh["text"]).startswith("FEHLER"):
             return None
         self._roh[vorlage["id"]] = roh
         return roh
@@ -345,7 +385,13 @@ class BuehnenManager:
             return
         flaeche["components"] = vorlage["komponenten"]
         await self._nachricht({"updateComponents": {"surfaceId": vorlage["id"], "components": vorlage["komponenten"]}})
+        abbildung = vorlage["datenquelle"].get("abbildung") or {}
         roh = await self._rohdaten(vorlage)
+        if roh is not None and not abbildung_greift(abbildung, roh):
+            roh = await self._rohdaten(vorlage, frisch=True)  # z. B. nach Rückgängig: alte Abbildung, aber neue Ergebnisform im Speicher
+        if roh is not None and not abbildung_greift(abbildung, roh):
+            log.warning("Bühne: Abbildung der Vorlage %s findet im aktuellen Ergebnis nichts – Datenmodell unverändert", vorlage["id"])
+            roh = None
         if roh is not None:
             flaeche["daten"] = self._mischen(vorlage["id"], self._datenmodell(vorlage["datenquelle"].get("abbildung") or {}, roh))
             await self._nachricht({"updateDataModel": {"surfaceId": vorlage["id"], "path": "/", "value": flaeche["daten"]}})
@@ -456,10 +502,8 @@ class BuehnenManager:
             argumente = {k: self._argument(v, context) for k, v in (rezept.get("argumentAbbildung") or {}).items()}
             ergebnis = await self._werkzeug(str(rezept["werkzeug"]), argumente)
             if vorlage and vorlage["datenquelle"].get("werkzeug") and rezept.get("neuLaden", True):
-                try:
+                with contextlib.suppress(BuehnenFehler):
                     await self.neu_laden(surface_id)
-                except BuehnenFehler:
-                    pass
             kennung = f"buehne_{uuid.uuid4().hex[:10]}"
             text = f"{rezept.get('name', name)}: {str(ergebnis)[:600]}"
             await self._senden({"typ": "antwort_start", "id": kennung})
@@ -538,10 +582,8 @@ class BuehnenManager:
                 neu["werte"][feld] = werte[feld]
         for feld in ("rundung", "abstand"):
             if feld in werte:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     neu["werte"][feld] = int(werte[feld])
-                except (TypeError, ValueError):
-                    pass
         if isinstance(werte.get("schrift"), dict):
             neu["werte"]["schrift"].update({k: v for k, v in werte["schrift"].items() if k in ("familie", "basisgroesse")})
         if isinstance(aenderungen.get("vorlieben"), dict):

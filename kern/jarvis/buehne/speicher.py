@@ -129,7 +129,7 @@ class BuehnenSpeicher:
             "aktionen": dict(aktionen or {}),
             "erstellt": _jetzt(),
             "versionen": [
-                {"version": 1, "komponenten": komponenten, "datenschema": datenschema, "datenquelle": datenquelle, "geaendert": _jetzt(), "modell": modell}
+                {"version": 1, "komponenten": komponenten, "datenschema": datenschema, "datenquelle": datenquelle, "geaendert": _jetzt(), "modell": modell, "signatur": signatur or {}, "zweck": zweck}
             ],
         }
         _schreiben(self._vorlage_pfad(kennung), roh)
@@ -149,10 +149,13 @@ class BuehnenSpeicher:
         datenquelle: dict[str, Any] | None = None,
         modell: str | None = None,
         signatur: dict[str, Any] | None = None,
+        zweck: str | None = None,
     ) -> dict[str, Any]:
         roh = self._vorlage_roh(kennung)
         if signatur:
             roh["signatur"] = dict(signatur)  # die Wiedererkennung folgt der aktuellen Datenquelle
+        if zweck and zweck.strip():
+            roh["zweck"] = zweck.strip()[:300]
         versionen = roh.setdefault("versionen", [])
         letzte = versionen[-1] if versionen else {}
         neu = {
@@ -162,6 +165,9 @@ class BuehnenSpeicher:
             "datenquelle": datenquelle if datenquelle is not None else letzte.get("datenquelle", {}),
             "geaendert": _jetzt(),
             "modell": modell,
+            # Signatur und Zweck je Version, damit Rückgängig beides zurückholt
+            "signatur": dict(roh.get("signatur") or {}),
+            "zweck": roh.get("zweck", ""),
         }
         versionen.append(neu)
         del versionen[:-MAX_VERSIONEN]
@@ -173,6 +179,11 @@ class BuehnenSpeicher:
         roh = self._vorlage_roh(kennung)
         if len(roh.get("versionen") or []) > 1:
             roh["versionen"].pop()
+            letzte = roh["versionen"][-1]
+            if letzte.get("signatur"):
+                roh["signatur"] = dict(letzte["signatur"])
+            if letzte.get("zweck"):
+                roh["zweck"] = letzte["zweck"]
             _schreiben(self._vorlage_pfad(kennung), roh)
         return self._vorlage_sicht(roh)
 

@@ -7,11 +7,12 @@ import json
 import logging
 import re
 from collections import Counter
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import urljoin
 
 from ..gedaechtnis_pflege import json_block
-from .daten import abbildung_anwenden, ergebnis_parsen, standardvorlage
+from .daten import abbildung_greift, ergebnis_parsen, standardvorlage
 from .katalog import Katalog, katalog_laden, komponenten_pruefen, komponenten_saeubern
 from .speicher import kennung_aus
 
@@ -54,6 +55,10 @@ SYSTEM_STIL = """Du leitest aus den Gestaltungsmerkmalen einer App einen Stil f�
 {"schema": "hell"|"dunkel", "farben": {"primaer": "#rrggbb", "akzent": "#rrggbb", "hintergrund": "#rrggbb", "flaeche": "#rrggbb", "text": "#rrggbb", "dezent": "#rrggbb", "ok": "#rrggbb", "warn": "#rrggbb", "fehler": "#rrggbb"}, "schrift": {"familie": "CSS-font-family", "basisgroesse": 14}, "rundung": 8, "abstand": 12, "dichte": "dicht"|"normal"|"luftig", "schatten": "keiner"|"weich"|"stark", "vorlieben": {"liste": "kacheln"|"zeilen"|"tabelle", "bildgroesse": "klein"|"mittel"|"gross", "kennzahlenOben": true}}
 Wähle die Markenfarbe als primaer, eine passende Akzentfarbe, Hintergrund/Fläche/Text mit gutem Kontrast (mind. 4,5:1 Text auf Hintergrund). Fehlen Angaben, ergänze stimmige Werte.
 """
+
+
+def _reparaturauftrag(fehler: list[str]) -> str:
+    return "Die Antwort war ungültig:\n- " + "\n- ".join(fehler[:8]) + "\nGib das vollständige, korrigierte JSON-Objekt aus."
 
 
 def _auszug(daten: Any, max_zeichen: int = MAX_AUSZUG) -> str:
@@ -120,10 +125,8 @@ class Erzeuger:
         if abbildung is not None and not (isinstance(abbildung, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in abbildung.items())):
             fehler.append("abbildung muss ein Objekt aus Text → Text sein")
             abbildung = None
-        if not fehler and abbildung:
-            modell = abbildung_anwenden(abbildung, ergebnis_parsen(ergebnis))
-            if not isinstance(modell, dict) or not modell or all(v is None for v in modell.values()):
-                fehler.append("abbildung liefert aus dem Ergebnis keine Daten – Quellpfade prüfen")
+        if not fehler and abbildung and not abbildung_greift(abbildung, ergebnis_parsen(ergebnis)):
+            fehler.append("abbildung liefert aus dem Ergebnis keine Daten – Quellpfade prüfen")
         if fehler:
             return None, fehler
         return {
@@ -153,9 +156,10 @@ class Erzeuger:
         )
         system = self._system_vorlage(stil)
         verlauf: list[dict[str, str]] = []
+        anfrage = nutzer
         for versuch in range(2):
             try:
-                antwort = await self._antwort(system, nutzer if versuch == 0 else nutzer_reparatur, verlauf=verlauf)  # noqa: F821
+                antwort = await self._antwort(system, anfrage, verlauf=verlauf)
             except Exception as exc:  # noqa: BLE001
                 log.warning("Bühne: Modellaufruf fehlgeschlagen (%s)", exc)
                 break
@@ -165,8 +169,9 @@ class Erzeuger:
                 vorlage["modell"] = self.modellname
                 return vorlage
             log.info("Bühne: Vorlage ungültig (Versuch %d): %s", versuch + 1, "; ".join(fehler[:5]))
+            # zweiter Versuch: Fehlerliste als Reparaturauftrag, erste Antwort im Verlauf
             verlauf = [{"role": "user", "content": nutzer}, {"role": "assistant", "content": antwort[:6000]}]
-            nutzer_reparatur = "Die Antwort war ungültig:\n- " + "\n- ".join(fehler[:8]) + "\nGib das vollständige, korrigierte JSON-Objekt aus."
+            anfrage = _reparaturauftrag(fehler)
         standard = standardvorlage(werkzeug, ergebnis, titel)
         standard["modell"] = None
         return standard
@@ -182,8 +187,9 @@ class Erzeuger:
         )
         system = "\n".join([SYSTEM_AENDERN, "", "# Katalog", self.katalog.beschreibung_fuer_prompt()])
         verlauf: list[dict[str, str]] = []
-        for versuch in range(2):
-            antwort = await self._antwort(system, nutzer if versuch == 0 else nutzer_reparatur, verlauf=verlauf)  # noqa: F821
+        anfrage = nutzer
+        for _versuch in range(2):
+            antwort = await self._antwort(system, anfrage, verlauf=verlauf)
             daten = json_block(antwort)
             if isinstance(daten, dict) and isinstance(daten.get("komponenten"), list):
                 komponenten = komponenten_saeubern(daten["komponenten"], self.katalog)
@@ -200,7 +206,7 @@ class Erzeuger:
             else:
                 fehler = ["Antwort ist kein JSON-Objekt mit komponenten"]
             verlauf = [{"role": "user", "content": nutzer}, {"role": "assistant", "content": antwort[:6000]}]
-            nutzer_reparatur = "Die Antwort war ungültig:\n- " + "\n- ".join(fehler[:8]) + "\nGib das vollständige, korrigierte JSON-Objekt aus."
+            anfrage = _reparaturauftrag(fehler)
         raise ValueError("Die Vorlage konnte nicht geändert werden – die Modellantwort war zweimal ungültig.")
 
     # ------------------------------------------------------------------ Stile
