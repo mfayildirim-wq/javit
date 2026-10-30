@@ -1,0 +1,20 @@
+id: gg-immobilienhandel
+name: GG Immobilienhandel
+beschreibung: Deals, Objekte, Makler, Dateien und Audit-Log der Immobilien-App lesen, Notizen anlegen, Freigaben für Aktionen nach außen beantragen
+kategorie: Vertrieb
+icon: briefcase
+art: mcp_http
+url: ${GG_URL}/api/mcp
+kopfzeilen:
+  Authorization: "Bearer ${GG_MCP_SCHLUESSEL}"
+benoetigt:
+  - {name: GG_URL, titel: Adresse der App, geheim: false, typ: url, standard: "https://gg-immobilienhandel-test.vercel.app",
+     beschreibung: "Ohne /api/mcp; lokal http://localhost:3101"}
+  - {name: GG_MCP_SCHLUESSEL, titel: MCP-Schlüssel, geheim: true,
+     beschreibung: "Schlüssel aus „openssl rand -hex 32“; in der App liegt nur der SHA-256-Hash"}
+hinweis: "Eigener MCP-Server der App (POST /api/mcp, Bearer-Schlüssel). Schlüssel erzeugen mit „openssl rand -hex 32“, den
+  Hash („echo -n <schluessel> | sha256sum“) in der App als MCP_API_KEYS = javit:read+write:<hash> hinterlegen (Vercel-Umgebung
+  oder .env). Bereiche: read (Listen, Einträge, Dateien, Audit-Log), write (Notizen), outward (Freigabe-Anträge). Lokal mit
+  AUTH_LOCAL_OPEN=1 geht es ohne Schlüssel."
+risiko_standard: aendern
+bereich: fachlich
